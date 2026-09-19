@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Build
+build/toolchain/
+build/cache/
+build/out/
+dist/
+
+# Local
+*.log
+.pytest_cache/
+build/out/
+.ruff_cache/
+bench/clips/
+bench/reports/smoke/
+*.egg-info/
+
+# Editor and agent state
+.claude/

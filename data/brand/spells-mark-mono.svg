@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Spells</title>
+  <g fill="currentColor">
+    <rect id="spells-bar-1" x="8" y="92" width="38.4" height="76.8" rx="19.2"/>
+    <rect id="spells-bar-2" x="65.6" y="53.6" width="38.4" height="153.6" rx="19.2"/>
+    <path id="spells-spark" d="M176 34.4 Q187.9 112.5 228.8 135.2 Q187.9 157.9 176 236 Q164.1 157.9 123.2 135.2 Q164.1 112.5 176 34.4Z"/>
+    <path id="spells-glint" d="M216.8 20 Q223.4 44.6 248 51.2 Q223.4 57.8 216.8 82.4 Q210.2 57.8 185.6 51.2 Q210.2 44.6 216.8 20Z"/>
+  </g>
+</svg>

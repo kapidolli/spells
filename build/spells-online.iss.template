@@ -1,0 +1,865 @@
+; Spells online installer script (spec 19.3 step 7, 19.5, B5-29 to B5-33).
+;
+; The sibling of build/spells.iss.template. It carries the app, both engine folders, the data
+; files and the licences, and no model weights at all: the models are downloaded during the
+; installation and verified against the SHA256 hashes build/pins.json records, so the download
+; the owner hands out is a few hundred megabytes rather than the offline installer.
+;
+; The wizard never shows an address (B5-48). It names the models and their sizes, shows one
+; total and a progress bar, and puts every address, hash mismatch and HTTP failure in the
+; installation log alone. Where the files come from is decided when this installer is built:
+; the pinned public addresses, or the folder --model-mirror named, which has to serve the same
+; file names under one base path and nothing else.
+;
+; build/package.py fills the doubled-at-sign placeholders below and hands the result to
+; build/toolchain/innosetup/ISCC.exe. Never edit the generated copy under build/out: edit this
+; template. The model manifest, the machine table, the language list and the uninstall entries
+; are generated from build/pins.json and data/models/catalog.json, so nothing about which model
+; serves which machine is written by hand here.
+;
+; The installer asks for no elevation: PrivilegesRequired=lowest puts it in the user's own
+; AppData and its Add/Remove Programs entry in HKCU. Setup never writes the autostart Run
+; value; the app owns that (spec 15) and the uninstaller only cleans it up.
+
+[Setup]
+AppId={{9D5B0F4E-3E2A-4C7A-9C3E-2A1D6B8F41C7}
+AppName=Spells
+AppVersion=@@APP_VERSION@@
+AppVerName=Spells @@APP_VERSION@@
+AppPublisher=Spells
+VersionInfoVersion=@@VERSION_INFO@@
+DefaultDirName={localappdata}\Programs\Spells
+DefaultGroupName=Spells
+DisableProgramGroupPage=yes
+UninstallDisplayName=Spells
+UninstallDisplayIcon={app}\Spells.exe
+SetupIconFile=@@SETUP_ICON_FILE@@
+OutputDir=@@OUTPUT_DIR@@
+OutputBaseFilename=@@OUTPUT_BASENAME@@
+; No UAC prompt and a per-user Add/Remove Programs entry (19.5).
+PrivilegesRequired=lowest
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
+; No model weights in this payload, so the whole thing compresses.
+Compression=lzma2/fast
+SolidCompression=no
+WizardStyle=modern
+; Restart Manager, the second line after the PrepareToInstall --quit step below.
+CloseApplications=yes
+RestartApplications=no
+; No AppMutex: Setup and Uninstall check it when they start, before PrepareToInstall, so a
+; running instance would stop the wizard and abort a silent upgrade before --quit could run.
+@@SIGN_SETUP_LINES@@
+@@LICENSE_FILE_LINE@@
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Messages]
+; The finish page says what happened to the models, in the same words the wizard used, and
+; names no address (B5-48). A model the user chose to go on without is reported separately by
+; the summary box before this page.
+FinishedLabel=Setup has finished installing Spells on your computer. The models it needs were downloaded and checked against the hash recorded for each one.
+
+[InstallDelete]
+; PyInstaller renames and drops files between builds, so an upgrade starts this folder
+; empty rather than leaving stale modules and DLLs beside the new ones. Only this folder:
+; the engines, data files and downloaded models beside it are replaced in place, not removed.
+Type: filesandordirs; Name: "{app}\_internal"
+
+[Dirs]
+; The downloaded models are moved in after the files are installed, so the folder has to
+; exist even when every download was skipped.
+Name: "{app}\models"
+
+[Files]
+Source: "@@DIST_DIR@@\Spells.exe"; DestDir: "{app}"; Flags: ignoreversion@@SIGN_FLAG@@
+Source: "@@DIST_DIR@@\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "@@DIST_DIR@@\engines\*"; DestDir: "{app}\engines"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "@@DIST_DIR@@\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "@@DIST_DIR@@\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
+
+[Icons]
+Name: "{autoprograms}\Spells"; Filename: "{app}\Spells.exe"
+
+[Run]
+; The final page's offer (19.5). skipifsilent keeps a silent install from starting the app.
+Filename: "{app}\Spells.exe"; Description: "Launch Spells"; Flags: nowait postinstall skipifsilent
+; An update started from inside Spells passes /RELAUNCH, so the app comes back by itself after
+; a silent install (19.7). A wizard run never passes it and uses the postinstall offer above.
+Filename: "{app}\Spells.exe"; Flags: nowait; Check: RelaunchRequested
+
+[UninstallRun]
+; Ask a running instance to exit before its files go (19.5). --quit waits up to 10 s itself.
+Filename: "{app}\Spells.exe"; Parameters: "--quit"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "QuitSpells"
+
+[UninstallDelete]
+; The downloaded models are moved into place rather than installed, so Setup keeps no
+; uninstall log entry for them; they are named one by one here, generated from the manifest.
+@@UNINSTALL_MODEL_LINES@@
+Type: filesandordirs; Name: "{app}"
+
+[Code]
+const
+  { --quit gives up after 10 s in all; Setup allows 20 s because the instance may still be
+    shutting down. }
+  QuitWaitMs = 20000;
+  { The helper exits right after it sees the instance gone; Setup gives it this long to let
+    go of Spells.exe before the files are replaced. }
+  HelperGraceMs = 2000;
+  QuitPollMs = 100;
+  { fmOpenReadWrite or fmShareExclusive, spelled out so no undocumented constant is needed. }
+  ExclusiveWriteMode = $0012;
+  RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
+  RunValue = 'Spells';
+  { Where the models come from, fixed when this installer was built: empty for the pinned
+    public addresses, or the folder --model-mirror named. The wizard never shows it and the
+    installed program cannot change it. }
+  DefaultMirrorUrl = @@DEFAULT_MIRROR_URL@@;
+  { What to hand somebody whose machine has no network at all. }
+  OfflineInstallerName = @@OFFLINE_ZIP_NAME@@;
+  { The two kinds of machine the model sets are built for (build/package.py install_sets). }
+  ClassProcessor = 0;
+  ClassGraphics = 1;
+  { Where Windows keeps one subkey per display adapter. }
+  DisplayClassKey = 'SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}';
+  { 4 GiB of the adapter's own video memory, the line spec 13 already draws when the app cannot
+    tell a discrete device from an integrated one. Past a Pascal integer, so it is text here. }
+  DiscreteVideoMemoryText = '4294967296';
+
+type
+  TModelFile = record
+    Url: String;
+    Name: String;
+    Hash: String;
+    Size: Int64;
+    ModelSize: Int64;
+    ModelId: String;
+    Title: String;
+    Purpose: String;
+  end;
+  TInstallSet = record
+    Hardware: Integer;
+    Mask: Integer;
+    Files: String;
+    Bytes: Int64;
+    Reason: String;
+  end;
+
+var
+  RemoveUserData: Boolean;
+  ModelFiles: array of TModelFile;
+  InstallSets: array of TInstallSet;
+  LanguageCodes: array of String;
+  LanguageNames: array of String;
+  DetectedClass: Integer;
+  LanguagePage: TInputOptionWizardPage;
+  DownloadPage: TDownloadWizardPage;
+  ModelLabel: TNewStaticText;
+  TotalLabel: TNewStaticText;
+  SmallModelBox: TNewCheckBox;
+  SetupAborted: Boolean;
+  SkippedPurposes: String;
+  CurrentLabel: String;
+  TextShown: Boolean;
+  PartNumber: Integer;
+  PartCount: Integer;
+  DoneBytes: Int64;
+  TotalBytes: Int64;
+
+{ The named mutex 'Spells' (src/spells/app.py MUTEX_NAME) is held from the app's very first
+  startup step until the last step of its shutdown. An instance that is still starting has no
+  window yet but already holds the mutex, so the mutex, not the window, says whether it is gone. }
+function WaitForAppToExit(TimeoutMs: Integer): Boolean;
+var
+  Waited: Integer;
+begin
+  Waited := 0;
+  while (Waited < TimeoutMs) and CheckForMutexes('Spells') do
+  begin
+    Sleep(QuitPollMs);
+    Waited := Waited + QuitPollMs;
+  end;
+  Result := not CheckForMutexes('Spells');
+end;
+
+{ A running executable is open without write sharing, so an exclusive read-write open of it
+  fails until the last process running it has exited. Nothing is written. }
+function FileInUse(const FileName: String): Boolean;
+var
+  Stream: TFileStream;
+begin
+  Result := False;
+  try
+    Stream := TFileStream.Create(FileName, ExclusiveWriteMode);
+    Stream.Free();
+  except
+    Result := True;
+  end;
+end;
+
+function WaitForHelperToLeave(const FileName: String; TimeoutMs: Integer): Boolean;
+var
+  Waited: Integer;
+begin
+  Waited := 0;
+  while (Waited < TimeoutMs) and FileInUse(FileName) do
+  begin
+    Sleep(QuitPollMs);
+    Waited := Waited + QuitPollMs;
+  end;
+  Result := not FileInUse(FileName);
+end;
+
+{ The app's own updater (src/spells/updates.py) runs Setup with /RELAUNCH, so Spells comes
+  back after a silent update (19.7). A wizard run never passes it and keeps the finish page's
+  offer instead. }
+function RelaunchRequested(): Boolean;
+var
+  Index: Integer;
+begin
+  Result := False;
+  for Index := 1 to ParamCount do
+  begin
+    if CompareText(ParamStr(Index), '/RELAUNCH') = 0 then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Existing: String;
+  ResultCode: Integer;
+begin
+  Result := '';
+  NeedsRestart := False;
+  Existing := ExpandConstant('{app}\Spells.exe');
+  if not FileExists(Existing) then
+    Exit;
+  if not CheckForMutexes('Spells') then
+  begin
+    { Nothing runs. A helper started from the install folder would only put Spells.exe in use
+      while the files are replaced, and it takes the mutex itself for a moment. }
+    Log('Spells: no instance holds the Spells mutex, the quit helper is not needed');
+    Exit;
+  end;
+  Log('Spells: asking the running instance to quit: ' + Existing + ' --quit');
+  { ewNoWait: a hung --quit must not block Setup; the mutex poll below bounds the wait. }
+  if not Exec(Existing, '--quit', ExpandConstant('{app}'), SW_HIDE, ewNoWait, ResultCode) then
+    Log('Spells: could not start the quit helper, leaving it to Restart Manager');
+  if WaitForAppToExit(QuitWaitMs) then
+  begin
+    Log('Spells: the Spells mutex is free, waiting for the quit helper to exit');
+    if WaitForHelperToLeave(Existing, HelperGraceMs) then
+      Log('Spells: Spells.exe is no longer in use, the files can be replaced')
+    else
+      Log('Spells: Spells.exe is still in use after 2 s, continuing anyway');
+  end
+  else
+    { Never block the install: Restart Manager remains as the next line. }
+    Log('Spells: the Spells mutex is still held after 20 s, continuing anyway');
+end;
+
+{ ------------------------------------------------------------------ the generated manifest }
+
+procedure InitModelManifest();
+begin
+@@MODEL_MANIFEST_LINES@@
+end;
+
+procedure InitInstallSets();
+begin
+@@INSTALL_SET_LINES@@
+end;
+
+procedure InitLanguageList();
+begin
+@@LANGUAGE_PAGE_LINES@@
+end;
+
+{ ------------------------------------------------------- which models suit this machine }
+
+{ The adapter's own video memory in bytes, 0 when the driver records none. Windows writes it
+  as an 8-byte binary value; older drivers wrote a 4-byte one under a different name. }
+function AdapterMemoryBytes(const SubKey: String): Int64;
+var
+  Raw: AnsiString;
+  I: Integer;
+  Value: Int64;
+  Small: Cardinal;
+begin
+  Result := 0;
+  if RegQueryBinaryValue(HKEY_LOCAL_MACHINE, SubKey, 'HardwareInformation.qwMemorySize', Raw) then
+  begin
+    Value := 0;
+    for I := Length(Raw) downto 1 do
+      Value := Value * 256 + Ord(Raw[I]);
+    Result := Value;
+  end
+  else if RegQueryDWordValue(HKEY_LOCAL_MACHINE, SubKey, 'HardwareInformation.MemorySize',
+                             Small) then
+    Result := Small;
+end;
+
+{ True when this machine has a graphics card of its own, which decides which models it gets.
+  Setup reads the display adapters from the registry instead of probing Vulkan: the engines are
+  not on disk yet while the wizard runs, the read costs no time and starts nothing, and the
+  question here is only which files to download. An adapter with at least 4 GiB of its own video
+  memory is a graphics card; shared memory is not counted, which is what keeps an integrated
+  device out. Anything unreadable, missing or smaller counts as no graphics card, and that is
+  the safe way round: the processor models run on any machine, while the graphics-card model
+  would leave a machine without one with no cleanup inside the 1.8 s target. HKLM\SYSTEM is not
+  redirected, so a 32-bit Setup reads the same values a 64-bit one would. }
+function DiscreteGpuPresent(): Boolean;
+var
+  Names: TArrayOfString;
+  I: Integer;
+  Desc: String;
+  Memory: Int64;
+begin
+  Result := False;
+  try
+    if not RegGetSubkeyNames(HKEY_LOCAL_MACHINE, DisplayClassKey, Names) then
+    begin
+      Log('Spells: no display adapter list in the registry, taking the processor models');
+      Exit;
+    end;
+    for I := 0 to GetArrayLength(Names) - 1 do
+    begin
+      if Length(Names[I]) <> 4 then
+        Continue;
+      if not RegQueryStringValue(HKEY_LOCAL_MACHINE, DisplayClassKey + '\' + Names[I],
+                                 'DriverDesc', Desc) then
+        Continue;
+      Memory := AdapterMemoryBytes(DisplayClassKey + '\' + Names[I]);
+      Log('Spells: display adapter ' + Desc + ' has ' + IntToStr(Memory) +
+          ' bytes of its own video memory');
+      if Memory >= StrToInt64(DiscreteVideoMemoryText) then
+        Result := True;
+    end;
+  except
+    Log('Spells: the display adapters could not be read (' + GetExceptionMessage() +
+        '), taking the processor models');
+    Result := False;
+  end;
+end;
+
+{ The class the download follows: the detected one, unless the user asked for the smaller
+  writing model on the language page. }
+function MachineClass(): Integer;
+begin
+  if (SmallModelBox <> nil) and SmallModelBox.Checked then
+    Result := ClassProcessor
+  else
+    Result := DetectedClass;
+end;
+
+{ ------------------------------------------------------------------ what this choice needs }
+
+function SizeToText(Bytes: Int64): String;
+var
+  Whole, Tenths: Int64;
+begin
+  Whole := Bytes div 1000000000;
+  Tenths := ((Bytes mod 1000000000) * 10) div 1000000000;
+  Result := IntToStr(Whole) + '.' + IntToStr(Tenths) + ' GB';
+end;
+
+function LanguageWanted(Index: Integer): Boolean;
+begin
+  Result := LanguagePage.Values[Index];
+end;
+
+{ The ticked boxes as one bit per offered language, which is how a set names its languages. }
+function CurrentMask(): Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to GetArrayLength(LanguageCodes) - 1 do
+    if LanguageWanted(I) then
+      Result := Result + (1 shl I);
+end;
+
+{ The row of the generated table for this machine and these languages, or -1 when nothing is
+  ticked yet. Every combination has a row, so a machine never has to work one out. }
+function CurrentSet(): Integer;
+var
+  I: Integer;
+  Mask, Hardware: Integer;
+begin
+  Result := -1;
+  Mask := CurrentMask();
+  Hardware := MachineClass();
+  for I := 0 to GetArrayLength(InstallSets) - 1 do
+    if (InstallSets[I].Hardware = Hardware) and (InstallSets[I].Mask = Mask) then
+    begin
+      Result := I;
+      Exit;
+    end;
+end;
+
+function FileWanted(Index: Integer): Boolean;
+var
+  Row: Integer;
+begin
+  Result := False;
+  Row := CurrentSet();
+  if Row < 0 then
+    Exit;
+  Result := Pos(',' + IntToStr(Index) + ',', ',' + InstallSets[Row].Files + ',') > 0;
+end;
+
+{ True when the models folder already holds this exact file, which is what an upgrade over an
+  existing installation finds. The hash was checked when the file was downloaded, so an update
+  never downloads a model a second time (19.7). The size has to match the manifest, so a
+  truncated or half-written leftover is fetched again rather than trusted. }
+function AlreadyInstalled(Index: Integer): Boolean;
+var
+  Existing: String;
+  Size: Int64;
+begin
+  Result := False;
+  Existing := ExpandConstant('{app}\models\') + ModelFiles[Index].Name;
+  if not FileExists(Existing) then
+    Exit;
+  if not FileSize64(Existing, Size) then
+    Exit;
+  Result := Size = ModelFiles[Index].Size;
+end;
+
+function NeedsDownload(Index: Integer): Boolean;
+begin
+  Result := FileWanted(Index) and not AlreadyInstalled(Index);
+end;
+
+{ What this choice still has to fetch, which is the whole set on a fresh install and nothing at
+  all on an update that changes only the app. }
+function MissingBytes(): Int64;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to GetArrayLength(ModelFiles) - 1 do
+    if NeedsDownload(I) then
+      Result := Result + ModelFiles[I].Size;
+end;
+
+function SelectedReason(): String;
+var
+  Row: Integer;
+begin
+  Result := '';
+  Row := CurrentSet();
+  if Row >= 0 then
+    Result := InstallSets[Row].Reason;
+end;
+
+function AnyLanguageWanted(): Boolean;
+var
+  I: Integer;
+begin
+  Result := False;
+  for I := 0 to GetArrayLength(LanguageCodes) - 1 do
+    if LanguageWanted(I) then
+    begin
+      Result := True;
+      Exit;
+    end;
+end;
+
+procedure LanguagesClicked(Sender: TObject);
+var
+  Missing: Int64;
+begin
+  ModelLabel.Caption := SelectedReason();
+  Missing := MissingBytes();
+  if Missing > 0 then
+    TotalLabel.Caption := 'This choice downloads about ' + SizeToText(Missing) + '.'
+  else
+    TotalLabel.Caption := 'Spells already has the model files for this choice, so there is ' +
+      'nothing to download.';
+end;
+
+{ ------------------------------------------------------------------ where the files come from }
+
+{ Where the files come from is decided when the installer is built: the pinned public addresses,
+  or the mirror --model-mirror baked in, which is a plain folder serving the same file names.
+  The installed program has no way to change it and the wizard never shows it. A mirror that
+  fails falls back to the pinned address without asking, and only the log says so. }
+function JoinModelUrl(const BaseUrl, FileName: String): String;
+var
+  Base: String;
+begin
+  Base := Trim(BaseUrl);
+  while (Length(Base) > 0) and (Base[Length(Base)] = '/') do
+    Base := Copy(Base, 1, Length(Base) - 1);
+  if Base = '' then
+    Result := ''
+  else
+    Result := Base + '/' + FileName;
+end;
+
+{ The ordered addresses to try for one file: the built-in mirror first when there is one, the
+  pinned address last and always. }
+function SourcesFor(Index: Integer; var Urls: TArrayOfString): Integer;
+var
+  Mirrored: String;
+begin
+  Mirrored := JoinModelUrl(DefaultMirrorUrl, ModelFiles[Index].Name);
+  if Mirrored = '' then
+  begin
+    SetArrayLength(Urls, 1);
+    Urls[0] := ModelFiles[Index].Url;
+    Result := 1;
+  end
+  else
+  begin
+    SetArrayLength(Urls, 2);
+    Urls[0] := Mirrored;
+    Urls[1] := ModelFiles[Index].Url;
+    Result := 2;
+  end;
+end;
+
+procedure NoteSkipped(const Purpose: String);
+begin
+  if SkippedPurposes = '' then
+    SkippedPurposes := Purpose
+  else
+    SkippedPurposes := SkippedPurposes + ', ' + Purpose;
+end;
+
+{ The download page says what is being downloaded, never where from. Inno puts the file name on
+  the page itself, so this replaces both lines the first time it is called for a file. }
+function OnDownloadProgress(const Url, FileName: String; const Progress, ProgressMax: Int64): Boolean;
+begin
+  if not TextShown then
+  begin
+    DownloadPage.SetText(CurrentLabel,
+      'Part ' + IntToStr(PartNumber) + ' of ' + IntToStr(PartCount) + ', ' +
+      SizeToText(DoneBytes) + ' of ' + SizeToText(TotalBytes) + ' in all');
+    TextShown := True;
+  end;
+  Result := True;
+end;
+
+{ True when the file is on disk, False when the user chose to go on without it. SetupAborted
+  says the user stopped the installation instead. Every address is tried before the user is
+  asked anything, and the question names the model, never an address. }
+function DownloadOne(Index: Integer): Boolean;
+var
+  Urls: TArrayOfString;
+  Count, Attempt, Answer: Integer;
+  Failure, Question: String;
+begin
+  Count := SourcesFor(Index, Urls);
+  while True do
+  begin
+    for Attempt := 0 to Count - 1 do
+    begin
+      DownloadPage.Clear();
+      DownloadPage.Add(Urls[Attempt], ModelFiles[Index].Name, ModelFiles[Index].Hash);
+      TextShown := False;
+      try
+        DownloadPage.Download();
+        Result := True;
+        Exit;
+      except
+        Failure := GetExceptionMessage();
+      end;
+      if DownloadPage.AbortedByUser then
+      begin
+        Log('Spells: the download of ' + ModelFiles[Index].Name + ' was cancelled');
+        SetupAborted := True;
+        Result := False;
+        Exit;
+      end;
+      { The address and the reason belong in the log, never on screen. }
+      Log('Spells: ' + ModelFiles[Index].Name + ' failed from ' + Urls[Attempt] + ': ' + Failure);
+      if Attempt + 1 < Count then
+        Log('Spells: trying the next address for ' + ModelFiles[Index].Name);
+    end;
+    Question := 'Spells could not finish a download: ' + CurrentLabel + '.' + #13#10#13#10 +
+      'Yes: try again.' + #13#10 +
+      'No: install without it. Spells will start with ' + ModelFiles[Index].Purpose +
+      ' unavailable until the file is in the models folder. The offline installer ' +
+      OfflineInstallerName + ', which carries every model already, is the one to use on a ' +
+      'machine with no network.' + #13#10 +
+      'Cancel: stop the installation.' + #13#10#13#10 +
+      'The installation log records what went wrong.';
+    Answer := SuppressibleMsgBox(Question, mbError, MB_YESNOCANCEL, IDNO);
+    if Answer = IDCANCEL then
+    begin
+      SetupAborted := True;
+      Result := False;
+      Exit;
+    end;
+    if Answer = IDNO then
+    begin
+      NoteSkipped(ModelFiles[Index].Purpose);
+      Result := False;
+      Exit;
+    end;
+  end;
+end;
+
+function WantedCount(): Integer;
+var
+  I: Integer;
+begin
+  Result := 0;
+  for I := 0 to GetArrayLength(ModelFiles) - 1 do
+    if NeedsDownload(I) then
+      Result := Result + 1;
+end;
+
+function DownloadModels(): Boolean;
+var
+  I: Integer;
+begin
+  SetupAborted := False;
+  SkippedPurposes := '';
+  PartNumber := 0;
+  PartCount := WantedCount();
+  DoneBytes := 0;
+  TotalBytes := MissingBytes();
+  if PartCount = 0 then
+  begin
+    Log('Spells: every model this choice needs is already in the models folder');
+    Result := True;
+    Exit;
+  end;
+  DownloadPage.Show();
+  try
+    for I := 0 to GetArrayLength(ModelFiles) - 1 do
+    begin
+      if NeedsDownload(I) then
+      begin
+        PartNumber := PartNumber + 1;
+        CurrentLabel := ModelFiles[I].Title + ', ' + SizeToText(ModelFiles[I].ModelSize);
+        if (not DownloadOne(I)) and SetupAborted then
+          Break;
+        DoneBytes := DoneBytes + ModelFiles[I].Size;
+      end;
+    end;
+  finally
+    DownloadPage.Hide();
+  end;
+  Result := not SetupAborted;
+  if Result and (SkippedPurposes <> '') then
+    SuppressibleMsgBox('Spells will be installed without ' + SkippedPurposes + '.' + #13#10#13#10 +
+      'Add the missing files to the models folder later, or use the offline installer ' +
+      OfflineInstallerName + ', which carries every model.', mbInformation, MB_OK, IDOK);
+end;
+
+{ ------------------------------------------------------------------ what lands in the app folder }
+
+procedure MoveDownloadedModels();
+var
+  I: Integer;
+  Source, Target: String;
+begin
+  ForceDirectories(ExpandConstant('{app}\models'));
+  for I := 0 to GetArrayLength(ModelFiles) - 1 do
+  begin
+    Source := ExpandConstant('{tmp}\') + ModelFiles[I].Name;
+    if FileExists(Source) then
+    begin
+      Target := ExpandConstant('{app}\models\') + ModelFiles[I].Name;
+      DeleteFile(Target);
+      { The temp folder and the install folder are both under the user's profile, so this is a
+        rename, not a copy. A machine that puts TEMP on another volume falls back to the copy. }
+      if RenameFile(Source, Target) then
+        Log('Spells: moved ' + ModelFiles[I].Name + ' into the models folder')
+      else if FileCopy(Source, Target, False) then
+        Log('Spells: copied ' + ModelFiles[I].Name + ' into the models folder')
+      else
+        Log('Spells: could not place ' + ModelFiles[I].Name + ' in the models folder');
+    end;
+  end;
+end;
+
+{ The app reads this once, on a start that finds no settings file, and ignores it afterwards
+  (src/spells/config.py first_run_languages). Nothing else depends on it. }
+procedure WriteFirstRunFile();
+var
+  I: Integer;
+  Codes, Text: String;
+begin
+  Codes := '';
+  for I := 0 to GetArrayLength(LanguageCodes) - 1 do
+    if LanguageWanted(I) then
+    begin
+      if Codes <> '' then
+        Codes := Codes + ', ';
+      Codes := Codes + '"' + LanguageCodes[I] + '"';
+    end;
+  Text := '{"enabled_languages": [' + Codes + ']}' + #13#10;
+  if SaveStringToFile(ExpandConstant('{app}\first-run.json'), Text, False) then
+    Log('Spells: wrote the first-run language choice ' + Codes)
+  else
+    Log('Spells: could not write the first-run language choice');
+end;
+
+{ ------------------------------------------------------------------ the wizard }
+
+procedure InitializeWizard();
+begin
+  InitModelManifest();
+  InitInstallSets();
+  if DiscreteGpuPresent() then
+    DetectedClass := ClassGraphics
+  else
+    DetectedClass := ClassProcessor;
+
+  LanguagePage := CreateInputOptionPage(wpSelectDir,
+    'Languages',
+    'Which languages will you dictate in?',
+    'Spells downloads the models these languages need on this machine. ' +
+    'More languages can be added later in Settings, which downloads what they need then.',
+    False, False);
+  InitLanguageList();
+  LanguagePage.CheckListBox.Height := ScaleY(76);
+  LanguagePage.CheckListBox.OnClickCheck := @LanguagesClicked;
+
+  ModelLabel := TNewStaticText.Create(LanguagePage);
+  ModelLabel.Parent := LanguagePage.Surface;
+  ModelLabel.Left := 0;
+  ModelLabel.Top := LanguagePage.CheckListBox.Top + LanguagePage.CheckListBox.Height + ScaleY(12);
+  ModelLabel.Width := LanguagePage.SurfaceWidth;
+  ModelLabel.AutoSize := False;
+  ModelLabel.WordWrap := True;
+  ModelLabel.Height := ScaleY(34);
+
+  TotalLabel := TNewStaticText.Create(LanguagePage);
+  TotalLabel.Parent := LanguagePage.Surface;
+  TotalLabel.Left := 0;
+  TotalLabel.Top := ModelLabel.Top + ModelLabel.Height + ScaleY(6);
+  TotalLabel.Width := LanguagePage.SurfaceWidth;
+  TotalLabel.AutoSize := False;
+  TotalLabel.Height := ScaleY(18);
+
+  { Only a machine with a graphics card has a choice to make: the other one already has the
+    smaller, faster writing model. }
+  SmallModelBox := TNewCheckBox.Create(LanguagePage);
+  SmallModelBox.Parent := LanguagePage.Surface;
+  SmallModelBox.Left := 0;
+  SmallModelBox.Top := TotalLabel.Top + TotalLabel.Height + ScaleY(10);
+  SmallModelBox.Width := LanguagePage.SurfaceWidth;
+  SmallModelBox.Height := ScaleY(20);
+  SmallModelBox.Checked := False;
+  SmallModelBox.Caption := 'Use the smaller, faster writing model instead';
+  SmallModelBox.Visible := DetectedClass = ClassGraphics;
+  SmallModelBox.OnClick := @LanguagesClicked;
+  LanguagesClicked(nil);
+
+  DownloadPage := CreateDownloadPage('Downloading the models',
+    'Each file is checked against the hash this build records for it before it is kept.',
+    @OnDownloadProgress);
+end;
+
+function NextButtonClick(CurPageID: Integer): Boolean;
+begin
+  Result := True;
+  if CurPageID = LanguagePage.ID then
+  begin
+    if not AnyLanguageWanted() then
+    begin
+      MsgBox('Pick at least one language. Spells needs a speech model to dictate with.',
+        mbError, MB_OK);
+      Result := False;
+    end;
+  end
+  else if CurPageID = wpReady then
+    Result := DownloadModels();
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep <> ssPostInstall then
+    Exit;
+  MoveDownloadedModels();
+  WriteFirstRunFile();
+end;
+
+function AskToRemoveUserData(): Boolean;
+var
+  Form: TSetupForm;
+  Prompt: TNewStaticText;
+  Box: TNewCheckBox;
+  OkButton: TNewButton;
+begin
+  Result := False;
+  Form := CreateCustomForm();
+  try
+    Form.Caption := 'Uninstall Spells';
+    Form.ClientWidth := ScaleX(420);
+    Form.ClientHeight := ScaleY(150);
+    Form.Position := poScreenCenter;
+
+    Prompt := TNewStaticText.Create(Form);
+    Prompt.Parent := Form;
+    Prompt.Left := ScaleX(16);
+    Prompt.Top := ScaleY(16);
+    Prompt.Width := Form.ClientWidth - ScaleX(32);
+    Prompt.AutoSize := False;
+    Prompt.Height := ScaleY(48);
+    Prompt.WordWrap := True;
+    Prompt.Caption := 'Spells keeps your settings, vocabulary and dictation history outside the' +
+      ' program folder. They are kept by default so a reinstall picks them up again.';
+
+    Box := TNewCheckBox.Create(Form);
+    Box.Parent := Form;
+    Box.Left := ScaleX(16);
+    Box.Top := ScaleY(76);
+    Box.Width := Form.ClientWidth - ScaleX(32);
+    Box.Height := ScaleY(20);
+    Box.Checked := False;
+    Box.Caption := 'Also remove my settings, history and logs';
+
+    OkButton := TNewButton.Create(Form);
+    OkButton.Parent := Form;
+    OkButton.Width := ScaleX(90);
+    OkButton.Height := ScaleY(26);
+    OkButton.Left := Form.ClientWidth - ScaleX(106);
+    OkButton.Top := Form.ClientHeight - ScaleY(42);
+    OkButton.Caption := 'Continue';
+    OkButton.ModalResult := mrOk;
+    Form.ActiveControl := OkButton;
+
+    { A cancelled or closed dialog is not consent: only OK plus a ticked box removes data. }
+    Result := (Form.ShowModal() = mrOk) and Box.Checked;
+  finally
+    Form.Free();
+  end;
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  Result := True;
+  RemoveUserData := ExpandConstant('{param:REMOVEDATA|0}') = '1';
+  if RemoveUserData then
+    Log('Spells: /REMOVEDATA=1 was passed, the user data folders go too')
+  else if not UninstallSilent() then
+    RemoveUserData := AskToRemoveUserData();
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep <> usPostUninstall then
+    Exit;
+  if RegValueExists(HKEY_CURRENT_USER, RunKey, RunValue) then
+  begin
+    Log('Spells: removing the autostart Run value');
+    RegDeleteValue(HKEY_CURRENT_USER, RunKey, RunValue);
+  end;
+  if not RemoveUserData then
+    Exit;
+  Log('Spells: removing the user data folders');
+  DelTree(ExpandConstant('{userappdata}\Spells'), True, True, True);
+  DelTree(ExpandConstant('{localappdata}\Spells'), True, True, True);
+end;

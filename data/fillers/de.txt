@@ -1,0 +1,9 @@
+# Default German filler words and phrases (spec 8.1). One entry per line; matching is whole-word
+# or whole-phrase and case-insensitive. Settings can override this list; these are the defaults.
+äh
+ähm
+hm
+halt
+sozusagen
+quasi
+also

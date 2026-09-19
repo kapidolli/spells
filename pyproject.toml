@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spells"
+version = "0.4.0"
+description = "Local, offline voice dictation for Windows 11"
+readme = "README.md"
+license = "GPL-3.0-or-later"
+license-files = ["LICENSE"]
+authors = [{ name = "kapidolli" }]
+requires-python = ">=3.12"
+dependencies = [
+    "sounddevice>=0.5",
+    "PySide6-Essentials>=6.8,<7",
+]
+
+[project.urls]
+Homepage = "https://kapidolli.github.io/spells/"
+Source = "https://github.com/kapidolli/spells"
+Issues = "https://github.com/kapidolli/spells/issues"
+
+[project.gui-scripts]
+spells = "spells.app:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "ruff>=0.12",
+    "pyinstaller==6.22.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: needs GPU or engines"]
+addopts = "-m 'not integration'"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"

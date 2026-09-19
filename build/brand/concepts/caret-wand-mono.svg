@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Spells concept: caret wand, single colour</title>
+  <g fill="currentColor" stroke="currentColor" stroke-linecap="round" transform="translate(128 128) scale(1.14) translate(-128 -128)">
+    <rect stroke="none" x="152" y="116" width="28" height="92" rx="14"/>
+    <path stroke="none" d="M166 32 Q172 66 206 72 Q172 78 166 112 Q160 78 126 72 Q160 66 166 32Z"/>
+    <path fill="none" stroke-width="22" d="M74 129 A36 36 0 0 1 74 191"/>
+    <path fill="none" stroke-width="22" d="M102 105 A72 72 0 0 1 102 215"/>
+  </g>
+</svg>

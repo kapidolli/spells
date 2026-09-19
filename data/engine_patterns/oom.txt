@@ -1,0 +1,4 @@
+ErrorOutOfDeviceMemory
+Device memory allocation of size
+Memory allocation of size
+unable to allocate Vulkan

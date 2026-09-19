@@ -1,0 +1,61 @@
+# Assistant preambles the cleanup guard rejects (spec 8.3, decision V2-7).
+# One combined list for all languages. An output is rejected when it starts with an entry,
+# compared case-insensitively on whole words after trimming whitespace and leading quotes or
+# punctuation (both sides go through textutil.normalize_for_match, so "Sure!" and "sure," match
+# "sure" while "Surely" does not).
+
+# English
+here is
+here's
+here is the
+here's the
+here you go
+here is your
+here's your
+sure
+sure thing
+certainly
+of course
+okay, here
+ok, here
+the cleaned text
+the cleaned transcript
+cleaned text:
+cleaned transcript
+cleaned version
+corrected text
+the corrected text
+below is
+the following is
+as requested
+i have cleaned
+i've cleaned
+i cleaned
+i have removed
+
+# German
+hier ist
+hier ist der
+hier ist die
+hier der
+hier die
+gerne
+natürlich
+ja klar
+selbstverständlich
+der bereinigte text
+bereinigter text
+bereinigte fassung
+korrigierter text
+der korrigierte text
+
+# Albanian
+ja sigurisht
+sigurisht
+patjetër
+natyrisht
+me kënaqësi
+këtu është
+ja teksti
+teksti i pastruar
+teksti i korrigjuar

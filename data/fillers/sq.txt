@@ -1,0 +1,13 @@
+# Default Albanian filler words and phrases (spec 8.1). One entry per line; matching is whole-word
+# or whole-phrase and case-insensitive. Settings can override this list; these are the defaults.
+ëë
+ëhm
+eh
+ehm
+hmm
+pra
+domethanë
+si me thënë
+si të them
+a e di
+në fakt

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Spells concept: echo spark, single colour</title>
+  <g fill="currentColor" stroke="currentColor" stroke-linecap="round" transform="translate(128 128) scale(1.14) translate(-128 -128)">
+    <path stroke="none" d="M80 56 Q90 112 124 128 Q90 144 80 200 Q70 144 36 128 Q70 112 80 56Z"/>
+    <path fill="none" stroke-width="24" d="M142 72 A84 84 0 0 1 142 184"/>
+    <path fill="none" stroke-width="24" d="M182 62 A122 122 0 0 1 182 194"/>
+  </g>
+</svg>

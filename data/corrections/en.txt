@@ -1,0 +1,7 @@
+# Default English self-correction phrases (spec 8.1). One entry per line; matching is whole-phrase
+# and case-insensitive. Settings can override this list; these are the defaults.
+no wait
+sorry I mean
+scratch that
+actually no
+let me rephrase

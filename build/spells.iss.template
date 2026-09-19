@@ -1,0 +1,274 @@
+; Spells installer script (spec 19.3 step 7 and 19.5).
+;
+; build/package.py fills the doubled-at-sign placeholders below and hands the result to
+; build/toolchain/innosetup/ISCC.exe. Never edit the generated copy under build/out: edit
+; this template. Every placeholder is listed in package.iss_values() and a rendering that
+; leaves one behind is refused.
+;
+; The installer asks for no elevation: PrivilegesRequired=lowest puts it in the user's own
+; AppData and its Add/Remove Programs entry in HKCU. Setup never writes the autostart Run
+; value; the app owns that (spec 15) and the uninstaller only cleans it up.
+
+[Setup]
+AppId={{9D5B0F4E-3E2A-4C7A-9C3E-2A1D6B8F41C7}
+AppName=Spells
+AppVersion=@@APP_VERSION@@
+AppVerName=Spells @@APP_VERSION@@
+AppPublisher=Spells
+VersionInfoVersion=@@VERSION_INFO@@
+DefaultDirName={localappdata}\Programs\Spells
+DefaultGroupName=Spells
+DisableProgramGroupPage=yes
+UninstallDisplayName=Spells
+UninstallDisplayIcon={app}\Spells.exe
+SetupIconFile=@@SETUP_ICON_FILE@@
+OutputDir=@@OUTPUT_DIR@@
+OutputBaseFilename=@@OUTPUT_BASENAME@@
+; No UAC prompt and a per-user Add/Remove Programs entry (19.5).
+PrivilegesRequired=lowest
+ArchitecturesAllowed=x64
+ArchitecturesInstallIn64BitMode=x64
+; The models are already compressed weights; squeezing them again only costs build time.
+Compression=lzma2/fast
+SolidCompression=no
+@@DISK_SPANNING_LINES@@
+WizardStyle=modern
+; Restart Manager, the second line after the PrepareToInstall --quit step below.
+CloseApplications=yes
+RestartApplications=no
+; No AppMutex: Setup and Uninstall check it when they start, before PrepareToInstall, so a
+; running instance would stop the wizard and abort a silent upgrade before --quit could run.
+@@SIGN_SETUP_LINES@@
+@@LICENSE_FILE_LINE@@
+
+[Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
+
+[Messages]
+; The offline installer carries one set of models for every machine, and that set is the one a
+; computer without a graphics card needs, because it is the only one that also runs well on a
+; computer that has one (B5-46). The finish page says so, since nobody was asked anything.
+FinishedLabel=Setup has finished installing Spells on your computer. It carries the models a computer without a graphics card needs, so it works on any machine, offline, with no download. On a computer with a graphics card, the online installer picks a stronger writing model for compose mode instead.
+
+[InstallDelete]
+; PyInstaller renames and drops files between builds, so an upgrade starts this folder
+; empty rather than leaving stale modules and DLLs beside the new ones. Only this folder:
+; the models, engines and data files beside it are replaced in place, not re-extracted.
+Type: filesandordirs; Name: "{app}\_internal"
+
+[Files]
+Source: "@@DIST_DIR@@\Spells.exe"; DestDir: "{app}"; Flags: ignoreversion@@SIGN_FLAG@@
+Source: "@@DIST_DIR@@\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "@@DIST_DIR@@\engines\*"; DestDir: "{app}\engines"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "@@DIST_DIR@@\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "@@DIST_DIR@@\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Model weights do not compress, so packing them only makes the build slower (19.3 step 7).
+Source: "@@DIST_DIR@@\models\*"; DestDir: "{app}\models"; Flags: ignoreversion nocompression
+
+[Icons]
+Name: "{autoprograms}\Spells"; Filename: "{app}\Spells.exe"
+
+[Run]
+; The final page's offer (19.5). skipifsilent keeps a silent install from starting the app.
+Filename: "{app}\Spells.exe"; Description: "Launch Spells"; Flags: nowait postinstall skipifsilent
+; An update started from inside Spells passes /RELAUNCH, so the app comes back by itself after
+; a silent install (19.7). A wizard run never passes it and uses the postinstall offer above.
+Filename: "{app}\Spells.exe"; Flags: nowait; Check: RelaunchRequested
+
+[UninstallRun]
+; Ask a running instance to exit before its files go (19.5). --quit waits up to 10 s itself.
+Filename: "{app}\Spells.exe"; Parameters: "--quit"; Flags: runhidden waituntilterminated skipifdoesntexist; RunOnceId: "QuitSpells"
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}"
+
+[Code]
+const
+  { --quit gives up after 10 s in all; Setup allows 20 s because the instance may still be
+    shutting down. }
+  QuitWaitMs = 20000;
+  { The helper exits right after it sees the instance gone; Setup gives it this long to let
+    go of Spells.exe before the files are replaced. }
+  HelperGraceMs = 2000;
+  QuitPollMs = 100;
+  { fmOpenReadWrite or fmShareExclusive, spelled out so no undocumented constant is needed. }
+  ExclusiveWriteMode = $0012;
+  RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
+  RunValue = 'Spells';
+
+var
+  RemoveUserData: Boolean;
+
+{ The named mutex 'Spells' (src/spells/app.py MUTEX_NAME) is held from the app's very first
+  startup step until the last step of its shutdown. An instance that is still starting has no
+  window yet but already holds the mutex, so the mutex, not the window, says whether it is gone. }
+function WaitForAppToExit(TimeoutMs: Integer): Boolean;
+var
+  Waited: Integer;
+begin
+  Waited := 0;
+  while (Waited < TimeoutMs) and CheckForMutexes('Spells') do
+  begin
+    Sleep(QuitPollMs);
+    Waited := Waited + QuitPollMs;
+  end;
+  Result := not CheckForMutexes('Spells');
+end;
+
+{ A running executable is open without write sharing, so an exclusive read-write open of it
+  fails until the last process running it has exited. Nothing is written. }
+function FileInUse(const FileName: String): Boolean;
+var
+  Stream: TFileStream;
+begin
+  Result := False;
+  try
+    Stream := TFileStream.Create(FileName, ExclusiveWriteMode);
+    Stream.Free();
+  except
+    Result := True;
+  end;
+end;
+
+function WaitForHelperToLeave(const FileName: String; TimeoutMs: Integer): Boolean;
+var
+  Waited: Integer;
+begin
+  Waited := 0;
+  while (Waited < TimeoutMs) and FileInUse(FileName) do
+  begin
+    Sleep(QuitPollMs);
+    Waited := Waited + QuitPollMs;
+  end;
+  Result := not FileInUse(FileName);
+end;
+
+{ The app's own updater (src/spells/updates.py) runs Setup with /RELAUNCH, so Spells comes
+  back after a silent update (19.7). A wizard run never passes it and keeps the finish page's
+  offer instead. }
+function RelaunchRequested(): Boolean;
+var
+  Index: Integer;
+begin
+  Result := False;
+  for Index := 1 to ParamCount do
+  begin
+    if CompareText(ParamStr(Index), '/RELAUNCH') = 0 then
+    begin
+      Result := True;
+      Exit;
+    end;
+  end;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Existing: String;
+  ResultCode: Integer;
+begin
+  Result := '';
+  NeedsRestart := False;
+  Existing := ExpandConstant('{app}\Spells.exe');
+  if not FileExists(Existing) then
+    Exit;
+  if not CheckForMutexes('Spells') then
+  begin
+    { Nothing runs. A helper started from the install folder would only put Spells.exe in use
+      while the files are replaced, and it takes the mutex itself for a moment. }
+    Log('Spells: no instance holds the Spells mutex, the quit helper is not needed');
+    Exit;
+  end;
+  Log('Spells: asking the running instance to quit: ' + Existing + ' --quit');
+  { ewNoWait: a hung --quit must not block Setup; the mutex poll below bounds the wait. }
+  if not Exec(Existing, '--quit', ExpandConstant('{app}'), SW_HIDE, ewNoWait, ResultCode) then
+    Log('Spells: could not start the quit helper, leaving it to Restart Manager');
+  if WaitForAppToExit(QuitWaitMs) then
+  begin
+    Log('Spells: the Spells mutex is free, waiting for the quit helper to exit');
+    if WaitForHelperToLeave(Existing, HelperGraceMs) then
+      Log('Spells: Spells.exe is no longer in use, the files can be replaced')
+    else
+      Log('Spells: Spells.exe is still in use after 2 s, continuing anyway');
+  end
+  else
+    { Never block the install: Restart Manager remains as the next line. }
+    Log('Spells: the Spells mutex is still held after 20 s, continuing anyway');
+end;
+
+function AskToRemoveUserData(): Boolean;
+var
+  Form: TSetupForm;
+  Prompt: TNewStaticText;
+  Box: TNewCheckBox;
+  OkButton: TNewButton;
+begin
+  Result := False;
+  Form := CreateCustomForm();
+  try
+    Form.Caption := 'Uninstall Spells';
+    Form.ClientWidth := ScaleX(420);
+    Form.ClientHeight := ScaleY(150);
+    Form.Position := poScreenCenter;
+
+    Prompt := TNewStaticText.Create(Form);
+    Prompt.Parent := Form;
+    Prompt.Left := ScaleX(16);
+    Prompt.Top := ScaleY(16);
+    Prompt.Width := Form.ClientWidth - ScaleX(32);
+    Prompt.AutoSize := False;
+    Prompt.Height := ScaleY(48);
+    Prompt.WordWrap := True;
+    Prompt.Caption := 'Spells keeps your settings, vocabulary and dictation history outside the' +
+      ' program folder. They are kept by default so a reinstall picks them up again.';
+
+    Box := TNewCheckBox.Create(Form);
+    Box.Parent := Form;
+    Box.Left := ScaleX(16);
+    Box.Top := ScaleY(76);
+    Box.Width := Form.ClientWidth - ScaleX(32);
+    Box.Height := ScaleY(20);
+    Box.Checked := False;
+    Box.Caption := 'Also remove my settings, history and logs';
+
+    OkButton := TNewButton.Create(Form);
+    OkButton.Parent := Form;
+    OkButton.Width := ScaleX(90);
+    OkButton.Height := ScaleY(26);
+    OkButton.Left := Form.ClientWidth - ScaleX(106);
+    OkButton.Top := Form.ClientHeight - ScaleY(42);
+    OkButton.Caption := 'Continue';
+    OkButton.ModalResult := mrOk;
+    Form.ActiveControl := OkButton;
+
+    { A cancelled or closed dialog is not consent: only OK plus a ticked box removes data. }
+    Result := (Form.ShowModal() = mrOk) and Box.Checked;
+  finally
+    Form.Free();
+  end;
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  Result := True;
+  RemoveUserData := ExpandConstant('{param:REMOVEDATA|0}') = '1';
+  if RemoveUserData then
+    Log('Spells: /REMOVEDATA=1 was passed, the user data folders go too')
+  else if not UninstallSilent() then
+    RemoveUserData := AskToRemoveUserData();
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep <> usPostUninstall then
+    Exit;
+  if RegValueExists(HKEY_CURRENT_USER, RunKey, RunValue) then
+  begin
+    Log('Spells: removing the autostart Run value');
+    RegDeleteValue(HKEY_CURRENT_USER, RunKey, RunValue);
+  end;
+  if not RemoveUserData then
+    Exit;
+  Log('Spells: removing the user data folders');
+  DelTree(ExpandConstant('{userappdata}\Spells'), True, True, True);
+  DelTree(ExpandConstant('{localappdata}\Spells'), True, True, True);
+end;

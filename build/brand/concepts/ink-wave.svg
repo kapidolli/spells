@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Spells concept: ink wave</title>
+  <defs>
+    <linearGradient id="ink-wave-tile" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B3CF0"/>
+      <stop offset="1" stop-color="#16B4E8"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#ink-wave-tile)"/>
+  <g fill="#FFFFFF" stroke="#FFFFFF" stroke-linecap="round">
+    <path fill="none" stroke-width="30" stroke-linejoin="round" d="M40 160 C58 88 94 88 110 140 S156 198 170 126"/>
+    <path stroke="none" d="M192 38 Q198 66 226 72 Q198 78 192 106 Q186 78 158 72 Q186 66 192 38Z"/>
+  </g>
+</svg>

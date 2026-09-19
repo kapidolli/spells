@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Spells concept: caret wand</title>
+  <defs>
+    <linearGradient id="caret-wand-tile" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B3CF0"/>
+      <stop offset="1" stop-color="#16B4E8"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#caret-wand-tile)"/>
+  <g fill="#FFFFFF" stroke="#FFFFFF" stroke-linecap="round">
+    <rect stroke="none" x="152" y="116" width="28" height="92" rx="14"/>
+    <path stroke="none" d="M166 32 Q172 66 206 72 Q172 78 166 112 Q160 78 126 72 Q160 66 166 32Z"/>
+    <path fill="none" stroke-width="22" d="M74 129 A36 36 0 0 1 74 191"/>
+    <path fill="none" stroke-width="22" d="M102 105 A72 72 0 0 1 102 215"/>
+  </g>
+</svg>

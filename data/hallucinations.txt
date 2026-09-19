@@ -1,0 +1,69 @@
+# Known Whisper silence hallucinations (spec 7.4).
+# A transcript is dropped when, lowercased and stripped of punctuation, it exactly matches a line
+# here (both sides go through textutil.normalize_for_match, so punctuation and case in this file
+# do not matter). Only phrases that are never a real dictation belong here: short real phrases
+# such as "thank you" or "bye" are deliberately absent.
+
+# English
+thanks for watching
+thank you for watching
+thanks for watching and see you in the next video
+thank you for watching and see you in the next video
+thanks for watching and i'll see you in the next video
+thank you for watching and i'll see you in the next video
+thank you so much for watching
+thank you very much for watching
+thanks for listening
+thank you for listening
+see you in the next video
+see you in the next one
+please subscribe to my channel
+please like and subscribe
+don't forget to like and subscribe
+subscribe to my channel
+subtitles by the amara.org community
+subtitles by amara.org community
+subtitles by amara.org
+transcribed by https://otter.ai
+transcription by castingwords
+www.mooji.org
+
+# German
+untertitel im auftrag des zdf
+untertitel im auftrag des zdf, 2017
+untertitel im auftrag des zdf, 2018
+untertitel im auftrag des zdf, 2020
+untertitel im auftrag des zdf für funk, 2017
+untertitelung des zdf
+untertitelung des zdf, 2020
+untertitelung des zdf für funk, 2017
+untertitel von stephanie geiges
+untertitelung. br 2018
+untertitel der amara.org-community
+vielen dank fürs zuschauen
+vielen dank für's zuschauen
+swr 2020
+swr 2021
+copyright wdr 2020
+copyright wdr 2021
+
+# Albanian
+
+# Other languages Whisper falls into on silence
+sous-titres réalisés para la communauté d'amara.org
+sous-titrage st' 501
+sous-titrage société radio-canada
+subtítulos realizados por la comunidad de amara.org
+sottotitoli creati dalla comunità amara.org
+legendas pela comunidade amara.org
+napisy stworzone przez społeczność amara.org
+gracias por ver el video
+obrigado por assistir
+продолжение следует
+редактор субтитров а.семкин корректор а.егорова
+ご視聴ありがとうございました
+字幕由amara.org社区提供
+谢谢观看
+感谢观看
+시청해주셔서 감사합니다
+시청해 주셔서 감사합니다

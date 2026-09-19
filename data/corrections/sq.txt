@@ -1,0 +1,9 @@
+# Default Albanian self-correction phrases (spec 8.1). One entry per line; matching is whole-phrase
+# and case-insensitive. Settings can override this list; these are the defaults.
+jo prit
+desha të them
+desha me thënë
+më fal
+pardon
+gabova
+më saktë

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Spells concept: ink wave, single colour</title>
+  <g fill="currentColor" stroke="currentColor" stroke-linecap="round" transform="translate(128 128) scale(1.14) translate(-128 -128)">
+    <path fill="none" stroke-width="30" stroke-linejoin="round" d="M40 160 C58 88 94 88 110 140 S156 198 170 126"/>
+    <path stroke="none" d="M192 38 Q198 66 226 72 Q198 78 192 106 Q186 78 158 72 Q186 66 192 38Z"/>
+  </g>
+</svg>
