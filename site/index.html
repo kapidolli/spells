@@ -1,0 +1,712 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<title>Spells: private, offline voice dictation for Windows</title>
+<meta name="description" content="Free, open-source voice typing for Windows 11. Speak English, German or Albanian and clean text appears at your cursor. It runs offline on your PC.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F9F9FB" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1C1C22" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="https://kapidolli.github.io/spells/">
+<link rel="icon" href="assets/brand/favicon.ico" sizes="any">
+<link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/brand/apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Spells">
+<meta property="og:url" content="https://kapidolli.github.io/spells/">
+<meta property="og:title" content="Spells: private, offline voice dictation for Windows">
+<meta property="og:description" content="Hold a hotkey, speak English, German or Albanian, let go: clean text appears at your cursor in any app. Free, open source, and it runs on your own PC.">
+<meta property="og:image" content="https://kapidolli.github.io/spells/assets/img/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Spells logo and the line Private, offline voice dictation for Windows, beside a screenshot of the Spells settings window and the black listening pill.">
+<meta name="twitter:title" content="Spells: private, offline voice dictation for Windows">
+<meta name="twitter:description" content="Hold a hotkey, speak, let go: clean text appears at your cursor in any app. Free, open source, and it runs on your own PC.">
+<meta name="twitter:image" content="https://kapidolli.github.io/spells/assets/img/og.png">
+<meta name="twitter:image:alt" content="The Spells logo and the line Private, offline voice dictation for Windows, beside a screenshot of the Spells settings window.">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "SoftwareApplication",
+   "@id": "https://kapidolli.github.io/spells/#app",
+   "name": "Spells",
+   "url": "https://kapidolli.github.io/spells/",
+   "description": "Free, open-source voice dictation for Windows 11. Hold a hotkey, speak English, German or Albanian, and let go: clean text appears at the cursor in any app. Speech recognition and cleanup run offline on your own PC with whisper.cpp and llama.cpp.",
+   "applicationCategory": "UtilitiesApplication",
+   "operatingSystem": "Windows 11",
+   "softwareVersion": "0.5.0",
+   "downloadUrl": "https://github.com/kapidolli/spells/releases/latest/download/Spells-Online-Setup.exe",
+   "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+   "isAccessibleForFree": true,
+   "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD"
+   },
+   "author": {
+    "@type": "Person",
+    "name": "kapidolli",
+    "url": "https://github.com/kapidolli"
+   },
+   "sameAs": [
+    "https://github.com/kapidolli/spells"
+   ],
+   "image": "https://kapidolli.github.io/spells/assets/img/og.png",
+   "screenshot": "https://kapidolli.github.io/spells/assets/img/settings-general-light.webp",
+   "storageRequirements": "Up to about 5 GB",
+   "inLanguage": "en",
+   "featureList": [
+    "Hold a hotkey, speak and let go: clean text appears at the cursor in any Windows app",
+    "Offline speech to text with Qwen3-ASR and Whisper, run locally by llama.cpp and whisper.cpp",
+    "Cleanup by a local language model that removes fillers and self-corrections",
+    "A live draft in the field while you speak, where the hardware keeps up",
+    "Write and edit hotkeys: say what to write, or what to change in the selected text",
+    "Profiles per app with a tone and a delivery method",
+    "Vocabulary with terms, replacements and snippets",
+    "A local history with search, speaking statistics and export to JSON, CSV or Markdown",
+    "English, German and Albanian dictation",
+    "Runs on the processor or on a Vulkan graphics card",
+    "No telemetry, no analytics, no account"
+   ]
+  },
+  {
+   "@type": "SoftwareSourceCode",
+   "name": "Spells source code",
+   "codeRepository": "https://github.com/kapidolli/spells",
+   "programmingLanguage": "Python",
+   "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+   "author": {
+    "@type": "Person",
+    "name": "kapidolli",
+    "url": "https://github.com/kapidolli"
+   },
+   "targetProduct": {
+    "@id": "https://kapidolli.github.io/spells/#app"
+   }
+  },
+  {
+   "@type": "FAQPage",
+   "mainEntity": [
+    {
+     "@type": "Question",
+     "name": "Is Spells really offline?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Yes. Speech recognition and cleanup run on your PC, and the engines listen only on 127.0.0.1, so you can dictate with the network cable unplugged. The only code that opens an internet connection is the update check, which is off by default and fetches a small version file when you ask for it. The online installer downloads the models once, at install time; the offline installer needs no network at all."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Which languages can I dictate in?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "English and German, both excellent, and Albanian, which works with more mistakes. Whisper knows about 100 languages in all and you can add others on the Languages page, but they are not measured and cleanup does not run for them."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Do I need a graphics card?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "No. On a desktop Core i7-14700K without a graphics card, English and German take about 1.2 s from key release to text. A graphics card with Vulkan support, from NVIDIA, AMD or Intel, makes it faster."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Is Spells free?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Yes. Spells is free software under GPL-3.0-or-later, with no account and no subscription. The speech and writing models it uses are released under the MIT and Apache-2.0 licences."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Why does Windows warn me about the installer?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "The installer is not code-signed yet, so Windows SmartScreen does not recognise it. Select More info, then Run anyway. A signed installer is planned."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "How is Spells different from Wispr Flow?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "It does the same kind of job, dictation with cleanup into any app, but everything runs on your own PC: your speech and text are never sent anywhere, and there is no account or subscription. It runs on Windows 11 only, and its languages today are English, German and Albanian."
+     }
+    }
+   ]
+  }
+ ]
+}
+</script>
+<link rel="stylesheet" href="assets/css/site.css">
+<script src="assets/js/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap header-row">
+    <a class="brand" href="#top" aria-label="Spells, back to the top">
+      <svg class="wordmark" viewBox="0 0 766 256" aria-hidden="true" focusable="false">
+        <defs>
+          <linearGradient id="wm-tile" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#5B3CF0"/>
+            <stop offset="1" stop-color="#16B4E8"/>
+          </linearGradient>
+        </defs>
+        <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#wm-tile)"/>
+        <g fill="#FFFFFF">
+          <rect x="32" y="96" width="32" height="64" rx="16"/>
+          <rect x="80" y="64" width="32" height="128" rx="16"/>
+          <path d="M172 48 Q181.9 113.1 216 132 Q181.9 150.9 172 216 Q162.1 150.9 128 132 Q162.1 113.1 172 48Z"/>
+          <path d="M206 36 Q211.5 56.5 232 62 Q211.5 67.5 206 88 Q200.5 67.5 180 62 Q200.5 56.5 206 36Z"/>
+        </g>
+        <g fill="currentColor">
+          <path d="M298 173.2C309.2 181.5 322.6 186 336.5 186C347.2 186 358.3 183.3 367 176.8C375.1 170.6 380.2 161.2 380.2 151C380.2 146 379 141.1 376.4 136.8C374 132.8 370.6 129.5 366.7 127C358.9 121.7 349.6 119 340.6 116.4C333.5 114.3 325.7 112.2 319.4 108.1C316.2 105.9 314 103.1 314 99C314 86.3 329.5 82 339.7 82C347.8 82 355.8 84.6 361.3 90.8A9 9 0 0 0 374.8 78.8C365.9 68.8 352.9 64 339.7 64C328.9 64 317.9 66.7 309.2 73.2C301.1 79.4 296 88.8 296 99C296 104 297.2 108.9 299.8 113.2C302.2 117.2 305.6 120.5 309.5 123C317.3 128.3 326.6 131 335.6 133.6C342.7 135.7 350.5 137.8 356.7 141.9C360 144.1 362.2 146.9 362.2 151C362.2 163.7 346.7 168 336.5 168C326.5 168 316.8 164.8 308.8 158.8A9 9 0 0 0 298 173.2Z"/>
+          <path d="M398.2 109L398.2 213A9 9 0 0 0 416.2 213L416.2 109A9 9 0 0 0 398.2 109Z"/>
+          <path d="M398.2 142A44 44 0 1 0 486.2 142A44 44 0 1 0 398.2 142Z M416.2 142A26 26 0 1 1 468.2 142A26 26 0 1 1 416.2 142Z"/>
+          <path d="M509.2 133L579.2 133A9 9 0 0 1 579.2 151L509.2 151A9 9 0 0 1 509.2 133Z"/>
+          <path d="M588.2 142A44 44 0 1 0 569.4 178A9 9 0 0 0 559.1 163.3A26 26 0 1 1 570.2 142A9 9 0 0 0 588.2 142Z"/>
+          <path d="M606.2 69L606.2 175A9 9 0 0 0 624.2 175L624.2 69A9 9 0 0 0 606.2 69Z"/>
+          <path d="M646.2 69L646.2 175A9 9 0 0 0 664.2 175L664.2 69A9 9 0 0 0 646.2 69Z"/>
+          <path d="M684.9 176.9C693.2 182.9 703.3 186 713.6 186C721.6 186 730 184.1 736.6 179.3C743 174.7 747.2 167.5 747.2 159.5C747.2 151.6 742.9 144.9 736.3 140.8C730.5 137.1 723.7 135.1 717.1 133.3C712.3 132 707 130.7 702.7 128C701.3 127.2 700.2 126.2 700.2 124.5C700.2 122.3 701.6 120.5 703.3 119.3C706.8 116.7 711.5 116 715.8 116C720.8 116 725.9 117.4 729.4 121.1A9 9 0 0 0 742.5 108.8C735.6 101.4 725.8 98 715.8 98C707.8 98 699.4 99.9 692.8 104.7C686.4 109.3 682.2 116.5 682.2 124.5C682.2 132.4 686.5 139.1 693.1 143.2C698.9 146.9 705.7 148.9 712.3 150.7C717.1 152 722.4 153.3 726.7 156C728.1 156.8 729.2 157.8 729.2 159.5C729.2 161.7 727.8 163.5 726.1 164.7C722.6 167.3 717.9 168 713.6 168C707 168 700.6 166.1 695.3 162.2A9 9 0 0 0 684.9 176.9Z"/>
+        </g>
+      </svg>
+    </a>
+    <nav class="site-nav" aria-label="Sections">
+      <ul>
+        <li class="nav-optional"><a href="#how">How it works</a></li>
+        <li class="nav-optional"><a href="#features">Features</a></li>
+        <li class="nav-optional"><a href="#privacy">Privacy</a></li>
+        <li class="nav-optional"><a href="#languages">Languages</a></li>
+        <li class="nav-optional"><a href="https://github.com/kapidolli/spells">Source</a></li>
+        <li><a class="nav-download" href="#download">Download</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<section class="hero" id="top" aria-labelledby="hero-title">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <h1 id="hero-title"><span class="line">Speak into any app.</span> <span class="line">Your words stay on your PC.</span></h1>
+      <p class="lead">Spells is free, offline voice typing for Windows 11. Hold a hotkey, speak English, German or Albanian, and let go: clean text appears at the cursor in whatever app has focus. Speech to text and cleanup run on local AI models on your own PC, which makes it a private alternative to Wispr Flow.</p>
+      <div class="cta-row">
+        <a class="button button-primary" href="https://github.com/kapidolli/spells/releases/latest/download/Spells-Online-Setup.exe">
+          <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 3v9.5M6 8.8l4 4 4-4M4 16.5h12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Download for Windows
+        </a>
+        <a class="button button-quiet" href="https://github.com/kapidolli/spells">View source</a>
+      </div>
+      <p class="fine">Online installer, about 100 MB, Windows 11. <a href="https://github.com/kapidolli/spells/releases/latest">Offline installer and all versions</a></p>
+      <p class="fine">Free and open source. No account, no subscription.</p>
+    </div>
+
+    <figure class="stage" data-demo aria-labelledby="demo-caption">
+      <div class="window" aria-hidden="true">
+        <div class="titlebar">
+          <span class="app-glyph" data-demo-glyph="chat"></span>
+          <span class="window-title" data-demo-title>Chat with Sam</span>
+          <span class="caption-buttons">
+            <svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg>
+            <svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" rx="1"/></svg>
+            <svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
+          </span>
+        </div>
+        <div class="scene is-active" data-scene="en">
+          <p class="bubble">Are we still on for Thursday?</p>
+          <div class="compose"><p class="field" data-field><span class="tok">Can</span> <span class="tok">we</span> <span class="tok">move</span> <span class="tok">the</span> <span class="tok">call</span> <span class="tok">to</span> <span class="tok">Friday?</span><span class="caret"></span></p></div>
+        </div>
+        <div class="scene" data-scene="de">
+          <dl class="mail-head"><div><dt>An</dt><dd>Lena</dd></div><div><dt>Betreff</dt><dd>Unterlagen</dd></div></dl>
+          <p class="field" data-field></p>
+        </div>
+        <div class="scene" data-scene="sq">
+          <p class="doc-heading">Shënime</p>
+          <p class="field" data-field></p>
+        </div>
+      </div>
+      <figcaption class="stage-caption" id="demo-caption">
+        <span class="held" data-demo-keys><kbd>Ctrl</kbd><kbd>Win</kbd></span>
+        <span class="stage-note" data-demo-note aria-live="off"><strong>English, in a chat app.</strong> You said <q>um can we move the call to thursday no wait friday</q>. Spells wrote the line above.</span>
+        <button class="demo-toggle" type="button" data-demo-toggle aria-pressed="false" hidden>Pause</button>
+      </figcaption>
+    </figure>
+  </div>
+
+  <div class="pill-dock" aria-hidden="true">
+    <div class="pill is-shown" data-pill data-state="listening">
+      <span class="pill-lock"><svg viewBox="0 0 11 13"><rect x=".75" y="5.25" width="9.5" height="7" rx="1.8"/><path d="M3 5.25V3.4a2.5 2.5 0 0 1 5 0v1.85"/></svg></span>
+      <span class="pill-meter" data-meter><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+      <span class="pill-spin"><svg viewBox="0 0 14 14"><circle class="track" cx="7" cy="7" r="6.25"/><path class="arc" d="M7 .75a6.25 6.25 0 1 1-6.25 6.25"/></svg></span>
+      <span class="pill-text" data-pill-text></span>
+    </div>
+  </div>
+  <div class="taskbar" aria-hidden="true">
+    <div class="taskbar-apps"><i></i><i></i><i class="is-open"></i><i></i><i></i></div>
+    <div class="taskbar-tray">
+      <svg class="tray-chevron" viewBox="0 0 10 10"><path d="M2 6.5l3-3 3 3"/></svg>
+      <img src="assets/brand/favicon.svg" alt="" width="16" height="16">
+      <span>10:24</span>
+    </div>
+  </div>
+</section>
+
+<section class="section how" id="how" aria-labelledby="how-title">
+  <div class="wrap">
+    <h2 id="how-title">Hold, speak, let go.</h2>
+    <ol class="steps">
+      <li>
+        <div class="step-visual"><kbd class="cap">Ctrl</kbd><kbd class="cap">Win</kbd></div>
+        <h3><span class="step-no">1</span>Hold the hotkey</h3>
+        <p>Click where the text should go and hold Ctrl + Win. You can record any other chord in Settings.</p>
+      </li>
+      <li>
+        <div class="step-visual"><span class="pill pill-static" data-state="listening"><span class="pill-meter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span></div>
+        <h3><span class="step-no">2</span>Speak</h3>
+        <p>The pill at the bottom of the screen shows that Spells is listening. It never takes the focus away from your window.</p>
+      </li>
+      <li>
+        <div class="step-visual"><span class="mini-field">See you at ten.<span class="caret is-static"></span></span></div>
+        <h3><span class="step-no">3</span>Let go</h3>
+        <p>Spells tidies the transcript and puts the text at the cursor. It is told to keep names, places, numbers and dates exactly as you said them.</p>
+      </li>
+    </ol>
+    <p class="how-more">Tap the hotkey twice to keep recording hands-free, then press it once more to finish. Esc cancels. A dictation can run for ten minutes, and the pill tells you when one minute is left.</p>
+
+    <div class="legend" aria-labelledby="legend-title">
+      <h3 id="legend-title">What the pill tells you</h3>
+      <dl class="legend-list">
+        <div>
+          <dt><span class="pill pill-static" data-state="listening"><span class="pill-meter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span></dt>
+          <dd><strong>Listening.</strong> The bars follow your voice.</dd>
+        </div>
+        <div>
+          <dt><span class="pill pill-static" data-state="latched"><span class="pill-lock"><svg viewBox="0 0 11 13"><rect x=".75" y="5.25" width="9.5" height="7" rx="1.8"/><path d="M3 5.25V3.4a2.5 2.5 0 0 1 5 0v1.85"/></svg></span><span class="pill-meter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></span></dt>
+          <dd><strong>Hands-free.</strong> You tapped the hotkey twice. Press it again to finish.</dd>
+        </div>
+        <div>
+          <dt><span class="pill pill-static" data-state="busy"><span class="pill-meter"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span class="pill-badge"><svg viewBox="0 0 14 14"><circle class="track" cx="7" cy="7" r="6.25"/><path class="arc" d="M7 .75a6.25 6.25 0 1 1-6.25 6.25"/></svg></span></span></dt>
+          <dd><strong>Listening while busy.</strong> The previous dictation is still being processed. You do not have to wait for it.</dd>
+        </div>
+        <div>
+          <dt><span class="pill pill-static" data-state="processing"><span class="pill-spin"><svg viewBox="0 0 14 14"><circle class="track" cx="7" cy="7" r="6.25"/><path class="arc" d="M7 .75a6.25 6.25 0 1 1-6.25 6.25"/></svg></span><span class="pill-text">Processing</span></span></dt>
+          <dd><strong>Processing.</strong> Your speech is becoming text.</dd>
+        </div>
+        <div>
+          <dt><span class="pill pill-static" data-state="writing"><span class="pill-spin"><svg viewBox="0 0 14 14"><circle class="track" cx="7" cy="7" r="6.25"/><path class="arc" d="M7 .75a6.25 6.25 0 1 1-6.25 6.25"/></svg></span><span class="pill-text">Writing 7s: make this shorter</span></span></dt>
+          <dd><strong>Writing.</strong> The writing model is working on your request, with the seconds counting. Esc cancels it.</dd>
+        </div>
+        <div>
+          <dt><span class="pill pill-static" data-state="notice"><span class="pill-text">Copied</span></span></dt>
+          <dd><strong>Copied.</strong> The focus moved to another window while Spells was working, so the text went to the clipboard instead. Press Ctrl+V to paste it.</dd>
+        </div>
+        <div>
+          <dt><span class="pill pill-static" data-state="processing"><span class="pill-spin"><svg viewBox="0 0 14 14"><circle class="track" cx="7" cy="7" r="6.25"/><path class="arc" d="M7 .75a6.25 6.25 0 1 1-6.25 6.25"/></svg></span><span class="pill-text">Starting engines</span></span></dt>
+          <dd><strong>Starting engines.</strong> The speech engine is still loading, for example just after Spells starts. Your dictation waits for it.</dd>
+        </div>
+        <div>
+          <dt><span class="pill pill-static" data-state="error"><span class="pill-text">Mic is busy</span></span></dt>
+          <dd><strong>A problem, in plain words.</strong> For example a microphone another app is holding.</dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<section class="section features" id="features" aria-labelledby="features-title">
+  <div class="wrap">
+    <h2 id="features-title">More than a transcript</h2>
+    <p class="section-lead">Spells removes the ums and the false starts, types while you talk, and writes for you when you ask it to. All of it on your own PC.</p>
+
+    <div class="write-edit">
+      <article class="we-card">
+        <h3>Write by voice</h3>
+        <p>Hold the write hotkey and say what you want written. What you said is the instruction and is never inserted itself.</p>
+        <div class="we-demo">
+          <p class="we-said"><span class="we-label">You say</span>Write a short note to Sam asking to move our call to Friday.</p>
+          <div class="we-pill" aria-hidden="true"><span class="pill pill-static" data-state="writing"><span class="pill-spin"><svg viewBox="0 0 14 14"><circle class="track" cx="7" cy="7" r="6.25"/><path class="arc" d="M7 .75a6.25 6.25 0 1 1-6.25 6.25"/></svg></span><span class="pill-text">Writing 3s: Write a short note to Sam asking to move our call to Friday.</span></span></div>
+          <p class="we-out"><span class="we-label">At the cursor</span>Hi Sam, could we move our call to Friday? Let me know what time works for you. Thanks!</p>
+        </div>
+      </article>
+      <article class="we-card">
+        <h3>Edit by voice</h3>
+        <p>Select some text, hold the edit hotkey and say what to change. The selection is replaced, and your clipboard is put back exactly as it was.</p>
+        <div class="we-demo">
+          <p class="we-said"><span class="we-label">Selected</span>I wanted to reach out to let you know that unfortunately I will not be able to attend the meeting on Thursday afternoon.</p>
+          <p class="we-said"><span class="we-label">You say</span>Make this shorter.</p>
+          <p class="we-out"><span class="we-label">Replaced with</span>I can't make Thursday afternoon's meeting.</p>
+        </div>
+      </article>
+      <p class="we-note">Both hotkeys stay empty until you record them. The writing model is Qwen3.5 4B on a PC with a graphics card and Gemma 4 E2B otherwise. On the processor a short email takes several seconds, and the pill counts them.</p>
+    </div>
+
+    <div class="showcase">
+      <div class="sc-window">
+        <div class="titlebar">
+          <img class="app-icon" src="assets/brand/favicon.svg" alt="" width="16" height="16">
+          <span class="window-title">Spells settings</span>
+          <span class="caption-buttons" aria-hidden="true">
+            <svg viewBox="0 0 10 10"><path d="M1 5h8"/></svg>
+            <svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" rx="1"/></svg>
+            <svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>
+          </span>
+        </div>
+        <div class="sc-body">
+          <div class="rail" role="tablist" aria-label="Settings pages" aria-orientation="vertical">
+            <p class="rail-brand" aria-hidden="true"><img src="assets/brand/spells-logo.svg" alt="" width="24" height="24">Spells</p>
+            <button class="rail-tab" role="tab" id="tab-general" aria-controls="panel-general" aria-selected="true" tabindex="0" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.75l1.7 2.3 2.8-.7.7 2.8 2.3 1.7-1.1 2.6 1.1 2.6-2.3 1.7-.7 2.8-2.8-.7-1.7 2.3-1.7-2.3-2.8.7-.7-2.8-2.3-1.7 1.1-2.6-1.1-2.6 2.3-1.7.7-2.8 2.8.7z"/></svg>
+              <span>General</span>
+            </button>
+            <button class="rail-tab" role="tab" id="tab-languages" aria-controls="panel-languages" aria-selected="false" tabindex="-1" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.3 3.6 5.1 3.6 8.5s-1.2 6.2-3.6 8.5c-2.4-2.3-3.6-5.1-3.6-8.5s1.2-6.2 3.6-8.5z"/></svg>
+              <span>Languages</span>
+            </button>
+            <button class="rail-tab" role="tab" id="tab-writing" aria-controls="panel-writing" aria-selected="false" tabindex="-1" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 19.5l1-4.2L15.8 5a2.1 2.1 0 0 1 3 3L8.6 18.4z"/><path d="M13.8 7l3 3"/></svg>
+              <span>Writing</span>
+            </button>
+            <button class="rail-tab" role="tab" id="tab-apps" aria-controls="panel-apps" aria-selected="false" tabindex="-1" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.2"/><rect x="13" y="4" width="7" height="7" rx="1.2"/><rect x="4" y="13" width="7" height="7" rx="1.2"/><path d="M16.5 13.5v6M13.5 16.5h6"/></svg>
+              <span>Apps</span>
+            </button>
+            <button class="rail-tab" role="tab" id="tab-vocabulary" aria-controls="panel-vocabulary" aria-selected="false" tabindex="-1" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3.5h11.5v17H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M4.5 17.5A1.5 1.5 0 0 1 6 16h11.5M8.5 7.5h5"/></svg>
+              <span>Vocabulary</span>
+            </button>
+            <button class="rail-tab" role="tab" id="tab-history" aria-controls="panel-history" aria-selected="false" tabindex="-1" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.2 13.5A8 8 0 1 0 6 6.3"/><path d="M5.5 3v3.8h3.8M12 8v4.3l3 1.8"/></svg>
+              <span>History</span>
+            </button>
+          </div>
+          <div class="sc-screens">
+            <div class="sc-panel" role="tabpanel" id="panel-general" aria-labelledby="tab-general" aria-describedby="note-general" tabindex="0">
+              <picture>
+                <source srcset="assets/img/settings-general-dark.webp" media="(prefers-color-scheme: dark)">
+                <img src="assets/img/settings-general-light.webp" width="1400" height="1138" alt="The General page: the dictation hotkey Ctrl and Win, the write and edit hotkeys, the microphone and a Start with Windows switch.">
+              </picture>
+            </div>
+            <div class="sc-panel" role="tabpanel" id="panel-languages" aria-labelledby="tab-languages" aria-describedby="note-languages" tabindex="0" hidden>
+              <picture>
+                <source srcset="assets/img/settings-languages-dark.webp" media="(prefers-color-scheme: dark)">
+                <img src="assets/img/settings-languages-light.webp" width="1400" height="1138" loading="lazy" alt="The Languages page: English, German and Albanian enabled, German with its own hotkey, a search over 100 languages and the models chosen for them.">
+              </picture>
+            </div>
+            <div class="sc-panel" role="tabpanel" id="panel-writing" aria-labelledby="tab-writing" aria-describedby="note-writing" tabindex="0" hidden>
+              <picture>
+                <source srcset="assets/img/settings-writing-dark.webp" media="(prefers-color-scheme: dark)">
+                <img src="assets/img/settings-writing-light.webp" width="1400" height="1138" loading="lazy" alt="The Writing page: the writing model Qwen3.5 4B, the cleanup switch and its timeout, and a tone for each profile such as Chat, Email and docs, Code and Terminal.">
+              </picture>
+            </div>
+            <div class="sc-panel" role="tabpanel" id="panel-apps" aria-labelledby="tab-apps" aria-describedby="note-apps" tabindex="0" hidden>
+              <picture>
+                <source srcset="assets/img/settings-apps-dark.webp" media="(prefers-color-scheme: dark)">
+                <img src="assets/img/settings-apps-light.webp" width="1400" height="1138" loading="lazy" alt="The Apps page: a rule that gives Slack the Chat profile with paste, and one that gives Windows Terminal the Terminal profile with typing.">
+              </picture>
+            </div>
+            <div class="sc-panel" role="tabpanel" id="panel-vocabulary" aria-labelledby="tab-vocabulary" aria-describedby="note-vocabulary" tabindex="0" hidden>
+              <picture>
+                <source srcset="assets/img/settings-vocabulary-dark.webp" media="(prefers-color-scheme: dark)">
+                <img src="assets/img/settings-vocabulary-light.webp" width="1400" height="1138" loading="lazy" alt="The Vocabulary page: terms such as PostgreSQL and Prishtina, replacements such as k8s to Kubernetes, and snippets such as sig for a signature.">
+              </picture>
+            </div>
+            <div class="sc-panel" role="tabpanel" id="panel-history" aria-labelledby="tab-history" aria-describedby="note-history" tabindex="0" hidden>
+              <picture>
+                <source srcset="assets/img/settings-history-dark.webp" media="(prefers-color-scheme: dark)">
+                <img src="assets/img/settings-history-light.webp" width="1400" height="1138" loading="lazy" alt="The History page: 162 median words per minute, a list of dictations with a quality badge each, and what was said beside the cleaned text.">
+              </picture>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="sc-sample">Screenshots of Spells with sample data.</p>
+
+      <div class="sc-notes">
+        <div class="sc-note" id="note-general" data-note="general">
+          <h3>Hotkeys and live typing</h3>
+          <ul>
+            <li>One hotkey to dictate, and optional write and edit hotkeys beside it.</li>
+            <li>With <em>Type the words while I speak</em> on, a draft appears in the field as you talk and corrects itself; the finished text replaces it when you let go. It runs where the speech model keeps up on your hardware: with a graphics card, or with Qwen3-ASR on the processor.</li>
+            <li>The draft stays out of code editors and terminals unless you allow it there, and it never touches your clipboard.</li>
+            <li>Start with Windows, keep the microphone warm for a faster start, and short start and stop sounds.</li>
+          </ul>
+        </div>
+        <div class="sc-note" id="note-languages" data-note="languages" hidden>
+          <h3>Models picked for your languages and your PC</h3>
+          <ul>
+            <li>Tick the languages you dictate in. Spells recognises which one you are speaking.</li>
+            <li>It chooses the speech and writing models for those languages and your hardware, and says in plain words how well each does and how fast it is.</li>
+            <li>A per-language hotkey dictates one utterance in that language without changing the mode.</li>
+            <li>With graphics built into the processor, Spells measures once whether the graphics or the processor is faster, and uses the faster one.</li>
+          </ul>
+        </div>
+        <div class="sc-note" id="note-writing" data-note="writing" hidden>
+          <h3>Cleanup with a tone for each kind of app</h3>
+          <ul>
+            <li>A local language model removes fillers and self-corrections and fixes the punctuation.</li>
+            <li>Each profile has a tone: casual in chat, full sentences in email and documents, minimal rewriting in code.</li>
+            <li>If cleanup takes longer than the timeout, or its answer fails a check, you get the raw transcript instead. Your words are never lost to a bad rewrite.</li>
+            <li>Switch cleanup off to insert exactly what was recognised.</li>
+          </ul>
+        </div>
+        <div class="sc-note" id="note-apps" data-note="apps" hidden>
+          <h3>Profiles per app</h3>
+          <ul>
+            <li>Built-in rules know common chat apps, mail and Word, code editors and terminals, by process name or window title.</li>
+            <li>Add your own rule by clicking a running window.</li>
+            <li>Each rule picks a profile and a delivery method: paste, or type the text key by key where pasting is unwelcome, as in a terminal.</li>
+          </ul>
+        </div>
+        <div class="sc-note" id="note-vocabulary" data-note="vocabulary" hidden>
+          <h3>Your own words</h3>
+          <ul>
+            <li>Terms: names, products and jargon that recognition should lean towards.</li>
+            <li>Replacements: fix a recurring mistake after every transcript.</li>
+            <li>Snippets: say a short trigger on its own and a longer text is inserted.</li>
+            <li>Import and export the lot as a file.</li>
+          </ul>
+        </div>
+        <div class="sc-note" id="note-history" data-note="history" hidden>
+          <h3>A history that stays on your PC</h3>
+          <ul>
+            <li>Search what you said and what was written, side by side, with a quality badge for each dictation.</li>
+            <li>Your median words per minute, fillers per 100 words, and how often cleanup changed the text.</li>
+            <li>Keep the last 100, 7 days, 30 days or nothing. Export as JSON, CSV or Markdown.</li>
+            <li>Recordings are not kept unless you switch that on.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section privacy" id="privacy" aria-labelledby="privacy-title">
+  <div class="wrap">
+    <h2 id="privacy-title">Your voice stays on your PC.</h2>
+    <p class="section-lead">Spells is private dictation: it does all of its work on your computer. This is exactly what that means.</p>
+
+    <div class="boundary-map">
+      <div class="boundary">
+        <p class="boundary-label">Your PC</p>
+        <ol class="flow">
+          <li><span class="node">Microphone</span></li>
+          <li><span class="node node-app"><img src="assets/brand/spells-logo.svg" alt="" width="20" height="20">Spells</span></li>
+          <li><span class="node">Speech engine<small>127.0.0.1</small></span></li>
+          <li><span class="node">Cleanup engine<small>127.0.0.1</small></span></li>
+          <li><span class="node">Text at your cursor</span></li>
+        </ol>
+      </div>
+      <div class="outside">
+        <p class="outside-label">The internet</p>
+        <p>Nothing, until you press Check for updates or switch on the weekly check. Then one small version file.</p>
+      </div>
+    </div>
+
+    <ul class="facts">
+      <li><strong>Processed where you are.</strong> Speech and text are processed on your PC and never sent anywhere.</li>
+      <li><strong>Engines on loopback.</strong> The speech and cleanup engines listen only on 127.0.0.1, the loopback address, so nothing outside your PC can reach them.</li>
+      <li><strong>Nothing counted.</strong> There is no telemetry, no analytics, no crash reporting and no account.</li>
+      <li><strong>One connection, and only when you ask.</strong> The only code that opens an internet connection is the update check. It is off by default, runs only when you press the button on the About page or switch on the weekly check, and fetches a small version file.</li>
+      <li><strong>Models checked once.</strong> The online installer downloads the model files once, at install time, and checks each one against a pinned SHA-256 hash. The offline installer needs no network at all.</li>
+      <li><strong>Unplug it.</strong> You can dictate with the network cable unplugged.</li>
+    </ul>
+  </div>
+</section>
+
+<section class="section languages" id="languages" aria-labelledby="languages-title">
+  <div class="wrap">
+    <h2 id="languages-title">English and German are excellent. Albanian works, with more mistakes.</h2>
+    <p class="section-lead">Spells chooses a speech model per language and runs it locally with whisper.cpp or llama.cpp. Here is how English, German and Albanian dictation does today, measured on the project's own test clips.</p>
+
+    <div class="lang-list">
+      <article class="lang">
+        <header class="lang-head">
+          <h3 lang="en">English</h3>
+          <p class="grade grade-good">Excellent</p>
+        </header>
+        <div class="lang-body">
+          <p>Recognised by Qwen3-ASR. Cleanup removes fillers and self-corrections and keeps your meaning. On a desktop processor the text arrives about 1.2 s after you let go, and the draft appears while you speak.</p>
+        </div>
+      </article>
+      <article class="lang">
+        <header class="lang-head">
+          <h3 lang="de">Deutsch</h3>
+          <p class="grade grade-good">Excellent</p>
+        </header>
+        <div class="lang-body">
+          <p><span class="lang-en">German.</span> Also recognised by Qwen3-ASR, a little behind English. Cleanup is excellent here too, and the timing is about the same: around 1.2 s on the processor, with the draft while you speak.</p>
+        </div>
+      </article>
+      <article class="lang">
+        <header class="lang-head">
+          <h3 lang="sq">Shqip</h3>
+          <p class="grade grade-fair">Usable, weaker</p>
+        </header>
+        <div class="lang-body">
+          <p><span class="lang-en">Albanian.</span> Recognised by Whisper large-v3 turbo, which makes noticeably more mistakes here than in English or German. Cleanup is careful: in testing it never changed the meaning, but it often leaves Albanian fillers and self-corrections in. On the processor alone a 15-second dictation takes about 4.5 s and appears when you let go; a graphics card is quicker. Albanian on the fast speech model is planned.</p>
+        </div>
+      </article>
+    </div>
+    <p class="lang-foot">Word error rate on the test clips: English 7.9%, German 12%, Albanian about 50%. The figures are provisional until the benchmark runs again. Whisper knows about 100 languages in all, and the Languages page lets you add any of them. The others are not measured, and cleanup does not run for them.</p>
+  </div>
+</section>
+
+<section class="section download" id="download" aria-labelledby="download-title">
+  <div class="wrap">
+    <h2 id="download-title">Download</h2>
+    <p class="section-lead">Every release comes as two installers of the same app. Both let you install for yourself only, with no administrator rights, or for everyone on the PC, which asks for administrator rights once.</p>
+
+    <div class="installers">
+      <article class="installer installer-main">
+        <h3>Online installer</h3>
+        <p class="installer-size">About 100 MB. The right choice for most people.</p>
+        <p>It asks which languages you dictate in, looks at your PC, and downloads only the models those languages and that hardware need. Each file is checked against a pinned SHA-256 hash. With a graphics card it fetches the better writing model, Qwen3.5 4B.</p>
+        <p class="file-name">Spells-Online-Setup.exe</p>
+        <a class="button button-primary" href="https://github.com/kapidolli/spells/releases/latest/download/Spells-Online-Setup.exe">
+          <svg class="button-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M10 3v9.5M6 8.8l4 4 4-4M4 16.5h12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Download for Windows
+        </a>
+      </article>
+      <article class="installer">
+        <h3>Offline installer</h3>
+        <p class="installer-size">About 4.5 GB, in several parts. For a PC without a network.</p>
+        <p>Everything is inside and nothing is downloaded, at install time or later. GitHub limits a file to 2 GiB, so the installer comes as a Setup.exe plus .bin parts. Download every part into the same folder, then run the .exe. It carries the models that work on any PC, including Gemma 4 E2B as the writing model.</p>
+        <p class="file-name">Spells-Setup-<var>version</var>.exe <span>and its</span> .bin <span>parts</span></p>
+        <a class="button button-quiet" href="https://github.com/kapidolli/spells/releases/latest">Offline installer and all versions</a>
+      </article>
+    </div>
+
+    <aside class="smartscreen" aria-labelledby="smartscreen-title">
+      <h3 id="smartscreen-title">Windows will warn you the first time</h3>
+      <p>The installer is not code-signed yet, so Windows SmartScreen says it does not recognise it. Select <span class="ui">More info</span>, then <span class="ui">Run anyway</span>. A signed installer is planned.</p>
+    </aside>
+
+    <h3 class="req-title">What you need</h3>
+    <dl class="requirements">
+      <div><dt>Windows</dt><dd>Windows 11, 64-bit.</dd></div>
+      <div><dt>Rights</dt><dd>None for an install for yourself. An install for all users of the PC asks for administrator rights once.</dd></div>
+      <div><dt>Disk</dt><dd>Up to about 5 GB for the app and its models.</dd></div>
+      <div><dt>Processor</dt><dd>Enough on its own. On a desktop Core i7-14700K without a graphics card, English and German take about 1.2 s from key release to text. When a transcript has fillers to clean up, cleanup adds about a second.</dd></div>
+      <div><dt>Graphics card</dt><dd>Optional, and faster. Any card with Vulkan support, from NVIDIA, AMD or Intel, with its normal driver.</dd></div>
+      <div><dt>Network</dt><dd>Only while the online installer runs, and for the update check if you want one.</dd></div>
+    </dl>
+  </div>
+</section>
+
+<section class="section faq" id="faq" aria-labelledby="faq-title">
+  <div class="wrap">
+    <h2 id="faq-title">Questions</h2>
+    <div class="faq-list">
+      <article class="faq-item">
+        <h3>Is Spells really offline?</h3>
+        <p>Yes. Speech recognition and cleanup run on your PC, and the engines listen only on 127.0.0.1, so you can dictate with the network cable unplugged. The only code that opens an internet connection is the update check, which is off by default and fetches a small version file when you ask for it. The online installer downloads the models once, at install time; the offline installer needs no network at all.</p>
+      </article>
+      <article class="faq-item">
+        <h3>Which languages can I dictate in?</h3>
+        <p>English and German, both excellent, and Albanian, which works with more mistakes. Whisper knows about 100 languages in all and you can add others on the Languages page, but they are not measured and cleanup does not run for them.</p>
+      </article>
+      <article class="faq-item">
+        <h3>Do I need a graphics card?</h3>
+        <p>No. On a desktop Core i7-14700K without a graphics card, English and German take about 1.2 s from key release to text. A graphics card with Vulkan support, from NVIDIA, AMD or Intel, makes it faster.</p>
+      </article>
+      <article class="faq-item">
+        <h3>Is Spells free?</h3>
+        <p>Yes. Spells is free software under GPL-3.0-or-later, with no account and no subscription. The speech and writing models it uses are released under the MIT and Apache-2.0 licences.</p>
+      </article>
+      <article class="faq-item">
+        <h3>Why does Windows warn me about the installer?</h3>
+        <p>The installer is not code-signed yet, so Windows SmartScreen does not recognise it. Select <span class="ui">More info</span>, then <span class="ui">Run anyway</span>. A signed installer is planned.</p>
+      </article>
+      <article class="faq-item">
+        <h3>How is Spells different from Wispr Flow?</h3>
+        <p>It does the same kind of job, dictation with cleanup into any app, but everything runs on your own PC: your speech and text are never sent anywhere, and there is no account or subscription. It runs on Windows 11 only, and its languages today are English, German and Albanian.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="section reference" id="reference" aria-labelledby="reference-title">
+  <div class="wrap">
+    <h2 id="reference-title">Good to know</h2>
+    <dl class="ref-list">
+      <div>
+        <dt>Hotkeys</dt>
+        <dd>Hold Ctrl + Win to dictate. Tap it twice for hands-free, press it again to finish, and Esc cancels. The write and edit hotkeys are empty until you record them on the General page; per-language hotkeys live on the Languages page.</dd>
+      </div>
+      <div>
+        <dt>The tray icon</dt>
+        <dd>Click it to open Settings. Its menu switches the language between Auto and one of yours, turns cleanup on or off, pauses dictation, retries the last dictation and opens History.</dd>
+      </div>
+      <div>
+        <dt>Windows that run as administrator</dt>
+        <dd>Windows does not let the hotkey reach Spells while an app running as administrator has the focus. If the focus moves to one while Spells is working, the text goes to the clipboard.</dd>
+      </div>
+      <div>
+        <dt>Where things are kept</dt>
+        <dd>The app in <code>%LOCALAPPDATA%\Programs\Spells</code>, or in Program Files when installed for all users. Your settings are in <code>%APPDATA%\Spells</code>, and history, logs and any recordings in <code>%LOCALAPPDATA%\Spells</code>. Logs hold no dictated text unless you switch on debug logging.</dd>
+      </div>
+      <div>
+        <dt>Updates</dt>
+        <dd>Press Check for updates on the About page, or switch on the weekly check. An update downloads the installer, checks it against the hash its release was published with, and installs in one click. It never downloads the models again.</dd>
+      </div>
+      <div>
+        <dt>Uninstalling</dt>
+        <dd>Remove Spells from Installed apps in Windows Settings. It asks whether to remove your settings, history and logs as well; they stay unless you tick the box.</dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<section class="section source" id="source" aria-labelledby="source-title">
+  <div class="wrap">
+    <h2 id="source-title">Open source, on the shoulders of open models</h2>
+    <p class="section-lead">Spells is free software under the GNU General Public License, version 3 or later. The code and the build scripts are on <a href="https://github.com/kapidolli/spells">GitHub</a>. It stands on these projects:</p>
+    <div class="table-wrap">
+      <table class="credits">
+        <thead>
+          <tr><th scope="col">Project</th><th scope="col">What it does in Spells</th><th scope="col">Licence</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row"><a href="https://github.com/ggml-org/whisper.cpp">whisper.cpp</a></th><td>Runs Whisper, as a local engine</td><td>MIT</td></tr>
+          <tr><th scope="row"><a href="https://github.com/ggml-org/llama.cpp">llama.cpp</a></th><td>Runs Qwen3-ASR, Gemma 4 and Qwen3.5, as local engines</td><td>MIT</td></tr>
+          <tr><th scope="row">Qwen3-ASR 0.6B</th><td>Speech recognition for English and German</td><td>Apache-2.0</td></tr>
+          <tr><th scope="row"><a href="https://github.com/openai/whisper">Whisper</a> large-v3 turbo</th><td>Speech recognition for Albanian and other languages</td><td>MIT</td></tr>
+          <tr><th scope="row">Gemma 4 E2B</th><td>Cleanup and writing on the processor</td><td>Apache-2.0</td></tr>
+          <tr><th scope="row">Qwen3.5 4B</th><td>Cleanup and writing with a graphics card</td><td>Apache-2.0</td></tr>
+          <tr><th scope="row"><a href="https://github.com/snakers4/silero-vad">Silero VAD</a></th><td>Finds the speech in a recording for Whisper</td><td>MIT</td></tr>
+          <tr><th scope="row"><a href="https://www.qt.io/qt-for-python">PySide6 and Qt</a></th><td>The windows, the pill and the tray</td><td>LGPL-3.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="credits-foot">The full licence texts ship with the app and are on its About page.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-row">
+    <p class="footer-brand"><img src="assets/brand/spells-logo.svg" alt="" width="28" height="28"><span>Spells</span></p>
+    <ul class="footer-links">
+      <li><a href="https://github.com/kapidolli/spells/releases/latest">Latest release</a></li>
+      <li><a href="https://github.com/kapidolli/spells/releases">All releases</a></li>
+      <li><a href="https://github.com/kapidolli/spells">Source code</a></li>
+      <li><a href="llms.txt">llms.txt</a></li>
+      <li><a href="llms-full.txt">llms-full.txt</a></li>
+    </ul>
+    <p class="footer-fine">&copy; 2026 kapidolli. Spells is free software under GPL-3.0-or-later. This site sets no cookies, counts no visitors and loads nothing from any other server.</p>
+  </div>
+</footer>
+</body>
+</html>

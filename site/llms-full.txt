@@ -1,0 +1,189 @@
+# Spells: private, offline voice dictation for Windows
+
+> Spells is free, offline voice typing for Windows 11. Hold a hotkey, speak English, German or Albanian, and let go: clean text appears at the cursor in whatever app has focus. Speech to text and cleanup run on local AI models on your own PC, which makes it a private alternative to Wispr Flow.
+
+- Website: https://kapidolli.github.io/spells/
+- Download (online installer, newest version): https://github.com/kapidolli/spells/releases/latest/download/Spells-Online-Setup.exe
+- Offline installer and all versions: https://github.com/kapidolli/spells/releases/latest
+- Source code: https://github.com/kapidolli/spells
+- Licence: GPL-3.0-or-later
+- Platform: Windows 11, 64-bit
+- Price: free. No account, no subscription.
+
+## How it works
+
+1. Hold the hotkey. Click where the text should go and hold Ctrl + Win. You can record any other chord in Settings.
+2. Speak. The pill at the bottom of the screen shows that Spells is listening. It never takes the focus away from your window.
+3. Let go. Spells tidies the transcript and puts the text at the cursor. It is told to keep names, places, numbers and dates exactly as you said them.
+
+Tap the hotkey twice to keep recording hands-free, then press it once more to finish. Esc cancels. A dictation can run for ten minutes, and the pill tells you when one minute is left.
+
+### What the pill tells you
+
+- Listening: the bars follow your voice.
+- Hands-free: you tapped the hotkey twice. Press it again to finish.
+- Listening while busy: the previous dictation is still being processed. You do not have to wait for it.
+- Processing: your speech is becoming text.
+- Writing (for example "Writing 7s: make this shorter"): the writing model is working on your request, with the seconds counting. Esc cancels it.
+- Copied: the focus moved to another window while Spells was working, so the text went to the clipboard instead. Press Ctrl+V to paste it.
+- Starting engines: the speech engine is still loading, for example just after Spells starts. Your dictation waits for it.
+- A problem, in plain words, for example "Mic is busy" when another app is holding the microphone.
+
+## Features
+
+### Write and edit by voice
+
+- Write hotkey: hold it and say what you want written, for example "Write a short note to Sam asking to move our call to Friday." The finished text appears at the cursor. What you said is the instruction and is never inserted itself.
+- Edit hotkey: select some text, hold the hotkey and say what to change, for example "Make this shorter." The selection is replaced, and your clipboard is put back exactly as it was.
+- Both hotkeys stay empty until you record them. The writing model is Qwen3.5 4B on a PC with a graphics card and Gemma 4 E2B otherwise. On the processor a short email takes several seconds, and the pill counts them.
+
+### Hotkeys and live typing (the General page)
+
+- One hotkey to dictate, and optional write and edit hotkeys beside it.
+- With "Type the words while I speak" on, a draft appears in the field as you talk and corrects itself; the finished text replaces it when you let go. It runs where the speech model keeps up on your hardware: with a graphics card, or with Qwen3-ASR on the processor.
+- The draft stays out of code editors and terminals unless you allow it there, and it never touches your clipboard.
+- Start with Windows, keep the microphone warm for a faster start, and short start and stop sounds.
+
+### Models picked for your languages and your PC (the Languages page)
+
+- Tick the languages you dictate in. Spells recognises which one you are speaking.
+- It chooses the speech and writing models for those languages and your hardware, and says in plain words how well each does and how fast it is.
+- A per-language hotkey dictates one utterance in that language without changing the mode.
+- With graphics built into the processor, Spells measures once whether the graphics or the processor is faster, and uses the faster one.
+
+### Cleanup with a tone for each kind of app (the Writing page)
+
+- A local language model removes fillers and self-corrections and fixes the punctuation.
+- Each profile has a tone: casual in chat, full sentences in email and documents, minimal rewriting in code.
+- If cleanup takes longer than the timeout, or its answer fails a check, you get the raw transcript instead. Your words are never lost to a bad rewrite.
+- Switch cleanup off to insert exactly what was recognised.
+
+### Profiles per app (the Apps page)
+
+- Built-in rules know common chat apps, mail and Word, code editors and terminals, by process name or window title.
+- Add your own rule by clicking a running window.
+- Each rule picks a profile and a delivery method: paste, or type the text key by key where pasting is unwelcome, as in a terminal.
+
+### Your own words (the Vocabulary page)
+
+- Terms: names, products and jargon that recognition should lean towards.
+- Replacements: fix a recurring mistake after every transcript.
+- Snippets: say a short trigger on its own and a longer text is inserted.
+- Import and export the lot as a file.
+
+### A history that stays on your PC (the History page)
+
+- Search what you said and what was written, side by side, with a quality badge for each dictation.
+- Your median words per minute, fillers per 100 words, and how often cleanup changed the text.
+- Keep the last 100, 7 days, 30 days or nothing. Export as JSON, CSV or Markdown.
+- Recordings are not kept unless you switch that on.
+
+## Privacy
+
+Spells is private dictation: it does all of its work on your computer.
+
+- Speech and text are processed on your PC and never sent anywhere.
+- The speech and cleanup engines listen only on 127.0.0.1, the loopback address, so nothing outside your PC can reach them.
+- There is no telemetry, no analytics, no crash reporting and no account.
+- The only code that opens an internet connection is the update check. It is off by default, runs only when you press the button on the About page or switch on the weekly check, and fetches a small version file.
+- The online installer downloads the model files once, at install time, and checks each one against a pinned SHA-256 hash. The offline installer needs no network at all.
+- You can dictate with the network cable unplugged.
+
+## Languages
+
+English and German are excellent. Albanian works, with more mistakes. Spells chooses a speech model per language and runs it locally with whisper.cpp or llama.cpp.
+
+| Language | Quality | Speech model | Speed on a desktop processor alone | Draft while you speak |
+| --- | --- | --- | --- | --- |
+| English | Excellent | Qwen3-ASR 0.6B | about 1.2 s from key release to text | yes |
+| German | Excellent | Qwen3-ASR 0.6B | about 1.2 s from key release to text | yes |
+| Albanian | Usable, weaker | Whisper large-v3 turbo | about 4.5 s for a 15-second dictation | not on the processor |
+
+- English: cleanup removes fillers and self-corrections and keeps your meaning.
+- German: a little behind English in recognition; cleanup is excellent here too.
+- Albanian: Whisper makes noticeably more mistakes here than in English or German. Cleanup is careful: in testing it never changed the meaning, but it often leaves Albanian fillers and self-corrections in. On the processor alone the text appears when you let go; a graphics card is quicker. Albanian on the fast speech model is planned.
+- Word error rate on the project's own test clips: English 7.9%, German 12%, Albanian about 50%. The figures are provisional until the benchmark runs again.
+- Whisper knows about 100 languages in all, and the Languages page lets you add any of them. The others are not measured, and cleanup does not run for them.
+
+## Requirements
+
+- Windows: Windows 11, 64-bit.
+- Rights: none for an install for yourself. An install for all users of the PC asks for administrator rights once.
+- Disk: up to about 5 GB for the app and its models.
+- Processor: enough on its own. On a desktop Core i7-14700K without a graphics card, English and German take about 1.2 s from key release to text. When a transcript has fillers to clean up, cleanup adds about a second.
+- Graphics card: optional, and faster. Any card with Vulkan support, from NVIDIA, AMD or Intel, with its normal driver.
+- Network: only while the online installer runs, and for the update check if you want one.
+
+## Download and install
+
+Every release comes as two installers of the same app. Both let you install for yourself only, with no administrator rights, or for everyone on the PC, which asks for administrator rights once.
+
+### Online installer (the right choice for most people)
+
+About 100 MB. It asks which languages you dictate in, looks at your PC, and downloads only the models those languages and that hardware need. Each file is checked against a pinned SHA-256 hash. With a graphics card it fetches the better writing model, Qwen3.5 4B.
+
+1. Download Spells-Online-Setup.exe: https://github.com/kapidolli/spells/releases/latest/download/Spells-Online-Setup.exe
+2. Run it. If Windows SmartScreen warns you, select More info, then Run anyway.
+3. Choose whether to install for yourself only or for all users of the PC.
+4. Tick the languages you dictate in. The installer downloads the models for them.
+5. Click where the text should go, hold Ctrl + Win and speak.
+
+### Offline installer (for a PC without a network)
+
+About 4.5 GB in several parts. Everything is inside and nothing is downloaded, at install time or later. GitHub limits a file to 2 GiB, so the installer comes as a Setup.exe plus .bin parts (Spells-Setup-version.exe and its .bin parts). Download every part from https://github.com/kapidolli/spells/releases/latest into the same folder, then run the .exe. It carries the models that work on any PC, including Gemma 4 E2B as the writing model.
+
+### Windows will warn you the first time
+
+The installer is not code-signed yet, so Windows SmartScreen says it does not recognise it. Select More info, then Run anyway. A signed installer is planned.
+
+## Good to know
+
+- Hotkeys: hold Ctrl + Win to dictate. Tap it twice for hands-free, press it again to finish, and Esc cancels. The write and edit hotkeys are empty until you record them on the General page; per-language hotkeys live on the Languages page.
+- The tray icon: click it to open Settings. Its menu switches the language between Auto and one of yours, turns cleanup on or off, pauses dictation, retries the last dictation and opens History.
+- Windows that run as administrator: Windows does not let the hotkey reach Spells while an app running as administrator has the focus. If the focus moves to one while Spells is working, the text goes to the clipboard.
+- Where things are kept: the app in %LOCALAPPDATA%\Programs\Spells, or in Program Files when installed for all users. Settings are in %APPDATA%\Spells, and history, logs and any recordings in %LOCALAPPDATA%\Spells. Logs hold no dictated text unless you switch on debug logging.
+- Updates: press Check for updates on the About page, or switch on the weekly check. An update downloads the installer, checks it against the hash its release was published with, and installs in one click. It never downloads the models again.
+- Uninstalling: remove Spells from Installed apps in Windows Settings. It asks whether to remove your settings, history and logs as well; they stay unless you tick the box.
+
+## Questions
+
+### Is Spells really offline?
+
+Yes. Speech recognition and cleanup run on your PC, and the engines listen only on 127.0.0.1, so you can dictate with the network cable unplugged. The only code that opens an internet connection is the update check, which is off by default and fetches a small version file when you ask for it. The online installer downloads the models once, at install time; the offline installer needs no network at all.
+
+### Which languages can I dictate in?
+
+English and German, both excellent, and Albanian, which works with more mistakes. Whisper knows about 100 languages in all and you can add others on the Languages page, but they are not measured and cleanup does not run for them.
+
+### Do I need a graphics card?
+
+No. On a desktop Core i7-14700K without a graphics card, English and German take about 1.2 s from key release to text. A graphics card with Vulkan support, from NVIDIA, AMD or Intel, makes it faster.
+
+### Is Spells free?
+
+Yes. Spells is free software under GPL-3.0-or-later, with no account and no subscription. The speech and writing models it uses are released under the MIT and Apache-2.0 licences.
+
+### Why does Windows warn me about the installer?
+
+The installer is not code-signed yet, so Windows SmartScreen does not recognise it. Select More info, then Run anyway. A signed installer is planned.
+
+### How is Spells different from Wispr Flow?
+
+It does the same kind of job, dictation with cleanup into any app, but everything runs on your own PC: your speech and text are never sent anywhere, and there is no account or subscription. It runs on Windows 11 only, and its languages today are English, German and Albanian.
+
+## Open source and credits
+
+Spells is free software under the GNU General Public License, version 3 or later. The code and the build scripts are on GitHub: https://github.com/kapidolli/spells
+
+| Project | What it does in Spells | Licence |
+| --- | --- | --- |
+| whisper.cpp | Runs Whisper, as a local engine | MIT |
+| llama.cpp | Runs Qwen3-ASR, Gemma 4 and Qwen3.5, as local engines | MIT |
+| Qwen3-ASR 0.6B | Speech recognition for English and German | Apache-2.0 |
+| Whisper large-v3 turbo | Speech recognition for Albanian and other languages | MIT |
+| Gemma 4 E2B | Cleanup and writing on the processor | Apache-2.0 |
+| Qwen3.5 4B | Cleanup and writing with a graphics card | Apache-2.0 |
+| Silero VAD | Finds the speech in a recording for Whisper | MIT |
+| PySide6 and Qt | The windows, the pill and the tray | LGPL-3.0 |
+
+The full licence texts ship with the app and are on its About page.

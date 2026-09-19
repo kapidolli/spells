@@ -1,0 +1,32 @@
+# Spells
+
+> Spells is a free, open-source voice dictation app for Windows 11: hold a hotkey, speak English, German or Albanian, let go, and cleaned-up text appears at the cursor in whatever app has focus, with speech recognition and cleanup running offline on your own PC.
+
+Spells is a desktop app for Windows 11 (64-bit), licensed GPL-3.0-or-later, with no account, no subscription, no telemetry and no analytics. Speech to text and cleanup run locally with whisper.cpp and llama.cpp, on the processor or on a Vulkan graphics card (NVIDIA, AMD or Intel): Qwen3-ASR 0.6B recognises English and German, Whisper large-v3 turbo recognises Albanian and other languages, and Gemma 4 E2B or Qwen3.5 4B removes fillers and self-corrections and writes text on request. Speech and text are processed on the PC and never sent anywhere; the engines listen only on 127.0.0.1. The only code that opens an internet connection is the update check, which is off by default. English and German are excellent; Albanian works, with more mistakes. On a desktop Core i7-14700K without a graphics card, English and German take about 1.2 s from key release to text. Install it with the online installer (about 100 MB; it downloads only the models your languages and hardware need and checks each file against a pinned SHA-256 hash) or the offline installer (about 4.5 GB, a Setup.exe plus .bin parts, no network needed). Either one installs for the current user without administrator rights, or for all users of the PC after asking for administrator rights once. The installer is not code-signed yet, so Windows SmartScreen warns the first time: select More info, then Run anyway.
+
+## Docs
+
+- [Website](https://kapidolli.github.io/spells/): overview, features, privacy, languages, download and questions
+- [Full description for assistants](https://kapidolli.github.io/spells/llms-full.txt): everything on the website as plain Markdown
+- [README](https://github.com/kapidolli/spells/blob/main/README.md): what Spells is and how to set up a development checkout
+- [CHANGELOG](https://github.com/kapidolli/spells/blob/main/CHANGELOG.md): what changed in each release, in the words the app uses
+- [LICENSE](https://github.com/kapidolli/spells/blob/main/LICENSE): GNU General Public License, version 3 or later
+
+## Download
+
+- [Online installer, newest version](https://github.com/kapidolli/spells/releases/latest/download/Spells-Online-Setup.exe): direct download of Spells-Online-Setup.exe, about 100 MB, always the latest release
+- [Latest release](https://github.com/kapidolli/spells/releases/latest): the online installer and the offline installer with its .bin parts
+- [Models release models-v1](https://github.com/kapidolli/spells/releases/tag/models-v1): the Qwen3-ASR 0.6B Q4_K_M file the installers download; the other models come from their Hugging Face repositories
+
+## Source
+
+- [Repository](https://github.com/kapidolli/spells): the whole project on GitHub
+- [src/spells](https://github.com/kapidolli/spells/tree/main/src/spells): the app, written in Python with PySide6
+- [build/package.py](https://github.com/kapidolli/spells/blob/main/build/package.py): builds the online and offline installers
+
+## Optional
+
+- [Model catalog](https://github.com/kapidolli/spells/blob/main/data/models/catalog.json): every speech and writing model with its measured quality per language and its speed
+- [All releases](https://github.com/kapidolli/spells/releases): every published version
+- [whisper.cpp](https://github.com/ggml-org/whisper.cpp): the engine that runs Whisper
+- [llama.cpp](https://github.com/ggml-org/llama.cpp): the engine that runs Qwen3-ASR, Gemma 4 and Qwen3.5

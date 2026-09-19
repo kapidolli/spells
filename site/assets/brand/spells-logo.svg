@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>Spells</title>
+  <defs>
+    <linearGradient id="spells-tile" x1="16" y1="16" x2="240" y2="240" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5B3CF0"/>
+      <stop offset="1" stop-color="#16B4E8"/>
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="224" height="224" rx="56" fill="url(#spells-tile)"/>
+  <g fill="#FFFFFF">
+    <rect id="spells-bar-1" x="32" y="96" width="32" height="64" rx="16"/>
+    <rect id="spells-bar-2" x="80" y="64" width="32" height="128" rx="16"/>
+    <path id="spells-spark" d="M172 48 Q181.9 113.1 216 132 Q181.9 150.9 172 216 Q162.1 150.9 128 132 Q162.1 113.1 172 48Z"/>
+    <path id="spells-glint" d="M206 36 Q211.5 56.5 232 62 Q211.5 67.5 206 88 Q200.5 67.5 180 62 Q200.5 56.5 206 36Z"/>
+  </g>
+</svg>
