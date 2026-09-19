@@ -16,6 +16,11 @@ the two can never say different things.
 - A signed installer, so Windows stops warning about it.
 - Reading the few characters before the cursor, so spacing and capitals follow the text already there.
 
+### Fixed
+
+- The editing hotkey now replaces the selection when you say "replace it with" or "change it to" a word. The writing model used to keep the selected word and add the new one after it, so "PyMCA" with "replace it with iMac" became "PyMCA iMac" instead of "iMac".
+- An edit keeps the spaces around the selection, so replacing a double-clicked word no longer runs it into the next one.
+
 ## [0.5.1] - 2026-09-19
 
 The online installer starts again.

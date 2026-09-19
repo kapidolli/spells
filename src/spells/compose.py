@@ -360,7 +360,15 @@ def compose(
     if rejection is not None:
         log.info("writing output rejected: %s", rejection)
         return result("", False, rejection)
-    return result(tidy(output, spoken), True, "ok")
+    return result(keep_edges(selection, tidy(output, spoken)), True, "ok")
+
+
+def keep_edges(selection: str, text: str) -> str:
+    core = selection.strip()
+    if not core or not text:
+        return text
+    start = selection.index(core)
+    return selection[:start] + text + selection[start + len(core):]
 
 
 _SUBJECT_LINE = re.compile(r"^\s*(subject|betreff|subjekti|tema)\s*:", re.IGNORECASE)

@@ -74,7 +74,7 @@ class Clock:
 
 def test_the_system_prompt_is_pinned_so_the_engine_keeps_it_cached():
     digest = hashlib.sha256(SYSTEM_PROMPT.encode("utf-8")).hexdigest()
-    assert digest == "751b027280f37b95a8ae78657d3f8a4d72212d94cfad5359e5f32cac08a9735d"
+    assert digest == "e45611b3589fc8beac982522497a12c92af934e216ef7a8ffd33911f23efa432"
 
 
 def test_the_system_prompt_is_byte_identical_on_every_call():
@@ -484,3 +484,30 @@ def test_the_system_prompt_forbids_placeholders_and_invented_facts():
     assert "never write placeholders" in lowered
     assert "never invent facts" in lowered
     assert "such as [date] rather than" not in lowered
+
+
+def test_the_system_prompt_says_a_replacement_drops_the_selected_text():
+    assert "output only the new words and drop the selected text entirely" in SYSTEM_PROMPT
+    assert 'Selected "PyMCA" with "replace it with iMac" gives "iMac"' in SYSTEM_PROMPT
+
+
+@pytest.mark.parametrize(
+    ("selection", "expected"),
+    [
+        ("PyMCA ", "iMac "),
+        (" PyMCA", " iMac"),
+        ("\tPyMCA\n", "\tiMac\n"),
+        ("PyMCA", "iMac"),
+    ],
+)
+def test_an_edit_keeps_the_spaces_around_the_selection_it_replaces(selection, expected):
+    result = write("replace it with iMac", FakeWriter(content="iMac"), selection=selection, mode=ChordMode.EDIT)
+
+    assert result.ok
+    assert result.text == expected
+
+
+def test_a_written_text_gets_no_spaces_added():
+    result = write("write iMac", FakeWriter(content="iMac"))
+
+    assert result.text == "iMac"

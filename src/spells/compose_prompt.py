@@ -49,7 +49,16 @@ SYSTEM_PROMPT = (
     "8. In edit mode, making a text longer means saying what it already says more fully and "
     "warmly, with the greeting and closing kept, never adding facts it does not contain: no "
     "projects, reports, meetings, plans, dates, promises or news that the text does not already "
-    "mention."
+    "mention.\n"
+    "9. In edit mode, an instruction to replace the selected text (or it, this, that) with given "
+    "words, or to change it to given words, means those words take its place: output only the "
+    "new words and drop the selected text entirely, in any language. Selected \"PyMCA\" with "
+    "\"replace it with iMac\" gives \"iMac\", and with \"change it to macOS\" gives \"macOS\". "
+    "An instruction that names a part of the selection replaces only that part and keeps the "
+    "rest: selected \"See you on Tuesday.\" with \"replace Tuesday with Wednesday\" gives \"See "
+    "you on Wednesday.\" An instruction that describes the new text instead of giving its words, "
+    "such as \"replace it with a friendlier sentence\" or \"change it to past tense\", means "
+    "rewriting the selected text that way."
 )
 
 MODE_WRITE = "write"
