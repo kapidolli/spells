@@ -414,8 +414,8 @@ class GeneralTab(ScrollPage):
             SettingRow(
                 "Type the words while I speak",
                 "A draft appears in the box as you talk and corrects itself; the finished "
-                "text replaces it when you let go. Needs a graphics card fast enough to "
-                "keep up, and stays off otherwise.",
+                "text replaces it when you let go. Needs a speech model fast enough on "
+                "this computer to keep up, and stays off otherwise.",
                 self.live_text,
             )
         )

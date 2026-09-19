@@ -917,15 +917,25 @@ def online_installer_basename(version: str) -> str:
     return f"{APP_NAME}-Online-Setup-{version}"
 
 
-def offline_artifact_name(version: str, bundle: Bundle | None = None) -> str:
-    """What to hand somebody with no network: the zip when the build spans, else the exe.
+ONLINE_ALIAS_NAME = f"{APP_NAME}-Online-Setup.exe"
 
-    The online installer names it in every download failure, so it has to be the file that
-    actually exists in dist.
+
+def latest_online_alias(installer: Path) -> Path:
+    alias = installer.parent / ONLINE_ALIAS_NAME
+    shutil.copyfile(installer, alias)
+    return alias
+
+
+def offline_artifact_name(version: str, bundle: Bundle | None = None) -> str:
+    """What to hand somebody with no network: the exe with its slices when the build spans.
+
+    The online installer names it in every download failure, so it has to be what a release
+    publishes. GitHub takes no file above 2 GiB, so a spanned build is published as the exe
+    and its .bin parts rather than as the zip.
     """
     models = model_bytes((bundle or default_bundle()).models)
     if needs_spanning(estimate_compressed_bytes(models + VAD_MODEL_BYTES)):
-        return f"{installer_basename(version)}.zip"
+        return f"{installer_basename(version)}.exe with its .bin parts"
     return f"{installer_basename(version)}.exe"
 
 
@@ -1528,6 +1538,8 @@ def step_installer_online(version: str, manifest: Sequence[ModelDownload],
     run(command, cwd=OUT_DIR, title="ISCC")
     if not installer.is_file():
         raise PackageError(f"ISCC reported success but {installer} is missing")
+    alias = latest_online_alias(installer)
+    print(f"  copied it to {alias.name}, the name the website's download link uses", flush=True)
     return installer
 
 

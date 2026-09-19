@@ -17,8 +17,10 @@
 ; are generated from build/pins.json and data/models/catalog.json, so nothing about which model
 ; serves which machine is written by hand here.
 ;
-; The installer asks for no elevation: PrivilegesRequired=lowest puts it in the user's own
-; AppData and its Add/Remove Programs entry in HKCU. Setup never writes the autostart Run
+; By default the installer asks for no elevation: PrivilegesRequired=lowest installs for the
+; current user under %LOCALAPPDATA%\Programs with its Add/Remove Programs entry in HKCU. The
+; install mode dialog (or /ALLUSERS) offers an install for all users under Program Files
+; instead, which asks for administrator rights once. Setup never writes the autostart Run
 ; value; the app owns that (spec 15) and the uninstaller only cleans it up.
 
 [Setup]
@@ -28,7 +30,7 @@ AppVersion=@@APP_VERSION@@
 AppVerName=Spells @@APP_VERSION@@
 AppPublisher=Spells
 VersionInfoVersion=@@VERSION_INFO@@
-DefaultDirName={localappdata}\Programs\Spells
+DefaultDirName={autopf}\Spells
 DefaultGroupName=Spells
 DisableProgramGroupPage=yes
 UninstallDisplayName=Spells
@@ -38,6 +40,7 @@ OutputDir=@@OUTPUT_DIR@@
 OutputBaseFilename=@@OUTPUT_BASENAME@@
 ; No UAC prompt and a per-user Add/Remove Programs entry (19.5).
 PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog commandline
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 ; No model weights in this payload, so the whole thing compresses.
@@ -112,6 +115,7 @@ const
   ExclusiveWriteMode = $0012;
   RunKey = 'Software\Microsoft\Windows\CurrentVersion\Run';
   RunValue = 'Spells';
+  UninstallKey = 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{9D5B0F4E-3E2A-4C7A-9C3E-2A1D6B8F41C7}_is1';
   { Where the models come from, fixed when this installer was built: empty for the pinned
     public addresses, or the folder --model-mirror named. The wizard never shows it and the
     installed program cannot change it. }
@@ -835,6 +839,36 @@ begin
     Result := (Form.ShowModal() = mrOk) and Box.Checked;
   finally
     Form.Free();
+  end;
+end;
+
+function OtherInstallModeHasSpells(): Boolean;
+begin
+  if IsAdminInstallMode() then
+    Result := RegKeyExists(HKEY_CURRENT_USER, UninstallKey)
+  else
+    Result := RegKeyExists(HKEY_LOCAL_MACHINE, UninstallKey);
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Result := True;
+  if not OtherInstallModeHasSpells() then
+    Exit;
+  Result := False;
+  if IsAdminInstallMode() then
+  begin
+    Log('Spells: refusing an all-users install beside the copy installed for this user only');
+    SuppressibleMsgBox('Spells is already installed for your account only. Uninstall that copy first ' +
+      '(Settings, Apps, Installed apps), then run this installer again to install Spells for all users.',
+      mbError, MB_OK, IDOK);
+  end
+  else
+  begin
+    Log('Spells: refusing a per-user install beside the copy installed for all users');
+    SuppressibleMsgBox('Spells is already installed for all users of this computer, so it is ready ' +
+      'for your account too. To update it, run this installer again and choose Install for all users.',
+      mbError, MB_OK, IDOK);
   end;
 end;
 

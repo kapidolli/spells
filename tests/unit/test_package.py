@@ -284,7 +284,7 @@ def test_the_rendered_script_carries_every_directive_spec_19_5_asks_for():
     text = package.render_iss(_template(), _values())
 
     assert "PrivilegesRequired=lowest" in text
-    assert r"DefaultDirName={localappdata}\Programs\Spells" in text
+    assert r"DefaultDirName={autopf}\Spells" in text
     # Inno checks AppMutex when Setup and Uninstall start, before PrepareToInstall, so a running
     # instance would stop the wizard (and abort a silent upgrade) before --quit could close it.
     assert "AppMutex=" not in text
@@ -298,12 +298,25 @@ def test_the_rendered_script_carries_every_directive_spec_19_5_asks_for():
     assert "REMOVEDATA" in text
 
 
-def test_the_rendered_script_never_asks_for_elevation_and_never_writes_the_run_value():
+def test_the_rendered_script_asks_for_elevation_only_when_the_user_picks_all_users():
     text = package.render_iss(_template(), _values())
 
-    assert "PrivilegesRequiredOverridesAllowed" not in text
+    assert "PrivilegesRequired=lowest" in text
+    assert "PrivilegesRequiredOverridesAllowed=dialog commandline" in text
+    assert "PrivilegesRequired=admin" not in text
     assert "requestedExecutionLevel" not in text
     assert "[Registry]" not in text  # the app writes its own Run value (spec 15)
+
+
+@pytest.mark.parametrize("which", ["offline", "online"])
+def test_the_installer_refuses_a_second_copy_in_the_other_install_mode(which):
+    text = package.render_iss(_template(), _values()) if which == "offline" else _rendered()
+
+    assert "function InitializeSetup(): Boolean;" in text
+    assert "IsAdminInstallMode()" in text
+    assert r"Uninstall\{9D5B0F4E-3E2A-4C7A-9C3E-2A1D6B8F41C7}_is1" in text
+    assert "RegKeyExists(HKEY_CURRENT_USER, UninstallKey)" in text
+    assert "RegKeyExists(HKEY_LOCAL_MACHINE, UninstallKey)" in text
 
 
 def test_the_uninstaller_removes_the_run_value_and_only_then_the_data_folders():
@@ -887,7 +900,7 @@ def test_the_current_default_bundle_spans_into_setup_exe_and_two_slices():
     assert estimate == 4_558_398_453
     assert package.needs_spanning(estimate) is True
     assert package.slice_count(estimate) == 3
-    assert package.offline_artifact_name("0.1.0") == "Spells-Setup-0.1.0.zip"
+    assert package.offline_artifact_name("0.1.0") == "Spells-Setup-0.1.0.exe with its .bin parts"
 
 
 def test_the_q4_k_m_bundle_is_smaller_than_the_q8_0_one_would_have_been():
@@ -1525,7 +1538,7 @@ def test_a_failed_download_offers_a_retry_going_on_without_the_model_or_stopping
 def test_a_failed_download_names_the_offline_installer_as_the_way_out():
     text = _rendered()
 
-    assert "OfflineInstallerName = 'Spells-Setup-0.1.0.zip';" in text
+    assert "OfflineInstallerName = 'Spells-Setup-0.1.0.exe with its .bin parts';" in text
     assert "which carries every model already, is the one to use on a " in text
 
 
@@ -1673,11 +1686,12 @@ def test_the_uninstaller_removes_every_downloadable_model_and_the_first_run_file
     assert 'Type: filesandordirs; Name: "{app}"' in text
 
 
-def test_the_online_installer_stays_per_user_with_no_elevation():
+def test_the_online_installer_defaults_to_this_user_and_offers_all_users():
     text = _rendered()
 
     assert "PrivilegesRequired=lowest" in text
-    assert r"DefaultDirName={localappdata}\Programs\Spells" in text
+    assert "PrivilegesRequiredOverridesAllowed=dialog commandline" in text
+    assert r"DefaultDirName={autopf}\Spells" in text
     assert "AppId={{9D5B0F4E-3E2A-4C7A-9C3E-2A1D6B8F41C7}" in text
     assert "DiskSpanning" not in text
 
@@ -2043,3 +2057,15 @@ def test_the_sign_script_takes_the_file_as_inno_setup_passes_it():
 
     assert args[-1] == str(target)
     assert args[:3] == ["powershell", "-NoProfile", "-File"]
+
+
+def test_the_online_installer_also_gets_a_name_that_always_means_the_newest(tmp_path):
+    installer = tmp_path / "Spells-Online-Setup-0.5.0.exe"
+    installer.write_bytes(b"new installer")
+    (tmp_path / "Spells-Online-Setup.exe").write_bytes(b"stale installer")
+
+    alias = package.latest_online_alias(installer)
+
+    assert alias == tmp_path / "Spells-Online-Setup.exe"
+    assert alias.read_bytes() == b"new installer"
+    assert installer.read_bytes() == b"new installer"

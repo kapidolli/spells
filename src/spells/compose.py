@@ -32,10 +32,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from spells.cleanup import starts_with_preamble
 from spells.compose_prompt import system_prompt, user_message
+from spells.loopback import urlopen
 from spells.models import ChordMode, ComposeResult
 from spells.textutil import normalize_for_match, word_count
 

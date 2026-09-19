@@ -16,6 +16,20 @@ the two can never say different things.
 - A signed installer, so Windows stops warning about it.
 - Reading the few characters before the cursor, so spacing and capitals follow the text already there.
 
+## [0.5.0] - 2026-09-19
+
+Install it for everyone on the PC, and a privacy fix for computers with a proxy.
+
+### Added
+
+- The installers ask whether to install Spells for you only, which needs no administrator rights, or for everyone who uses this PC, which asks for them once. An installation for everyone goes to Program Files, and each person keeps their own settings and history.
+
+### Fixed
+
+- With a proxy server set by hand in Windows or in an environment variable, Spells sent the requests to its own engines on this computer through that proxy, recordings and text included. They now always go straight to the engines and never leave the PC.
+- When a model download fails, the online installer now names the offline installer as it is published: the .exe with its .bin parts.
+- The live typing switch no longer says it needs a graphics card, since it runs on the processor too.
+
 ## [0.4.0] - 2026-09-19
 
 The first public release. Spells is now open source under the GNU General Public License, version 3 or later.
@@ -110,5 +124,6 @@ and learned to tell you when there is a newer version.
 - A microphone that delivers no sound now says so instead of reporting a failed transcription.
 - Blocks of sound the card drops mid-recording are counted and shown, so a dictation that is missing words says why.
 
-[Unreleased]: https://github.com/kapidolli/spells/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/kapidolli/spells/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/kapidolli/spells/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kapidolli/spells/releases/tag/v0.4.0

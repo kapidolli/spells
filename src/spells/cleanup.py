@@ -12,10 +12,11 @@ import json
 from dataclasses import dataclass
 from functools import cache, lru_cache
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from spells.cleanup_prompt import system_prompt, user_message
 from spells.datafiles import data_dir, read_lines
+from spells.loopback import urlopen
 from spells.models import CleanResult, Profile, Transcript
 from spells.textutil import contains_phrase, normalize_for_match, word_count
 

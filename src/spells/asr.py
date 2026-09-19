@@ -26,9 +26,10 @@ from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 from urllib.error import HTTPError
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 from spells.datafiles import data_path, read_lines
+from spells.loopback import urlopen
 from spells.models import LangMode, LanguageCode, Transcript
 from spells.quality import AsrMetrics, metrics_from_verbose_json
 from spells.textutil import normalize_for_match
