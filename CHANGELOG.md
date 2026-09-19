@@ -16,6 +16,14 @@ the two can never say different things.
 - A signed installer, so Windows stops warning about it.
 - Reading the few characters before the cursor, so spacing and capitals follow the text already there.
 
+## [0.5.1] - 2026-09-19
+
+The online installer starts again.
+
+### Fixed
+
+- The online installer stopped right at the start with an internal error about the "app" constant. It now opens normally, and an update still skips the models you already have.
+
 ## [0.5.0] - 2026-09-19
 
 Install it for everyone on the PC, and a privacy fix for computers with a proxy.
@@ -124,6 +132,7 @@ and learned to tell you when there is a newer version.
 - A microphone that delivers no sound now says so instead of reporting a failed transcription.
 - Blocks of sound the card drops mid-recording are counted and shown, so a dictation that is missing words says why.
 
-[Unreleased]: https://github.com/kapidolli/spells/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/kapidolli/spells/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/kapidolli/spells/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/kapidolli/spells/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kapidolli/spells/releases/tag/v0.4.0
