@@ -2069,3 +2069,14 @@ def test_the_online_installer_also_gets_a_name_that_always_means_the_newest(tmp_
     assert alias == tmp_path / "Spells-Online-Setup.exe"
     assert alias.read_bytes() == b"new installer"
     assert installer.read_bytes() == b"new installer"
+
+
+def test_the_online_wizard_reads_the_chosen_folder_not_the_app_constant_while_it_starts():
+    text = _rendered()
+    start = text.index("function AlreadyInstalled(Index: Integer): Boolean;")
+    body = text[start:text.index("end;", start)]
+
+    assert "ExpandConstant('{app}" not in body
+    assert r"AddBackslash(WizardDirValue()) + 'models\'" in body
+    assert "procedure CurPageChanged(CurPageID: Integer);" in text
+    assert "if CurPageID = LanguagePage.ID then" in text

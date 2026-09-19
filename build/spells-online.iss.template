@@ -427,7 +427,7 @@ var
   Size: Int64;
 begin
   Result := False;
-  Existing := ExpandConstant('{app}\models\') + ModelFiles[Index].Name;
+  Existing := AddBackslash(WizardDirValue()) + 'models\' + ModelFiles[Index].Name;
   if not FileExists(Existing) then
     Exit;
   if not FileSize64(Existing, Size) then
@@ -764,6 +764,12 @@ begin
   DownloadPage := CreateDownloadPage('Downloading the models',
     'Each file is checked against the hash this build records for it before it is kept.',
     @OnDownloadProgress);
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = LanguagePage.ID then
+    LanguagesClicked(nil);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
