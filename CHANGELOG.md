@@ -20,6 +20,7 @@ the two can never say different things.
 
 - The editing hotkey now replaces the selection when you say "replace it with" or "change it to" a word. The writing model used to keep the selected word and add the new one after it, so "PyMCA" with "replace it with iMac" became "PyMCA iMac" instead of "iMac".
 - An edit keeps the spaces around the selection, so replacing a double-clicked word no longer runs it into the next one.
+- A graphics card fitted after Spells was first started is now used. Spells kept the graphics built into the processor that it had chosen on the first start, so a desktop that later got a graphics card of its own went on running everything on the processor.
 
 ## [0.5.1] - 2026-09-19
 

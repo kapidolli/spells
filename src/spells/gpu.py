@@ -271,7 +271,9 @@ def select_device(
 
     An override (a raw index or a device name from the Diagnostics dropdown) wins when the probe
     still lists it. Otherwise a cached (raw_index, name) pair from settings is kept while the
-    device at that index still has that name. Otherwise the rule of decision B3-59: a discrete
+    device at that index still has that name and no device is in a better class, so a discrete
+    GPU fitted after the first start takes over from a cached integrated one. Otherwise the
+    rule of decision B3-59: a discrete
     GPU beats an integrated one (the uma flag learned through whisper_server; without it every
     device counts as unknown), and within a class the most reported memory wins, the lower raw
     index on a tie. No device at all gives raw_index None.
@@ -293,7 +295,12 @@ def select_device(
             logger.warning("GPU override %r is not among the probed devices; ignored", override)
     if chosen is None and cached is not None:
         candidate = _find(devices, cached[0])
-        if candidate is not None and candidate.name == cached[1]:
+        best_class = min(_class_rank(device) for device in devices)
+        if (
+            candidate is not None
+            and candidate.name == cached[1]
+            and _class_rank(candidate) == best_class
+        ):
             chosen = candidate
     if chosen is None:
         chosen = min(devices, key=lambda d: (_class_rank(d), -d.memory_mb, d.raw_index or 0))

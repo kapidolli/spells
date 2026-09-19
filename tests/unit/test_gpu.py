@@ -296,16 +296,31 @@ def test_select_prefers_the_discrete_gpu_over_the_integrated_one_with_more_memor
     assert [index for index, _, _ in runner.whisper_calls] == ["0", "1"]
 
 
-def test_select_override_and_cached_still_win_over_the_class_rule():
+def test_select_override_still_wins_over_the_class_rule():
     runner = two_gpu_runner(REAL_BACKEND)
     by_index = select_device(LLAMA, override=1, env={}, runner=runner, whisper_server=WHISPER)
     assert (by_index.raw_index, by_index.name) == (1, AMD)
     by_name = select_device(LLAMA, override=AMD, env={}, runner=runner, whisper_server=WHISPER)
     assert (by_name.raw_index, by_name.name) == (1, AMD)
-    cached = select_device(LLAMA, cached=(1, AMD), env={}, runner=runner, whisper_server=WHISPER)
-    assert (cached.raw_index, cached.name) == (1, AMD)
     stale = select_device(LLAMA, cached=(1, RTX), env={}, runner=runner, whisper_server=WHISPER)
     assert (stale.raw_index, stale.name) == (0, RTX)
+
+
+def test_a_cached_integrated_gpu_gives_way_to_a_discrete_one_that_appeared_later():
+    runner = two_gpu_runner(REAL_BACKEND)
+
+    selection = select_device(LLAMA, cached=(1, AMD), env={}, runner=runner, whisper_server=WHISPER)
+
+    assert (selection.raw_index, selection.name) == (0, RTX)
+
+
+def test_a_cached_gpu_is_kept_when_no_device_is_in_a_better_class():
+    runner = make_runner({None: TWO_DEVICES, "0": ONE_RTX, "1": ONE_AMD},
+                         backend={"0": AMD_BACKEND.replace(AMD, RTX), "1": AMD_BACKEND})
+
+    selection = select_device(LLAMA, cached=(0, RTX), env={}, runner=runner, whisper_server=WHISPER)
+
+    assert (selection.raw_index, selection.name) == (0, RTX)
 
 
 def test_select_falls_back_to_most_memory_when_the_backend_probe_fails():
