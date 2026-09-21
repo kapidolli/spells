@@ -629,7 +629,7 @@ class CleanupTab(ScrollPage):
         self.timeout.setSuffix(" ms")
         self.timeout.setMinimumWidth(120)
         self.timeout.editingFinished.connect(self._on_timeout)
-        main.add_row(SettingRow("Timeout", "When cleanup takes longer than this, the raw transcript is used.", self.timeout))
+        main.add_row(SettingRow("Timeout", "Base limit before using the raw transcript. On the processor, longer text gets 5 to 15 seconds unless this limit is higher.", self.timeout))
         self.add_section("Cleanup", main)
 
         tones = Card(self.body)

@@ -16,7 +16,17 @@ the two can never say different things.
 - A signed installer, so Windows stops warning about it.
 - Reading the few characters before the cursor, so spacing and capitals follow the text already there.
 
+## [0.5.2] - 2026-09-21
+
+GPU changes take effect immediately, and longer dictations get cleanup on the processor too.
+
 ### Fixed
+
+- Changing the GPU in Diagnostics now rebuilds the engine and model configuration together. A previous processor-only choice no longer keeps both engines on the CPU after selecting a graphics card.
+- Speed measurements from the previous GPU no longer change the new device's model configuration.
+- Cleanup now checks dictations of 12 words or more on the processor even when no filler or correction phrase is recognized. Shorter text still gets cleanup when one of those phrases is present.
+- Processor cleanup has a length-based timeout of 5 to 15 seconds instead of giving up after 2.5 seconds. A longer user-configured timeout is preserved, and failed or rejected cleanup still returns the raw transcript.
+- History descriptions now distinguish skipped cleanup from text that has actually been checked. Speech recognition can still make mistakes, and cleanup cannot reliably reconstruct missing or misheard words.
 
 - The editing hotkey now replaces the selection when you say "replace it with" or "change it to" a word. The writing model used to keep the selected word and add the new one after it, so "PyMCA" with "replace it with iMac" became "PyMCA iMac" instead of "iMac".
 - An edit keeps the spaces around the selection, so replacing a double-clicked word no longer runs it into the next one.

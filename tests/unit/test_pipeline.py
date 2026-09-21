@@ -1413,14 +1413,31 @@ def test_a_dead_fast_engine_is_restarted_by_its_id(tmp_path):
     assert h.history.entries[-1].raw_text == LONG_TEXT
 
 
-def test_processor_hardware_delivers_clean_text_raw(tmp_path):
+def test_processor_hardware_cleans_long_text_without_fillers(tmp_path):
     engines = FakeEngines()
     engines.cpu_only = True
     h = Harness(tmp_path, engines=engines)
     h.dictate()
-    assert h.llama.calls == []
-    assert h.history.entries[-1].cleanup_reason == "clean_text"
-    assert h.delivered_texts() == [LONG_TEXT]
+    assert len(h.llama.calls) == 1
+    assert h.history.entries[-1].cleanup_reason == "ok"
+    assert h.delivered_texts() == [CLEANED]
+
+
+@pytest.mark.parametrize("words,configured_ms,expected_s", [
+    (12, 2500, 5.0), (80, 2500, 10.5), (200, 2500, 15.0), (80, 20000, 20.0),
+])
+def test_cpu_cleanup_timeout_scales_with_text_and_respects_longer_configuration(
+    tmp_path, words, configured_ms, expected_s,
+):
+    engines = FakeEngines()
+    engines.cpu_only = engines.cpu_cleanup_allowed = True
+    engines.variants[LLAMA] = "cpu"
+    text = " ".join(["hello"] * words)
+    whisper = FakeWhisperClient(responses=[{"text": text, "language": "english"}])
+    h = Harness(tmp_path, engines=engines, whisper=whisper,
+                settings=cleanup_settings(timeout_ms=configured_ms))
+    h.dictate()
+    assert h.llama_factory.calls == [("http://127.0.0.1:9002", expected_s)]
 
 
 def test_processor_hardware_cleans_a_transcript_with_a_filler(tmp_path):

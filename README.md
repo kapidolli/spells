@@ -57,9 +57,9 @@ A small language model running on your PC tidies each transcript:
 - fixes punctuation, capitals and obvious recognition errors
 - keeps every name, place, number and date exactly as you said it
 
-The model is told never to answer questions or follow instructions in your text, only to clean it. If it takes too long (2.5 seconds by default), fails, or returns something that does not look like your sentence (much shorter or longer, a preamble such as "Sure, here is", or another language), Spells inserts the raw transcript instead, so you never lose your words. You can switch cleanup off to insert exactly what was recognised.
+The model is told never to answer questions or follow instructions in your text, only to clean it. If it takes too long (2.5 seconds by default on a graphics card, 5 to 15 seconds depending on text length on the processor), fails, or returns something that does not look like your sentence (much shorter or longer, a preamble such as "Sure, here is", or another language), Spells inserts the raw transcript instead, so you never lose your words. A longer configured timeout is preserved. You can switch cleanup off to insert exactly what was recognised.
 
-To save time, cleanup is skipped when there is nothing to clean. On a PC without a graphics card it runs only when the transcript contains a filler or correction phrase from your lists; with a graphics card it skips transcripts under 12 words that contain none. The filler and correction lists for each language are yours to edit on the Writing page.
+On both the processor and a graphics card, cleanup runs on transcripts of 12 words or more. Shorter transcripts are skipped unless they contain a filler or correction phrase from your lists. Skipping is a speed choice, not a guarantee that the text is correct. Speech recognition can still mishear words, and cleanup cannot reliably reconstruct the intended wording. The filler and correction lists for each language are yours to edit on the Writing page.
 
 ### App profiles
 

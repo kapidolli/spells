@@ -39,7 +39,7 @@ from spells.config import (
     with_enabled_languages,
 )
 from spells.engines import EnginePaths, EngineSupervisor
-from spells.gpu import NO_GPU, GpuSelection, select_device
+from spells.gpu import NO_GPU, GpuSelection, choose_device, select_device
 from spells.history import HistoryStore
 from spells.hotkey import HotkeyThread
 from spells.modelcatalog import (
@@ -478,6 +478,8 @@ class _App:
         self._idle_minutes: int | None = None
         self._debug_logging: bool | None = None
         self._gpu: GpuSelection = NO_GPU
+        self._gpu_override: int | None = None
+        self._model_lock = threading.RLock()
         self._catalog: Sequence[CatalogModel] | None = None
         self._languages: tuple[str, ...] = ()
         self._models: ModelSetup | None = None
@@ -522,6 +524,7 @@ class _App:
 
         selection = self._probe_gpu(settings)
         self._gpu = selection
+        self._gpu_override = settings.diagnostics.gpu_device_override
         self._catalog = self._load_catalog()
         self._languages = tuple(settings.general.enabled_languages)
         self._calibrations = self._load_calibrations(selection)
@@ -732,21 +735,24 @@ class _App:
             results.append(result)
         if not results:
             return
-        try:
-            calibrate.save(calibrate.store_path(self._layout.settings_path), results)
-        except Exception:
-            log.exception("The speed measurements could not be saved")
-        merged = dict(self._calibrations)
-        merged.update({result.model_id: result for result in results})
-        self._calibrations = merged
-        self._apply_models(self._languages)
+        with self._model_lock:
+            if calibrator.cancelled or calibrator is not self._calibrator:
+                return
+            try:
+                calibrate.save(calibrate.store_path(self._layout.settings_path), results)
+            except Exception:
+                log.exception("The speed measurements could not be saved")
+            merged = dict(self._calibrations)
+            merged.update({result.model_id: result for result in results})
+            self._calibrations = merged
+            self._apply_models(self._languages)
 
     def _cancel_calibration(self) -> None:
         calibrator, self._calibrator = self._calibrator, None
         if calibrator is not None:
             calibrator.cancel()
 
-    def _apply_models(self, languages: tuple[str, ...]) -> None:
+    def _apply_models(self, languages: tuple[str, ...], *, force: bool = False) -> None:
         try:
             models = model_setup(
                 self._layout, self._gpu, languages, self._catalog, self._calibrations
@@ -760,7 +766,7 @@ class _App:
         set_selection = getattr(self._pipeline, "set_selection", None)
         if callable(set_selection):
             set_selection(models.selection)
-        if current is not None and (
+        if not force and current is not None and (
             current.paths,
             current.cpu_only,
             current.cpu_cleanup_allowed,
@@ -771,6 +777,7 @@ class _App:
                 models.paths,
                 cpu_only=models.cpu_only,
                 cpu_cleanup_allowed=models.cpu_cleanup_allowed,
+                gpu=self._gpu,
             )
         except Exception:
             log.exception("The engines could not switch models")
@@ -918,6 +925,10 @@ class _App:
     # Settings reactions ------------------------------------------------------------------------------
 
     def _on_settings(self, settings: Settings) -> None:
+        with self._model_lock:
+            self._apply_settings(settings)
+
+    def _apply_settings(self, settings: Settings) -> None:
         """Runs on whichever thread called ConfigStore.update (spec 5.2).
 
         The tray owns the chords and the settings dialog owns history retention; what is left
@@ -926,10 +937,22 @@ class _App:
         if settings.general.autostart != self._autostart_enabled:
             self._autostart_enabled = settings.general.autostart
             self._apply_autostart(settings.general.autostart)
+        gpu_changed = settings.diagnostics.gpu_device_override != self._gpu_override
+        if gpu_changed:
+            # Saving the selected device notifies this subscriber again.
+            self._gpu_override = settings.diagnostics.gpu_device_override
+            self._cancel_calibration()
+            self._calibration_thread = None
+            self._gpu = choose_device(self._gpu.devices, self._gpu_override)
+            self._calibrations = self._load_calibrations(self._gpu)
+            self._save_settings(lambda current: replace(
+                current, diagnostics=replace(
+                    current.diagnostics, gpu_device_index=self._gpu.raw_index,
+                    gpu_device_name=self._gpu.name or None)))
         languages = tuple(settings.general.enabled_languages)
-        if languages != self._languages:
+        if gpu_changed or languages != self._languages:
             self._languages = languages
-            self._apply_models(languages)
+            self._apply_models(languages, force=gpu_changed)
             self._start_calibration()
         if settings.general.idle_unload_minutes != self._idle_minutes:
             self._idle_minutes = settings.general.idle_unload_minutes

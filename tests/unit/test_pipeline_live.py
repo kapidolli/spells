@@ -605,11 +605,11 @@ def test_whisper_timeouts_grow_with_the_measured_speed(tmp_path):
     assert patient - quick == 40.0 - 10.0
 
 
-def test_an_integrated_gpu_cleans_only_text_that_needs_it(tmp_path):
+def test_an_integrated_gpu_cleans_long_text_without_fillers(tmp_path):
     selection = FakeSelection(300)
     selection.integrated = True
     h = Harness(tmp_path, selection=selection)
     h.dictate()
-    assert h.llama.calls == []
-    assert h.history.entries[-1].cleanup_reason == "clean_text"
+    assert len(h.llama.calls) == 1
+    assert h.history.entries[-1].cleanup_reason == "ok"
 

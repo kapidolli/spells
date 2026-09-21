@@ -160,7 +160,9 @@ class FakeEngines:
         self.started = 0
         self.stopped = 0
 
-    def set_models(self, paths, *, cpu_only: bool, cpu_cleanup_allowed: bool):
+    def set_models(self, paths, *, cpu_only: bool, cpu_cleanup_allowed: bool, gpu=None):
+        if gpu is not None:
+            self.gpu = gpu
         self.model_changes.append((paths, cpu_only, cpu_cleanup_allowed))
         changed = tuple(
             EngineId(engine)
@@ -226,6 +228,9 @@ class FakePipeline:
 
     def hotkey_callbacks(self):
         return ("callbacks",)
+
+    def set_selection(self, selection):
+        self.kwargs["selection"] = selection
 
     def start(self) -> None:
         self.started += 1
@@ -1185,6 +1190,50 @@ def test_a_setting_other_than_the_languages_never_touches_the_models(world):
     assert world.engines.model_changes == []
 
 
+def test_gpu_override_rebuilds_cpu_plan_and_caches_the_selected_device(world):
+    world.install(*ALL_IDS)
+    world.selection = replace(INTEGRATED, devices=INTEGRATED.devices + SELECTION.devices)
+    world.calibration_speeds = {model.id: (3000, 1300) for model in load_catalog()}
+
+    def switch():
+        join_calibration()
+        assert world.engines.cpu_only is True
+        world.config.update(lambda s: replace(
+            s, diagnostics=replace(s.diagnostics, gpu_device_override=SELECTION.raw_index)))
+        assert world.engines.cpu_only is False
+        assert world.engines.gpu.raw_index == SELECTION.raw_index
+        assert world.engines.paths.llama_model.name == "Qwen3.5-4B-Q4_K_M.gguf"
+        assert world.pipeline.kwargs["selection"].hardware.value == "gpu"
+        assert world.config.settings.diagnostics.gpu_device_name == RTX
+        assert len(world.gpu_calls) == 1
+        change_languages(world, "en", "de")()
+        assert world.engines.cpu_only is False
+
+    world.on_exec = switch
+    assert main([], deps=world.deps()) == 0
+
+
+def test_returning_to_automatic_chooses_the_best_gpu_without_the_manual_cache(world):
+    world.install(*ALL_IDS)
+    small = GpuDevice(0, "Vulkan0", "Small GPU", 4000, 3900, uma=False)
+    large = GpuDevice(1, "Vulkan1", "Large GPU", 16000, 15000, uma=False)
+    world.selection = GpuSelection(1, large.name, large.memory_mb, (small, large))
+
+    def switch():
+        world.config.update(lambda s: replace(
+            s, diagnostics=replace(s.diagnostics, gpu_device_override=0)))
+        assert world.engines.gpu.name == "Small GPU"
+        world.config.update(lambda s: replace(
+            s, diagnostics=replace(s.diagnostics, gpu_device_override=None)))
+        assert world.engines.cpu_only is False
+        assert world.engines.gpu.name == "Large GPU"
+        assert world.config.settings.diagnostics.gpu_device_name == "Large GPU"
+        assert len(world.gpu_calls) == 1
+
+    world.on_exec = switch
+    assert main([], deps=world.deps()) == 0
+
+
 def test_languages_no_installed_cleanup_model_suits_start_llama_without_a_model(world):
     world.install(WHISPER_ID, GEMMA_ID)
     world.set_languages("fr")
@@ -1510,4 +1559,3 @@ def test_with_only_the_small_model_there_is_one_text_engine(world):
     world.on_exec = lambda: None
     main([], deps=world.deps())
     assert world.engines.paths.writer_model is None
-

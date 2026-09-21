@@ -29,8 +29,8 @@ GATE_REASON_TEXT = {
     "disabled": "Cleanup is turned off.",
     "profile_off": "Cleanup is off for this app.",
     "language_unscored": "The cleanup model has not been measured for this language.",
-    "short_clean": "Short and already clean.",
-    "clean_text": "No filler words or corrections to clean up.",
+    "short_clean": "Short text with no recognized filler or correction phrase; cleanup skipped.",
+    "clean_text": "No recognized filler or correction phrase; cleanup skipped by an older version.",
     "engine_not_ready": "The cleanup engine was not ready.",
     "cpu_fallback": "The cleanup engine fell back to the processor.",
     "compose": "This was an instruction, so the writing model answered it.",
@@ -142,10 +142,7 @@ def should_clean(
         return False, "profile_off"
     if gate.cleanup_languages is not None and language not in gate.cleanup_languages:
         return False, "language_unscored"
-    if gate.cpu_selected:
-        if not _has_marker(text, language, fillers, corrections):
-            return False, "clean_text"
-    elif word_count(text) < MIN_WORDS_FOR_CLEANUP and not _has_marker(
+    if word_count(text) < MIN_WORDS_FOR_CLEANUP and not _has_marker(
         text, language, fillers, corrections
     ):
         return False, "short_clean"

@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import math
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -25,6 +26,7 @@ import textwrap
 import threading
 import time
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -128,6 +130,40 @@ def _wait(predicate, timeout_s: float, interval_s: float = 0.05) -> bool:
         if time.monotonic() >= deadline:
             return False
         time.sleep(interval_s)
+
+
+def test_switch_cpu_to_gpu_without_restarting_app(live_paths):
+    live_paths = replace(live_paths, llama_args=("-lv", "4"))
+    selection = select_device(
+        live_paths.llama_exe("vulkan"), whisper_server=live_paths.whisper_exe("vulkan"))
+    if selection.raw_index is None:
+        pytest.skip("no Vulkan GPU available")
+    supervisor = EngineSupervisor(
+        live_paths, selection, lambda *args: None, cpu_only=True, cpu_cleanup_allowed=True)
+    try:
+        supervisor.start()
+        for engine in (WHISPER, LLAMA):
+            assert supervisor.wait_ready(engine, READY_TIMEOUT_S)
+            assert supervisor.variant(engine) == "cpu"
+        old_pids = {engine: supervisor.pid(engine) for engine in (WHISPER, LLAMA)}
+        supervisor.set_models(
+            live_paths, cpu_only=False, cpu_cleanup_allowed=False, gpu=selection)
+        for engine in (WHISPER, LLAMA):
+            assert _wait(lambda engine=engine: supervisor.pid(engine) not in (None, old_pids[engine]),
+                         RESTART_TIMEOUT_S)
+            assert supervisor.wait_ready(engine, READY_TIMEOUT_S)
+            assert supervisor.variant(engine) == "vulkan"
+            if engine is WHISPER:
+                assert supervisor.gpu_verified(engine) is True
+            else:
+                # Recent llama.cpp logs model-device allocation rather than whisper's
+                # ggml_vulkan device banner. Inspect the actual offload evidence.
+                text = live_paths.log_path(engine).read_text(encoding="utf-8")
+                assert f"using device Vulkan0 ({selection.name})" in text
+                assert re.search(r"offloaded [1-9]\d*/\d+ layers to GPU", text)
+        print(f"CPU to GPU switch verified on {selection.name}")
+    finally:
+        supervisor.stop()
 
 
 # Part 1: the supervisor against the real engines ------------------------------------------

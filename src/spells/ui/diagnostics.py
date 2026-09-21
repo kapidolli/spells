@@ -28,7 +28,7 @@ from PySide6 import QtCore, QtWidgets
 from spells.audio import CaptureInfo
 from spells.config import ConfigStore, Settings, SettingsError
 from spells.datafiles import data_dir
-from spells.gpu import GpuDevice, GpuSelection
+from spells.gpu import GpuDevice, GpuSelection, choose_device
 from spells.models import Engine, EngineState, StageTimings
 from spells.ui import style, theme
 from spells.ui.tray import ENGINE_NAMES, REASON_TEXT, STATE_WORDS, reason_text
@@ -179,14 +179,8 @@ def recommend_keep_mic_warm(timings: Sequence[StageTimings], target_ms: float = 
 
 def automatic_choice(devices: Sequence[GpuDevice]) -> GpuDevice | None:
     """The gpu module's rule without a probe: discrete first, then most memory, then lower index."""
-    if not devices:
-        return None
-
-    def rank(device: GpuDevice) -> tuple[int, int, int]:
-        klass = 0 if device.uma is False else (1 if device.uma is None else 2)
-        return (klass, -device.memory_mb, device.raw_index or 0)
-
-    return min(devices, key=rank)
+    selection = choose_device(devices)
+    return next((d for d in devices if d.raw_index == selection.raw_index), None)
 
 
 def _bundle_wanted(path: Path) -> bool:
@@ -717,12 +711,7 @@ class DiagnosticsTab(ScrollPage):
         if self._loading:
             return
         raw_index = self.gpu_override.itemData(index)
-        devices = self._selection.devices
-        chosen = None
-        if raw_index is not None:
-            chosen = next((d for d in devices if d.raw_index == raw_index), None)
-        if chosen is None:
-            chosen = automatic_choice(devices)
+        selection = choose_device(self._selection.devices, raw_index)
 
         def mutate(settings: Settings) -> Settings:
             return replace(
@@ -735,17 +724,9 @@ class DiagnosticsTab(ScrollPage):
         except SettingsError as exc:
             self._notify("warning", "GPU override", str(exc))
             return
-        if chosen is None:
-            return
-        selection = GpuSelection(
-            raw_index=chosen.raw_index, name=chosen.name, memory_mb=chosen.memory_mb, devices=tuple(devices)
-        )
         self._selection = selection
-        try:
-            self._engines.set_gpu(selection)
-        except Exception as exc:
-            log.exception("set_gpu failed")
-            self._notify("warning", "GPU override", f"The engines could not be restarted: {exc}")
+        # The app's settings subscriber rebuilds the device and model plan together.
+        # Restarting here would retain the previous hardware's CPU-only policy.
         self.refresh()
         self.gpu_changed.emit()
 

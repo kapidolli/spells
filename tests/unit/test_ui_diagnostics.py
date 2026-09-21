@@ -36,7 +36,6 @@ from spells.ui.diagnostics import (
 )
 
 from .test_ui_support import (
-    DEVICES,
     LLAMA,
     SELECTION,
     WHISPER,
@@ -261,7 +260,7 @@ def test_a_missing_cleanup_model_is_named_without_build_or_gpu_clauses(app, tmp_
     tab.close()
 
 
-def test_gpu_override_saves_and_restarts_both_engines(app, tmp_path):
+def test_gpu_override_saves_without_restarting_engines_with_a_stale_model_plan(app, tmp_path):
     tab, config, engines, *_ = make_tab(tmp_path)
     combo = tab.gpu_override
     assert combo.count() == 3
@@ -269,13 +268,10 @@ def test_gpu_override_saves_and_restarts_both_engines(app, tmp_path):
     assert "RTX 5060" in combo.itemText(2)
     combo.setCurrentIndex(1)
     assert config.settings.diagnostics.gpu_device_override == 0
-    kind, selection = engines.calls[-1]
-    assert kind == "set_gpu"
-    assert selection.raw_index == 0 and selection.name == "Radeon 610M"
-    assert selection.devices == DEVICES
+    assert not any(call[0] == "set_gpu" for call in engines.calls)
     combo.setCurrentIndex(0)
     assert config.settings.diagnostics.gpu_device_override is None
-    assert engines.calls[-1][1].raw_index == 1
+    assert not any(call[0] == "set_gpu" for call in engines.calls)
     tab.close()
 
 

@@ -624,11 +624,17 @@ class EngineSupervisor:
         return self._cpu_plan
 
     def set_models(
-        self, paths: EnginePaths, *, cpu_only: bool, cpu_cleanup_allowed: bool
+        self, paths: EnginePaths, *, cpu_only: bool, cpu_cleanup_allowed: bool,
+        gpu: GpuSelection | None = None,
     ) -> tuple[EngineId, ...]:
         wanted = paths.engine_ids
         with self._lock:
             old_paths, old_cpu_only = self._paths, self._cpu_only
+            gpu_changed = gpu is not None and (
+                gpu.raw_index, gpu.name
+            ) != (self._gpu.raw_index, self._gpu.name)
+            if gpu is not None:
+                self._gpu = gpu
             self._paths = paths
             self._cpu_only = bool(cpu_only)
             self._cpu_cleanup_allowed = bool(cpu_cleanup_allowed)
@@ -645,8 +651,8 @@ class EngineSupervisor:
                 runtime
                 for engine, runtime in self._runtimes.items()
                 if runtime not in added
-                and _launch_key(old_paths, old_cpu_only, engine)
-                != _launch_key(paths, self._cpu_only, engine)
+                and (gpu_changed or _launch_key(old_paths, old_cpu_only, engine)
+                     != _launch_key(paths, self._cpu_only, engine))
             ]
             for runtime in changed:
                 runtime.reconfigure = True

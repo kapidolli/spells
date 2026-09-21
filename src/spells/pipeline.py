@@ -1952,7 +1952,13 @@ class Pipeline:
             cleanup_languages=engines.cleanup_languages,
         )
         if url:
-            client: LlamaClient = self._llama_factory(url, settings.cleanup.timeout_ms / 1000.0)
+            timeout_s = settings.cleanup.timeout_ms / 1000.0
+            if engines.variant(Engine.LLAMA) == "cpu":
+                # CPU generation scales with output length. Keep a finite deadline and
+                # never shorten a longer timeout explicitly configured by the user.
+                cpu_budget = min(15.0, max(5.0, 2.5 + 0.1 * cleanup.word_count(transcript.text)))
+                timeout_s = max(timeout_s, cpu_budget)
+            client: LlamaClient = self._llama_factory(url, timeout_s)
         else:
             client = _UnavailableLlama()
         result = cleanup.clean(
@@ -2274,4 +2280,3 @@ __all__ = [
     "PipelineEvent",
     "TrayState",
 ]
-

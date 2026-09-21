@@ -975,6 +975,30 @@ def test_switching_to_cpu_hardware_relaunches_both_engines_on_cpu(harness, world
     assert harness.sup.reason(LLAMA) == "cpu_selected"
 
 
+def test_switching_gpu_and_models_clears_cpu_plan_in_one_reconfiguration(harness, world):
+    harness.sup.set_models(harness.paths, cpu_only=True, cpu_cleanup_allowed=True)
+    harness.run_both()
+    other = GpuSelection(raw_index=1, name="Other GPU", memory_mb=16000, devices=())
+    changed = harness.sup.set_models(
+        harness.paths, cpu_only=False, cpu_cleanup_allowed=False, gpu=other)
+    assert changed == (SPEECH_1, CLEANUP)
+    harness.run_both()
+    assert len(world.live()) == 2
+    assert all(p.variant == "vulkan" for p in world.live())
+    assert all(p.env["GGML_VK_VISIBLE_DEVICES"] == "1" for p in world.live())
+
+
+def test_switching_gpu_relaunches_even_when_models_and_hardware_class_match(harness, world):
+    harness.run_both()
+    other = GpuSelection(raw_index=1, name="Other GPU", memory_mb=16000, devices=())
+    changed = harness.sup.set_models(
+        harness.paths, cpu_only=False, cpu_cleanup_allowed=False, gpu=other)
+    assert changed == (SPEECH_1, CLEANUP)
+    harness.run_both()
+    assert len(world.processes) == 4
+    assert all(p.env["GGML_VK_VISIBLE_DEVICES"] == "1" for p in world.live())
+
+
 def test_dropping_the_cleanup_model_stops_llama_with_no_model(harness, world):
     harness.run_both()
     llama = world.latest("llama")

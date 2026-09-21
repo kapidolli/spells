@@ -125,10 +125,10 @@ def test_gate_lists_are_per_language():
     )
 
 
-def test_gate_on_processor_hardware_cleans_only_text_with_a_filler_or_correction():
+def test_gate_on_processor_cleans_long_text_even_without_fillers():
     gate = replace(GATE_OK, cpu_selected=True)
-    assert should_clean(LONG_EN, "en", FILLERS, CORRECTIONS, gate) == (False, "clean_text")
-    assert should_clean("a b c d e", "en", FILLERS, CORRECTIONS, gate) == (False, "clean_text")
+    assert should_clean(LONG_EN, "en", FILLERS, CORRECTIONS, gate) == (True, "ok")
+    assert should_clean("a b c d e", "en", FILLERS, CORRECTIONS, gate) == (False, "short_clean")
     with_filler = LONG_EN + " you know"
     assert should_clean(with_filler, "en", FILLERS, CORRECTIONS, gate) == (True, "ok")
     assert should_clean("um yes", "en", FILLERS, CORRECTIONS, gate) == (True, "ok")
@@ -137,7 +137,7 @@ def test_gate_on_processor_hardware_cleans_only_text_with_a_filler_or_correction
 
 def test_gate_clean_text_is_decided_before_the_engine_state():
     gate = replace(GATE_OK, cpu_selected=True, engine_available=False, cpu_fallback=True)
-    assert should_clean(LONG_EN, "en", FILLERS, CORRECTIONS, gate) == (False, "clean_text")
+    assert should_clean(LONG_EN, "en", FILLERS, CORRECTIONS, gate) == (False, "engine_not_ready")
     assert should_clean("um yes", "en", FILLERS, CORRECTIONS, gate) == (False, "engine_not_ready")
 
 
@@ -169,12 +169,12 @@ def test_every_gate_reason_has_a_plain_sentence():
         assert text.endswith(".") and "\u2014" not in text
 
 
-def test_clean_reports_clean_text_without_calling_the_model():
+def test_clean_skips_short_text_without_calling_the_model():
     client = FakeLlama(content="should not be used")
-    transcript = Transcript(text=LONG_EN, language="en", duration_s=5.0)
+    transcript = Transcript(text="See you tomorrow", language="en", duration_s=5.0)
     result = clean(transcript, PROFILE, [], FILLERS, CORRECTIONS, ENABLED,
                    replace(GATE_OK, cpu_selected=True), client)
-    assert result == CleanResult(text=LONG_EN, used_llm=False, reason="clean_text")
+    assert result == CleanResult(text="See you tomorrow", used_llm=False, reason="short_clean")
     assert client.calls == []
 
 

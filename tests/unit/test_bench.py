@@ -1055,7 +1055,7 @@ def test_a_clip_routed_like_the_pipeline_records_the_engine_that_served_it(tmp_p
     assert (result.engine, result.auto_engine) == ("whisper-2", "whisper-2")
     assert result.auto_language == "sq"
     assert qwen.stopped == 1
-    assert result.clean_reason == "clean_text" and result.used_llm is False
+    assert result.clean_reason == "short_clean" and result.used_llm is False
     assert result.cleaned_ms >= result.raw_ms
 
 
@@ -1139,4 +1139,3 @@ def test_the_app_report_names_engines_medians_and_the_serving_engine_per_clip():
 def test_hardware_mode_cannot_be_combined_with_the_smoke_run():
     with pytest.raises(SystemExit):
         bench_run.main(["--hardware", "cpu", "--smoke"])
-

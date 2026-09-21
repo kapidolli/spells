@@ -21,6 +21,7 @@ import logging
 import os
 import re
 import subprocess
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
@@ -312,7 +313,17 @@ def select_device(
     )
 
 
-def _find(devices: list[GpuDevice], key: int | str) -> GpuDevice | None:
+def choose_device(devices: Sequence[GpuDevice], override: int | None = None) -> GpuSelection:
+    """Choose from the startup probe without subprocesses or a cached manual preference."""
+    if not devices:
+        return NO_GPU
+    chosen = _find(devices, override) if override is not None else None
+    if chosen is None:
+        chosen = min(devices, key=lambda d: (_class_rank(d), -d.memory_mb, d.raw_index or 0))
+    return GpuSelection(chosen.raw_index, chosen.name, chosen.memory_mb, tuple(devices))
+
+
+def _find(devices: Sequence[GpuDevice], key: int | str) -> GpuDevice | None:
     for device in devices:
         if isinstance(key, str):
             if device.name == key:
