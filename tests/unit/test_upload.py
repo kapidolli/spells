@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import threading
 import time
 import urllib.error
@@ -231,6 +232,37 @@ def test_read_audio_describes_the_wav_and_carries_it_whole(tmp_path):
     assert upload.read_audio(None) is None
 
 
+NOISE = b"\x01\x02" * 1600
+
+
+def bad_chunk_size(raw: bytes) -> bytes:
+    return raw[:16] + (60).to_bytes(4, "little") + raw[20:]
+
+
+@pytest.mark.parametrize(
+    "spoil",
+    [bad_chunk_size, lambda raw: raw[:30], lambda raw: b"RIFF" + b"\xff" * 40, lambda raw: b""],
+)
+def test_a_broken_recording_reads_as_no_audio_and_logs_only_its_name(tmp_path, caplog, spoil):
+    with HistoryStore(tmp_path / "history.db") as history:
+        history.add(make_entry(1), pcm16=NOISE, audio=AudioPolicy(keep=True))
+        path = history.recording_path(history.recent()[0])
+    path.write_bytes(spoil(path.read_bytes()))
+    with caplog.at_level(logging.WARNING, logger="spells.upload"):
+        assert upload.read_audio(path) is None
+    assert path.name in caplog.text
+    assert str(path.parent) not in caplog.text
+
+
+def test_an_unreadable_recording_file_logs_only_its_name(tmp_path, caplog):
+    folder = tmp_path / "private-folder"
+    folder.mkdir()
+    with caplog.at_level(logging.WARNING, logger="spells.upload"):
+        assert upload.read_audio(folder) is None
+    assert "private-folder" in caplog.text
+    assert str(tmp_path) not in caplog.text
+
+
 def test_the_body_is_the_envelope_with_the_entries_last():
     head = envelope(install_id="abc", device_name="PC", lost=2, sent_at="now", version="0.6.0")
     items = [Item.of(wire_entry(make_entry(n, id=n), "abc")) for n in (1, 2)]
@@ -444,6 +476,42 @@ def test_audio_travels_only_when_asked(store):
     audio = carrying.sent[0].payload["entries"][0]["audio"]
     assert audio["sha256"] == hashlib.sha256(raw).hexdigest()
     assert base64.b64decode(audio["data"]) == raw
+
+
+def test_a_broken_recording_goes_without_audio_and_the_run_goes_on(store):
+    policy = AudioPolicy(keep=True)
+    store.add(make_entry(1), pcm16=NOISE, audio=policy)
+    store.add(make_entry(2), pcm16=NOISE, audio=policy)
+    path = store.recording_path(store.entries_by_ids([1])[0])
+    path.write_bytes(bad_chunk_size(path.read_bytes()))
+    transport = FakeTransport()
+    result = uploader(store, transport, include_audio=True).run()
+    assert result.ok and result.sent == 2
+    entries = transport.sent[0].payload["entries"]
+    assert entries[0]["audio"] is None
+    assert entries[1]["audio"]["format"] == "wav"
+    assert store.pending_upload_ids() == []
+
+
+def test_an_entry_that_cannot_be_prepared_is_left_out_and_the_run_goes_on(store, monkeypatch):
+    for n in range(3):
+        store.add(make_entry(n))
+    real = upload.wire_entry
+
+    def broken(entry, *args, **kwargs):
+        if entry.id == 1:
+            raise RuntimeError("cannot build")
+        return real(entry, *args, **kwargs)
+
+    monkeypatch.setattr(upload, "wire_entry", broken)
+    transport = FakeTransport()
+    result = uploader(store, transport).run()
+    assert result.ok and result.sent == 2 and result.unreadable == 1
+    assert transport.ids(0) == [2, 3]
+    assert store.pending_upload_ids() == [1]
+    again = uploader(store, transport).run()
+    assert again.ok and again.sent == 0 and again.unreadable == 1
+    assert transport.sent[1].payload["entries"] == []
 
 
 def test_a_refused_token_stops_the_run_and_marks_nothing(store):

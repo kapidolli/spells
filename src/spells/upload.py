@@ -130,10 +130,11 @@ def _finite(value: Any) -> Any:
 def read_audio(path: Path | None) -> dict | None:
     if path is None:
         return None
+    name = Path(path).name
     try:
         data = Path(path).read_bytes()
-    except OSError:
-        log.warning("could not read the recording %s", path, exc_info=True)
+    except OSError as exc:
+        log.warning("could not read the recording %s (%s)", name, exc.__class__.__name__)
         return None
     try:
         with wave.open(io.BytesIO(data), "rb") as handle:
@@ -141,8 +142,12 @@ def read_audio(path: Path | None) -> dict | None:
             channels = handle.getnchannels()
             width = handle.getsampwidth()
             frames = handle.getnframes()
-    except (wave.Error, EOFError):
-        log.warning("the recording %s is not a readable WAV file", path)
+    except BaseException as exc:
+        if not isinstance(exc, Exception):
+            raise
+        log.warning(
+            "the recording %s is not a readable WAV file (%s)", name, exc.__class__.__name__
+        )
         return None
     return {
         "format": "wav",
@@ -348,6 +353,7 @@ class RunResult:
     refused: bool = False
     moved_on: int = 0
     cancelled: bool = False
+    unreadable: int = 0
 
     @property
     def ok(self) -> bool:
@@ -398,6 +404,7 @@ class Uploader:
         self._install_id = ""
         self._sent = 0
         self._moved_on = 0
+        self._unreadable = 0
 
     def test(self) -> RunResult:
         problem = url_problem(self._url) or token_problem(self._token)
@@ -419,18 +426,20 @@ class Uploader:
         self._install_id = history.install_id()
         self._sent = 0
         self._moved_on = 0
+        self._unreadable = 0
         ids = history.pending_upload_ids()
         try:
-            if not ids:
+            posted = False
+            for batch in batches(
+                self._items(ids),
+                max_entries=self._max_entries,
+                max_bytes=self._max_bytes,
+                overhead=self._overhead(),
+            ):
+                self._send(batch)
+                posted = True
+            if not posted:
                 self._send([])
-            else:
-                for batch in batches(
-                    self._items(ids),
-                    max_entries=self._max_entries,
-                    max_bytes=self._max_bytes,
-                    overhead=self._overhead(),
-                ):
-                    self._send(batch)
         except _Cancelled:
             return self._result(cancelled=True)
         except _Stop as stop:
@@ -439,12 +448,18 @@ class Uploader:
 
     def _result(self, outcome: Outcome | None = None, *, cancelled: bool = False) -> RunResult:
         if outcome is None:
-            return RunResult(sent=self._sent, moved_on=self._moved_on, cancelled=cancelled)
+            return RunResult(
+                sent=self._sent,
+                moved_on=self._moved_on,
+                cancelled=cancelled,
+                unreadable=self._unreadable,
+            )
         return RunResult(
             sent=self._sent,
             error=self._redact(outcome.message),
             refused=outcome.kind == REFUSED,
             moved_on=self._moved_on,
+            unreadable=self._unreadable,
         )
 
     def _redact(self, text: str) -> str:
@@ -453,10 +468,26 @@ class Uploader:
     def _items(self, ids: Sequence[int]) -> Iterator[Item]:
         for start in range(0, len(ids), self._max_entries):
             for entry in self._history.entries_by_ids(ids[start : start + self._max_entries]):
-                audio = None
-                if self._include_audio and entry.audio_file:
-                    audio = read_audio(self._history.recording_path(entry))
-                yield Item.of(wire_entry(entry, self._install_id, audio), entry.checked_at)
+                item = self._item(entry)
+                if item is not None:
+                    yield item
+
+    def _item(self, entry: HistoryEntry) -> Item | None:
+        try:
+            audio = None
+            if self._include_audio and entry.audio_file:
+                audio = read_audio(self._history.recording_path(entry))
+            return Item.of(wire_entry(entry, self._install_id, audio), entry.checked_at)
+        except BaseException as exc:
+            if not isinstance(exc, Exception):
+                raise
+            self._unreadable += 1
+            log.warning(
+                "dictation %s could not be prepared for the upload (%s)",
+                entry.id,
+                exc.__class__.__name__,
+            )
+            return None
 
     def _overhead(self) -> int:
         head = self._head(self._history.upload_lost())

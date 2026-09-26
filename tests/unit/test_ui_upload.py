@@ -319,6 +319,23 @@ def test_skipped_apps_are_not_counted_as_waiting(world):
     assert world.coordinator.view.waiting == 1
 
 
+def test_a_run_that_left_an_entry_out_says_so(world, monkeypatch):
+    world.add(2)
+    real = upload.wire_entry
+
+    def broken(entry, *args, **kwargs):
+        if entry.id == 1:
+            raise RuntimeError("cannot build")
+        return real(entry, *args, **kwargs)
+
+    monkeypatch.setattr(upload, "wire_entry", broken)
+    world.coordinator.upload_now()
+    assert world.upload.last_sent == 1
+    assert world.upload.last_error == ""
+    assert world.coordinator.view.message == "Left out 1 dictation Spells could not read."
+    assert world.coordinator.view.waiting == 1
+
+
 def test_the_connection_test_reports_and_changes_nothing(world):
     world.add()
     world.coordinator.test_connection()

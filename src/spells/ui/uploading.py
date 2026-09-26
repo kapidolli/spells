@@ -263,7 +263,7 @@ class UploadCoordinator(QtCore.QObject):
             self._set(working="", message="", waiting=self._count_waiting(self.settings))
             return
         now = self._clock()
-        message = ""
+        notes: list[str] = []
         token = job.token
         if isinstance(result, BaseException):
             reason = str(result) or result.__class__.__name__
@@ -279,11 +279,15 @@ class UploadCoordinator(QtCore.QObject):
             error = self._redact(result.error, token)
             self._store(lambda current: replace(current, last_error=error))
         if isinstance(result, RunResult) and result.moved_on:
-            message = (
+            notes.append(
                 f"{_plural(result.moved_on, 'dictation')} too large for the server, "
                 "even without the recording."
             )
-        self._set(working="", message=message, waiting=self._count_waiting(self.settings))
+        if isinstance(result, RunResult) and result.unreadable:
+            notes.append(f"Left out {_plural(result.unreadable, 'dictation')} Spells could not read.")
+        self._set(
+            working="", message=" ".join(notes), waiting=self._count_waiting(self.settings)
+        )
 
     def _tested(self, job: _Job, result: Any) -> None:
         if isinstance(result, BaseException):
