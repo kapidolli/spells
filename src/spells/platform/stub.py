@@ -11,6 +11,8 @@ from spells.platform.base import (
     Platform,
     PlatformUnavailable,
 )
+from spells.platform.keys_linux import LinuxKeys
+from spells.platform.keys_macos import MacKeys
 
 
 def _refuse(system: str, job: str) -> PlatformUnavailable:
@@ -233,14 +235,6 @@ class StubAppearance:
         return False
 
 
-class StubKeys:
-    def display_name(self, vk: int) -> str:
-        return f"VK 0x{vk:02X}"
-
-    def vk_from_event(self, event: Any) -> int | None:
-        return None
-
-
 class StubUpdater:
     def __init__(self, system: str) -> None:
         self._system = system
@@ -251,6 +245,12 @@ class StubUpdater:
 
     def apply(self, installer_path: Path) -> None:
         raise _refuse(self._system, "Installing updates")
+
+
+def _keys(name: str) -> Any:
+    if name == "macos":
+        return MacKeys()
+    return LinuxKeys()
 
 
 def build(name: str) -> Platform:
@@ -269,6 +269,6 @@ def build(name: str) -> Platform:
         secrets=StubSecrets(name),
         shell=StubShell(),
         appearance=StubAppearance(),
-        keys=StubKeys(),
+        keys=_keys(name),
         updater=StubUpdater(name),
     )

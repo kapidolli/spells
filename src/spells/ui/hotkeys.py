@@ -15,7 +15,7 @@ from typing import Any
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from spells import vk
+from spells import platform, vk
 from spells.config import ConfigStore, Settings, SettingsError
 from spells.models import Chord
 from spells.ui import style, theme
@@ -41,9 +41,10 @@ VK_ESCAPE = 0x1B
 
 
 def _default_probe(modifiers: int, key: int) -> bool:
-    from spells.win32.hook import register_hotkey_probe
-
-    return register_hotkey_probe(modifiers, key)
+    key_hook = platform.current().key_hook
+    if key_hook is None:
+        return True
+    return key_hook.chord_available(modifiers, key)
 
 
 def _default_notify(kind: str, title: str, text: str) -> None:
@@ -190,7 +191,7 @@ class ChordCaptureDialog(QtWidgets.QDialog):
             log.exception("hotkey.update_chords failed during capture")
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
-        code = int(event.nativeVirtualKey())
+        code = platform.current().keys.vk_from_event(event) or 0
         if code == VK_ESCAPE or (code == 0 and event.key() == QtCore.Qt.Key.Key_Escape):
             self.reject()
             return
