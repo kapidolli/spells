@@ -73,7 +73,7 @@ DEVICE_TITLE = "Name of this computer"
 DEVICE_HINT = "How the server tells your computers apart. Empty uses the name Windows gives it."
 HOLD_NOTE = (
     "While uploading is on, dictations not sent yet are kept for up to 30 days, even past "
-    "your history limit."
+    "your history limit, and so are their recordings when you include them."
 )
 STATUS_TITLE = "Status"
 TEST_BUTTON = "Test connection"

@@ -423,9 +423,12 @@ class World:
         self.engines = FakeEngines(self.log, engine_paths, gpu, on_status, **kwargs)
         return self.engines
 
-    def make_history(self, path, retention, *, upload_hold: bool = False) -> FakeHistory:
+    def make_history(
+        self, path, retention, *, upload_hold: bool = False, hold_recordings: bool = False
+    ) -> FakeHistory:
         self.log.append("history")
         self.history = FakeHistory(self.log, path, retention, upload_hold)
+        self.history.hold_recordings = hold_recordings
         return self.history
 
     def make_pipeline(self, **kwargs) -> FakePipeline:
@@ -748,6 +751,7 @@ def test_the_history_holds_unsent_rows_from_the_start_when_uploading_is_on(world
     world.on_exec = lambda: None
     main([], deps=world.deps())
     assert world.history.upload_hold is True
+    assert world.history.hold_recordings is False
 
 
 def test_the_pipeline_ends_recordings_through_the_hotkey_thread(world):

@@ -222,6 +222,16 @@ def test_the_history_holds_unsent_rows_only_while_uploading_is_on(world):
     assert world.history.upload_hold is True
 
 
+def test_recordings_are_held_only_while_they_are_uploaded(world):
+    assert world.history.hold_recordings is world.upload.include_audio
+    world.change(include_audio=True)
+    assert world.history.hold_recordings is True
+    world.change(include_audio=False)
+    assert world.history.hold_recordings is False
+    world.change(include_audio=True, enabled=False)
+    assert world.history.hold_recordings is False
+
+
 def test_skipped_apps_are_not_counted_as_waiting(world):
     world.history.add(make_entry(1, app_process="KeePassXC.exe"))
     world.history.add(make_entry(2))

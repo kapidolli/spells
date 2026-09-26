@@ -1195,7 +1195,7 @@ def test_turning_the_hold_off_prunes_right_away(tmp_path):
 
 def test_the_hold_keeps_the_recordings_of_unsent_rows(tmp_path):
     policy = AudioPolicy(keep=True, max_files=1, max_mb=1000)
-    with HistoryStore(tmp_path / "history.db", upload_hold=True) as store:
+    with HistoryStore(tmp_path / "history.db", upload_hold=True, hold_recordings=True) as store:
         for n in range(3):
             store.add(young_entry(n), pcm16=silence(0.2), audio=policy)
         assert store.recordings_usage()[0] == 3
@@ -1217,3 +1217,21 @@ def test_a_version_three_database_gains_uploaded_at_with_every_row_unsent(tmp_pa
         assert store.pending_upload_ids() == [1, 2]
     with sqlite3.connect(path) as conn:
         assert conn.execute(VERSION_QUERY).fetchone() == ("4",)
+
+
+def test_recordings_are_not_held_when_they_are_not_uploaded(tmp_path):
+    policy = AudioPolicy(keep=True, max_files=1, max_mb=1000)
+    with HistoryStore(tmp_path / "history.db", upload_hold=True) as store:
+        for n in range(3):
+            store.add(young_entry(n), pcm16=silence(0.2), audio=policy)
+        assert store.hold_recordings is False
+        assert store.recordings_usage()[0] == 1
+        assert store.pending_upload_ids() == [1, 2, 3]
+
+
+def test_set_upload_hold_switches_the_recordings_hold_with_it(tmp_path):
+    with HistoryStore(tmp_path / "history.db") as store:
+        store.set_upload_hold(True, True)
+        assert (store.upload_hold, store.hold_recordings) == (True, True)
+        store.set_upload_hold(True)
+        assert (store.upload_hold, store.hold_recordings) == (True, False)

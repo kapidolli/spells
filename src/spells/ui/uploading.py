@@ -127,7 +127,8 @@ class UploadCoordinator(QtCore.QObject):
         current = config.settings.upload
         self._url = current.url
         self._enabled = current.enabled
-        self._hold(current.enabled)
+        self._include_audio = current.include_audio
+        self._hold(current)
         self._view = UploadView(waiting=self._count_waiting(current))
 
     @property
@@ -265,9 +266,10 @@ class UploadCoordinator(QtCore.QObject):
 
     def _follow(self) -> None:
         current = self.settings
-        if current.enabled != self._enabled:
+        if (current.enabled, current.include_audio) != (self._enabled, self._include_audio):
             self._enabled = current.enabled
-            self._hold(current.enabled)
+            self._include_audio = current.include_audio
+            self._hold(current)
         if current.url != self._url:
             self._url = current.url
             self._call("reset_uploaded")
@@ -278,8 +280,8 @@ class UploadCoordinator(QtCore.QObject):
             )
             self._set(message="")
 
-    def _hold(self, enabled: bool) -> None:
-        self._call("set_upload_hold", bool(enabled))
+    def _hold(self, current: UploadSettings) -> None:
+        self._call("set_upload_hold", current.enabled, current.enabled and current.include_audio)
 
     def _count_waiting(self, current: UploadSettings) -> int:
         if not current.enabled:

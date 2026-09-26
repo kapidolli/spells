@@ -403,6 +403,7 @@ class HistoryStore:
         *,
         recordings_dir: Path | None = None,
         upload_hold: bool = False,
+        hold_recordings: bool = False,
     ) -> None:
         self.path: Path | None = Path(path) if path is not None else None
         if recordings_dir is not None:
@@ -413,6 +414,7 @@ class HistoryStore:
             self.recordings_dir = None
         self._retention = _check_retention(retention)
         self._upload_hold = bool(upload_hold)
+        self._hold_recordings = bool(hold_recordings)
         self._lock = threading.RLock()
         self._conn: sqlite3.Connection | None = None
         if self.path is None:
@@ -463,9 +465,14 @@ class HistoryStore:
     def upload_hold(self) -> bool:
         return self._upload_hold
 
-    def set_upload_hold(self, hold: bool) -> None:
+    @property
+    def hold_recordings(self) -> bool:
+        return self._hold_recordings
+
+    def set_upload_hold(self, hold: bool, recordings: bool = False) -> None:
         with self._lock:
             self._upload_hold = bool(hold)
+            self._hold_recordings = bool(recordings)
             if self._conn is not None:
                 self._prune_locked()
 
@@ -819,7 +826,7 @@ class HistoryStore:
         return removed
 
     def _held_recordings_locked(self) -> set[str]:
-        if self._conn is None or not self._upload_hold:
+        if self._conn is None or not (self._upload_hold and self._hold_recordings):
             return set()
         cutoff = time.time() - UPLOAD_HOLD_DAYS * _DAY_S
         rows = self._conn.execute(
