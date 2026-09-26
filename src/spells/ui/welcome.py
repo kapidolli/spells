@@ -65,6 +65,10 @@ WRITING_NOTE = (
     "one that changes text you have selected, such as make this shorter or translate this "
     "into German."
 )
+WRITE_HOTKEY_NOTE = (
+    "One more hotkey waits for you in Settings: what you say with it is an instruction, so "
+    "\"write an email to Marta asking for the September invoice\" inserts the email."
+)
 STEP_NAMES = ("intro", "languages", "microphone")
 STEP_INTRO = 0
 STEP_LANGUAGES = 1
@@ -459,6 +463,7 @@ class WelcomePage(QtWidgets.QDialog):
         self._hotkey = hotkey
         self._on_change_hotkey = on_change_hotkey
         self._notify = notify or default_notify
+        capabilities = platform.current().capabilities
         self._reduced_motion = theme.reduced_motion() if reduced_motion is None else bool(reduced_motion)
         self._phase = 1200.0 if self._reduced_motion else 0.0
         self.setObjectName("WelcomePage")
@@ -521,7 +526,6 @@ class WelcomePage(QtWidgets.QDialog):
         hotkey_row.add_control(self.change_button)
         hotkey_card.add_row(hotkey_row)
         intro.add_widget(hotkey_card, spacing_before=16)
-        capabilities = platform.current().capabilities
         self.hotkey_note: InfoBar | None = None
         if not capabilities.hold_to_talk:
             self.hotkey_note = InfoBar(note_for("hold_to_talk"), "caution", parent=intro.body)
@@ -532,7 +536,14 @@ class WelcomePage(QtWidgets.QDialog):
         writing_layout.setSpacing(8)
         writing_layout.addWidget(GlyphLabel(style.Glyph.BRUSH, 14, tone="secondary", parent=writing))
         writing_layout.addWidget(
-            make_label(WRITING_NOTE, "caption", "secondary", wrap=True, parent=writing), 1
+            make_label(
+                WRITING_NOTE if capabilities.edit_hotkey else WRITE_HOTKEY_NOTE,
+                "caption",
+                "secondary",
+                wrap=True,
+                parent=writing,
+            ),
+            1,
         )
         intro.add_widget(writing, spacing_before=16)
         privacy = QtWidgets.QWidget(intro.body)

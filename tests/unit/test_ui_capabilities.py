@@ -1,5 +1,3 @@
-"""The UI follows the platform's capabilities: what a system cannot do is hidden or explained."""
-
 from __future__ import annotations
 
 from dataclasses import fields
@@ -10,9 +8,9 @@ from PySide6 import QtWidgets
 from spells.platform.base import Capabilities
 from spells.ui.capabilities import UNAVAILABLE, apply_capability, note_for
 from spells.ui.icons import TrayIconState
-from spells.ui.settings import BUILTIN_PROFILES, RuleEditor
-from spells.ui.welcome import STEP_INTRO, STEP_MICROPHONE
-from spells.ui.widgets import SettingRow
+from spells.ui.settings import BUILTIN_PROFILES, WRITE_HOTKEY_HINT, WRITING_HOTKEYS_HINT, RuleEditor
+from spells.ui.welcome import STEP_INTRO, STEP_MICROPHONE, WRITE_HOTKEY_NOTE, WRITING_NOTE
+from spells.ui.widgets import Card, SectionHeader, SettingRow
 
 from .fake_platform import fake_platform
 from .test_ui_diagnostics import make_tab
@@ -69,11 +67,40 @@ def profile_choices(editor: RuleEditor) -> list[str]:
     return [editor.profile.itemText(index) for index in range(editor.profile.count())]
 
 
+def section_description(page: QtWidgets.QWidget, title: str) -> str:
+    headers = [header for header in page.findChildren(SectionHeader) if header.title_label.text() == title]
+    assert len(headers) == 1
+    return headers[0].description_label.text()
+
+
+def card_of(widget: QtWidgets.QWidget) -> Card:
+    parent = widget.parentWidget()
+    while not isinstance(parent, Card):
+        parent = parent.parentWidget()
+    return parent
+
+
+def label_texts(page: QtWidgets.QWidget) -> list[str]:
+    return [label.text() for label in page.findChildren(QtWidgets.QLabel) if label.text()]
+
+
 def test_every_flag_has_its_own_plain_note():
     assert {item.name: note_for(item.name) for item in fields(Capabilities)} == NOTES
     assert UNAVAILABLE == "Not available on this system yet."
     assert note_for("no_such_flag") == UNAVAILABLE
     assert not any("\u2014" in text for text in NOTES.values())
+
+
+def test_the_writing_texts_name_one_hotkey_or_two():
+    assert WRITE_HOTKEY_HINT == "It is empty until you record it, and it cannot share a chord with the others."
+    assert WRITE_HOTKEY_NOTE == (
+        "One more hotkey waits for you in Settings: what you say with it is an instruction, so "
+        "\"write an email to Marta asking for the September invoice\" inserts the email."
+    )
+    assert WRITING_HOTKEYS_HINT == (
+        "Both are empty until you record them, and neither can share a chord with the others."
+    )
+    assert "Two more hotkeys" in WRITING_NOTE
 
 
 def test_apply_capability_disables_with_the_note_only_when_unavailable(app):
@@ -98,6 +125,16 @@ def test_hold_to_talk_note_shows_in_the_welcome_hotkey_step_and_the_tray(app, fo
     assert NOTES["hold_to_talk"] in tray.tooltip
     assert tray.icon.toolTip() == tray.tooltip
     assert tray.state is TrayIconState.READY
+
+
+def test_hold_to_talk_note_shows_in_the_settings_dictation_card(app, folder, use_platform):
+    use_platform(fake_platform())
+    dialog, *_ = make_dialog(folder("settings"))
+    general = dialog.general
+    assert general.hotkey_note.text() == NOTES["hold_to_talk"]
+    assert general.hotkey_note.isVisibleTo(general)
+    assert card_of(general.main_recorder).isAncestorOf(general.hotkey_note)
+    dialog.close()
 
 
 def test_live_typing_toggles_are_disabled_with_the_note(app, folder, use_platform):
@@ -140,7 +177,16 @@ def test_edit_hotkey_row_is_hidden(app, folder, use_platform):
     assert "Edit hotkey" not in visible_rows(general)
     assert not general.edit_recorder.isVisibleTo(general)
     assert "Write hotkey" in visible_rows(general)
+    assert section_description(general, "Writing") == WRITE_HOTKEY_HINT
     dialog.close()
+
+
+def test_without_the_edit_hotkey_the_welcome_names_only_the_write_hotkey(app, tmp_path, use_platform):
+    use_platform(fake_platform())
+    page, *_ = make_page(tmp_path)
+    labels = label_texts(page)
+    assert WRITE_HOTKEY_NOTE in labels
+    assert WRITING_NOTE not in labels
 
 
 def test_clipboard_restore_note_shows_under_the_delivery_setting(app, use_platform):
@@ -201,6 +247,8 @@ def test_with_every_capability_the_controls_stay_as_today(app, folder, use_platf
     rows = visible_rows(general)
     assert "Edit hotkey" in rows
     assert "Start with Windows" in rows
+    assert general.hotkey_note is None
+    assert section_description(general, "Writing") == WRITING_HOTKEYS_HINT
     apps = dialog.apps
     assert apps.profiles_note is None
     assert apps.profile_names == list(BUILTIN_PROFILES)
@@ -215,6 +263,8 @@ def test_with_every_capability_the_controls_stay_as_today(app, folder, use_platf
     dialog.close()
     page, *_ = make_page(folder("welcome"))
     assert page.hotkey_note is None
+    assert WRITING_NOTE in label_texts(page)
+    assert WRITE_HOTKEY_NOTE not in label_texts(page)
     microphone = page.steps.widget(STEP_MICROPHONE)
     assert page.autostart.isVisibleTo(microphone)
     assert "Start with Windows" in visible_rows(microphone)

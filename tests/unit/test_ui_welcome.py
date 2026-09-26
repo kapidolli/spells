@@ -6,8 +6,10 @@ from dataclasses import replace
 
 import pytest
 
+from spells import platform
 from spells.audio import AudioDevice
 from spells.models import Chord
+from spells.platform.base import Capabilities
 from spells.ui.welcome import (
     STEP_MICROPHONE,
     WRITING_NOTE,
@@ -256,9 +258,10 @@ def test_listening_text_falls_back_when_the_recorder_says_nothing():
     assert listening_text(Quiet()) == "Listening. Speak to see the level move."
 
 
-def test_the_intro_names_the_two_writing_hotkeys(app, tmp_path):
+def test_the_intro_names_the_two_writing_hotkeys(app, tmp_path, use_platform):
     from PySide6 import QtWidgets
 
+    use_platform(replace(platform.current(), capabilities=Capabilities.everything()))
     page, *_ = make_page(tmp_path)
     labels = [w.text() for w in page.findChildren(QtWidgets.QLabel) if w.text()]
     assert WRITING_NOTE in labels

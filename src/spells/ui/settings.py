@@ -107,6 +107,10 @@ WRITING_TONE_HINT = (
 NO_WRITING_MODEL = (
     "No installed model writes text, so the compose and edit hotkeys deliver nothing."
 )
+WRITING_HOTKEYS_HINT = (
+    "Both are empty until you record them, and neither can share a chord with the others."
+)
+WRITE_HOTKEY_HINT = "It is empty until you record it, and it cannot share a chord with the others."
 CHECK_UNAVAILABLE = (
     "The cleanup model is not serving right now, so nothing was checked. Try again once the "
     "engines are ready."
@@ -332,6 +336,10 @@ class GeneralTab(ScrollPage):
                 glyph=style.Glyph.KEYBOARD,
             )
         )
+        self.hotkey_note: InfoBar | None = None
+        if not capabilities.hold_to_talk:
+            self.hotkey_note = InfoBar(note_for("hold_to_talk"), "caution", flush=True, parent=dictation)
+            dictation.add_widget(self.hotkey_note)
         self.add_section("Dictation", dictation)
 
         writing = Card(self.body)
@@ -383,7 +391,7 @@ class GeneralTab(ScrollPage):
         self.add_section(
             "Writing",
             writing,
-            description="Both are empty until you record them, and neither can share a chord with the others.",
+            description=WRITING_HOTKEYS_HINT if capabilities.edit_hotkey else WRITE_HOTKEY_HINT,
         )
 
         mic = Card(self.body)
