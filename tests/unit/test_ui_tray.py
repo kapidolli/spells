@@ -12,6 +12,7 @@ from dataclasses import replace
 import pytest
 from PySide6 import QtGui, QtWidgets
 
+from spells import platform
 from spells.models import Chord, EngineState
 from spells.platform.base import SETTINGS_MICROPHONE_PRIVACY, SETTINGS_SOUND
 from spells.platform.stub import StubShell
@@ -39,6 +40,29 @@ READY = EngineState.READY
 @pytest.fixture(scope="module")
 def app():
     return qt_app()
+
+
+class SettingsShell(StubShell):
+    def __init__(self) -> None:
+        self.opened: list[str] = []
+        self.paths: list[str] = []
+
+    def open_path(self, path):
+        self.paths.append(path)
+
+    def has_settings(self, kind):
+        return True
+
+    def open_settings(self, kind):
+        self.opened.append(kind)
+        return True
+
+
+@pytest.fixture(autouse=True)
+def recording_shell(use_platform):
+    shell = SettingsShell()
+    use_platform(replace(platform.current(), shell=shell))
+    return shell
 
 
 def inputs(**changes) -> TrayInputs:
@@ -234,18 +258,6 @@ class RecordingIcon(QtWidgets.QSystemTrayIcon):
 
     def showMessage(self, *args) -> None:
         self.messages.append(args)
-
-
-class SettingsShell(StubShell):
-    def __init__(self) -> None:
-        self.opened: list[str] = []
-
-    def has_settings(self, kind):
-        return True
-
-    def open_settings(self, kind):
-        self.opened.append(kind)
-        return True
 
 
 def make_tray(tmp_path, *, no_vulkan_gpu=False, llama=(READY, "ok")):

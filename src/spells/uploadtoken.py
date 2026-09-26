@@ -52,8 +52,8 @@ class TokenStore:
             return ""
         try:
             return self._unprotect(blob).decode("utf-8")
-        except (OSError, UnicodeDecodeError):
-            log.warning("the upload token could not be decrypted for this Windows account")
+        except (OSError, UnicodeDecodeError, platform.PlatformUnavailable):
+            log.warning("the upload token could not be decrypted on this system")
             return ""
 
     def exists(self) -> bool:

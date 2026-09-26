@@ -14,7 +14,7 @@ from spells.ui.tray import OPEN_SETTINGS_HINT, Tray
 from spells.ui.uploadpage import TOKEN_HINT, TOKEN_UNAVAILABLE
 from spells.uploadtoken import DESCRIPTION, TOKEN_FILE, TokenStore
 
-from .fake_platform import fake_platform
+from .fake_platform import ReversibleSecrets, fake_platform
 from .test_ui_support import (
     SELECTION,
     FakeEngines,
@@ -62,16 +62,12 @@ class RecordingShell(StubShell):
         return self.blocked
 
 
-class XorSecrets:
-    def __init__(self) -> None:
-        self.descriptions: list[str] = []
-
+class RefusingSecrets:
     def protect(self, data, description=""):
-        self.descriptions.append(description)
-        return bytes(value ^ 0x5A for value in data)
+        raise OSError("the protected storage refused")
 
     def unprotect(self, blob):
-        return bytes(value ^ 0x5A for value in blob)
+        raise OSError("the protected storage refused")
 
 
 class RecordingIcon(QtWidgets.QSystemTrayIcon):
@@ -228,16 +224,33 @@ def test_the_stub_cannot_tell_whether_the_microphone_is_blocked(use_platform):
 
 
 def test_the_token_store_round_trips_through_the_platform_secrets(tmp_path, use_platform):
-    secrets = XorSecrets()
+    secrets = ReversibleSecrets()
     use_platform(fake_platform(secrets=secrets))
     path = tmp_path / TOKEN_FILE
     store = TokenStore(path)
 
     store.write(TOKEN)
 
-    assert path.read_bytes() == bytes(value ^ 0x5A for value in TOKEN.encode("utf-8"))
+    assert path.read_bytes() == ReversibleSecrets().protect(TOKEN.encode("utf-8"))
+    assert TOKEN.encode("utf-8") not in path.read_bytes()
     assert TokenStore(path).read() == TOKEN
     assert secrets.descriptions == [DESCRIPTION]
+
+
+def test_a_token_file_reads_as_no_token_where_secrets_are_unavailable(
+    tmp_path, use_platform, caplog
+):
+    use_platform(fake_platform(secrets=ReversibleSecrets()))
+    path = tmp_path / TOKEN_FILE
+    TokenStore(path).write(TOKEN)
+    use_platform(fake_platform())
+    caplog.set_level("DEBUG")
+
+    assert TokenStore(path).read() == ""
+    assert TokenStore(path).exists()
+    assert "could not be decrypted on this system" in caplog.text
+    assert "Windows" not in caplog.text
+    assert TOKEN not in caplog.text
 
 
 def test_the_upload_page_says_a_token_cannot_be_saved_on_the_stub(app, tmp_path, use_platform):
@@ -253,7 +266,7 @@ def test_the_upload_page_says_a_token_cannot_be_saved_on_the_stub(app, tmp_path,
 
 
 def test_the_upload_page_keeps_the_token_field_where_secrets_work(app, tmp_path, use_platform):
-    use_platform(fake_platform(secrets=XorSecrets()))
+    use_platform(fake_platform(secrets=ReversibleSecrets()))
 
     page, world, *_ = make_page(tmp_path, enabled=True, url="https://example.com/spells")
     page.token.setText(TOKEN)
@@ -262,6 +275,18 @@ def test_the_upload_page_keeps_the_token_field_where_secrets_work(app, tmp_path,
     assert page.token.isEnabled()
     assert page.token_row.description_label.text() == TOKEN_HINT
     assert world.tokens.read() == TOKEN
+    page.close()
+    world.history.close()
+
+
+def test_a_failing_secrets_probe_keeps_the_token_field(app, tmp_path, use_platform, caplog):
+    use_platform(fake_platform(secrets=RefusingSecrets()))
+
+    page, world, *_ = make_page(tmp_path, enabled=True, url="https://example.com/spells")
+
+    assert page.token.isEnabled()
+    assert page.token_row.description_label.text() == TOKEN_HINT
+    assert "the protected storage probe failed" in caplog.text
     page.close()
     world.history.close()
 

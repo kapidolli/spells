@@ -31,6 +31,7 @@ from spells.ui.uploadpage import (
 from spells.upload import Response
 from spells.uploadtoken import TOKEN_FILE, TokenStore
 
+from .fake_platform import secrets_where_missing
 from .test_ui_support import Messages, flush, history_entry, qt_app
 from .test_upload import FakeTransport, make_entry
 
@@ -41,6 +42,11 @@ TOKEN = "a-very-secret-token-0123456789abcdef"
 @pytest.fixture(scope="module")
 def app():
     return qt_app()
+
+
+@pytest.fixture(autouse=True)
+def reversible_secrets(use_platform):
+    secrets_where_missing(use_platform)
 
 
 class Clock:

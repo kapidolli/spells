@@ -3,19 +3,31 @@ from __future__ import annotations
 import pytest
 
 from spells.uploadtoken import TOKEN_FILE, TokenStore, token_path_for
-from spells.win32 import dpapi
+
+from .fake_platform import secrets_where_missing
 
 TOKEN = "3f9a1c0d8e7b6a5f4e3d2c1b0a9f8e7d-ünïcode"
 
 
+@pytest.fixture(autouse=True)
+def reversible_secrets(use_platform):
+    secrets_where_missing(use_platform)
+
+
+@pytest.mark.windows
 def test_dpapi_round_trips_and_hides_the_plaintext():
+    from spells.win32 import dpapi
+
     blob = dpapi.protect(TOKEN.encode("utf-8"), "test")
     assert TOKEN.encode("utf-8") not in blob
     assert dpapi.unprotect(blob) == TOKEN.encode("utf-8")
     assert dpapi.protect(TOKEN.encode("utf-8")) != TOKEN.encode("utf-8")
 
 
+@pytest.mark.windows
 def test_dpapi_refuses_a_blob_it_did_not_make():
+    from spells.win32 import dpapi
+
     with pytest.raises(dpapi.DpapiError):
         dpapi.unprotect(b"not a protected blob at all")
 

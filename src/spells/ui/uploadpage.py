@@ -159,10 +159,10 @@ class UploadPage(ScrollPage):
         self.token.setAccessibleName(TOKEN_TITLE)
         self.token.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
         self.token.editingFinished.connect(self._token_edited)
-        self._secrets = _secrets_available()
+        self._can_save_token = _secrets_available()
         self.token_row = SettingRow(
             TOKEN_TITLE,
-            TOKEN_HINT if self._secrets else TOKEN_UNAVAILABLE,
+            TOKEN_HINT if self._can_save_token else TOKEN_UNAVAILABLE,
             self.token,
             wide_control=True,
         )
@@ -270,7 +270,7 @@ class UploadPage(ScrollPage):
             self.status_row.set_description(UNATTACHED_TEXT)
         else:
             self.status_row.set_description(status_text(current, self._view, self._clock()))
-        self.token.setEnabled(coordinator is not None and self._secrets)
+        self.token.setEnabled(coordinator is not None and self._can_save_token)
         self.test_button.setEnabled(coordinator is not None and address and not working)
         self.upload_button.setEnabled(
             coordinator is not None and address and current.enabled and not working
