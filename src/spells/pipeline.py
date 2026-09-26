@@ -655,7 +655,7 @@ class Pipeline:
         self._on_event = on_event
         self._recorder_factory = recorder_factory or _default_recorder
         self._capture = capture or _default_capture
-        self._backends = inject_backends if inject_backends is not None else inject.DEFAULT_BACKENDS
+        self._backends = inject_backends or inject.default_backends()
         self._whisper_factory = whisper_client_factory or WhisperClient
         self._llama_factory = llama_client_factory or _default_llama
         self._compose_factory = compose_client_factory or _default_compose
@@ -925,7 +925,7 @@ class Pipeline:
             ctx = self._capture()
         except Exception:
             log.exception("target capture failed; using an empty context")
-            ctx = TargetContext(hwnd=0, process="", title="", captured_at=self._clock())
+            ctx = TargetContext(window=0, process="", title="", captured_at=self._clock())
         profile = profiles.match(ctx, settings)
         lang_mode = self._lang_mode(command.chord, settings)
         try:
@@ -960,7 +960,7 @@ class Pipeline:
             self._rec_pill = PillState.RECORDING
             self._rec_text = ""
             self._level = 0.0
-            self._target_hwnd = ctx.hwnd or None
+            self._target_hwnd = ctx.window or None
             self._live_typing = live is not None
         self._level_value = 0.0
         self._emit(dictation_id, **self._settle_device(recorder))
@@ -1213,7 +1213,7 @@ class Pipeline:
         settings: Settings,
     ) -> _Live | None:
         self._take_live(erase=False)
-        if not ctx.hwnd:
+        if not ctx.window:
             return None
         try:
             if not self.live_enabled(settings, profile, lang_mode):
@@ -2038,7 +2038,7 @@ class Pipeline:
             return
         finished_at = started + (report.elapsed_ms or 0.0) / 1000.0
         self._last_delivery = LastDelivery(
-            hwnd=recording.ctx.hwnd,
+            hwnd=recording.ctx.window,
             finished_at=finished_at,
             outcome=report.outcome,
             ended_with_whitespace=inject.ends_with_whitespace(text),

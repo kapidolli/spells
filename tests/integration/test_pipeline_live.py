@@ -151,18 +151,18 @@ def print_timings(label: str, timings: StageTimings) -> None:
 # Fake inject backends: nothing reaches the real clipboard or the real foreground window.
 
 
-class FakeWindow:
+class FakeFocus:
     def __init__(self, foreground: int) -> None:
-        self.foreground = foreground
+        self.foreground_window = foreground
 
-    def foreground_hwnd(self) -> int:
-        return self.foreground
+    def foreground(self) -> int:
+        return self.foreground_window
 
-    def is_elevated_window(self, hwnd: int) -> bool:
+    def is_elevated(self, window: int) -> bool:
         return False
 
 
-class FakeInput:
+class FakeKeyboard:
     def __init__(self) -> None:
         self.log: list = []
 
@@ -170,8 +170,8 @@ class FakeInput:
         self.log.append("release_held_modifiers")
         return []
 
-    def send_ctrl_v(self) -> None:
-        self.log.append("send_ctrl_v")
+    def send_paste(self) -> None:
+        self.log.append("send_paste")
 
     def type_unicode(self, text: str) -> None:
         self.log.append(("type_unicode", text))
@@ -260,10 +260,10 @@ class LiveHarness:
         self.ended: list[int] = []
         self.recorders: list[FakeRecorder] = []
         self.pcm = b""
-        self.input = FakeInput()
+        self.keyboard = FakeKeyboard()
         self.clipboard = FakeClipboard()
         self.backends = InjectBackends(
-            window=FakeWindow(TARGET_HWND), input=self.input, clipboard=self.clipboard
+            focus=FakeFocus(TARGET_HWND), keyboard=self.keyboard, clipboard=self.clipboard
         )
         self.next_id = 0
         self.engines.start()
@@ -398,7 +398,7 @@ def test_full_dictation_end_to_end(live_paths, gpu, speech, tmp_path):
         lowered = entry.raw_text.lower()
         assert "test" in lowered or "dictation" in lowered, entry.raw_text
         assert entry.outcome == "pasted"
-        assert "send_ctrl_v" in h.input.log
+        assert "send_paste" in h.keyboard.log
         assert h.clipboard.texts == [entry.delivered_text]
         assert h.pipeline.recent_timings() == [event.timings]
         tone = h.dictate(tone_pcm())

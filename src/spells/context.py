@@ -5,10 +5,10 @@ part of the snapshot, because the hotkey cannot fire while an elevated window ho
 foreground, and `inject` re-checks the current foreground window at delivery time.
 
 capture() runs on the recording controller thread immediately after the hotkey press
-(batch 3 decision B3-27), so it stays cheap: three Win32 queries, no sleeps and no retries
-beyond what the win32 layer already does. It never raises either. A failure yields an
-empty context, whose hwnd 0 `inject` treats as "no target window" and answers with the
-clipboard fallback, outcome copied_focus_changed (spec 11 step 1).
+(batch 3 decision B3-27), so it stays cheap: three queries to the platform's focus, no
+sleeps and no retries beyond what the platform layer already does. It never raises either.
+A failure yields an empty context, whose window 0 `inject` treats as "no target window"
+and answers with the clipboard fallback, outcome copied_focus_changed (spec 11 step 1).
 
 The clock is time.perf_counter, not time.monotonic: monotonic is GetTickCount64 here and
 steps in 15.6 ms (batch 3 decision B3-23), and captured_at shares its epoch with the
@@ -22,8 +22,8 @@ import time
 from collections.abc import Callable
 from typing import Any
 
+from spells import platform
 from spells.models import TargetContext
-from spells.win32 import window as win32_window
 
 logger = logging.getLogger(__name__)
 
@@ -33,23 +33,24 @@ EMPTY_TITLE = ""
 
 def capture(
     *,
-    window: Any = win32_window,
+    focus: Any = None,
     clock: Callable[[], float] = time.perf_counter,
 ) -> TargetContext:
-    """The foreground window's handle, process name and title, stamped with the clock.
+    """The foreground window's token, app name and title, stamped with the clock.
 
-    `window` is the spells.win32.window contract (`foreground_hwnd`, `window_process_name`,
-    `window_title`); tests pass a fake. The process name is the exe basename and is empty
-    when the process cannot be opened.
+    `focus` is the platform's Focus (`foreground`, `app_name`, `title`), and
+    `platform.current().focus` when it is None; tests pass a fake. The app name is the exe
+    basename on Windows and is empty when the process cannot be opened.
     """
     captured_at = clock()
     try:
-        hwnd = int(window.foreground_hwnd())
-        process = window.window_process_name(hwnd)
-        title = window.window_title(hwnd)
+        focus = focus or platform.current().focus
+        window = int(focus.foreground())
+        process = focus.app_name(window)
+        title = focus.title(window)
     except Exception:
         logger.debug("target capture failed, using an empty context", exc_info=True)
         return TargetContext(
-            hwnd=0, process=EMPTY_PROCESS, title=EMPTY_TITLE, captured_at=captured_at
+            window=0, process=EMPTY_PROCESS, title=EMPTY_TITLE, captured_at=captured_at
         )
-    return TargetContext(hwnd=hwnd, process=process, title=title, captured_at=captured_at)
+    return TargetContext(window=window, process=process, title=title, captured_at=captured_at)

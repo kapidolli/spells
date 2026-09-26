@@ -14,8 +14,9 @@ Three parts live here and nothing else does:
   instruction and "translate this into German" changes the language on purpose, so the length
   ratio and the language switch are gone and a refusal check and an echo check take their place.
   A rejection delivers nothing, because delivering the raw instruction would be worse;
-* the selection read, which sends Ctrl+C through `win32.input` under the clipboard snapshot and
-  sequence number rules of spec 11 and puts the user's clipboard back exactly as it was.
+* the selection read, which sends a copy through the platform keyboard under the clipboard
+  snapshot and sequence number rules of spec 11 and puts the user's clipboard back exactly as it
+  was.
 
 The clipboard is read as material, never as instructions: what comes back is a block in the user
 message and the system prompt says so.
@@ -443,22 +444,22 @@ def read_selection(
     restore. A number that moves means the text is ours to read, and the snapshot goes back under
     the same sequence rule delivery uses, so the user's clipboard survives an edit exactly.
 
-    Never raises: any Win32 failure reads as nothing selected, which falls back to composing.
+    Never raises: any platform failure reads as nothing selected, which falls back to composing.
     """
-    if backends is None:
-        from spells.inject import DEFAULT_BACKENDS
-
-        backends = DEFAULT_BACKENDS
-    clipboard = backends.clipboard
     try:
+        if backends is None:
+            from spells.inject import default_backends
+
+            backends = default_backends()
+        clipboard = backends.clipboard
         snap = clipboard.snapshot()
         before = int(clipboard.sequence_number())
     except Exception as exc:
         log.warning("the clipboard could not be snapshotted for an edit", exc_info=True)
         return Selection(detail=repr(exc))
     try:
-        backends.input.release_held_modifiers()
-        backends.input.send_ctrl_c()
+        backends.keyboard.release_held_modifiers()
+        backends.keyboard.send_copy()
     except Exception as exc:
         log.warning("Ctrl+C could not be sent for an edit", exc_info=True)
         return Selection(detail=repr(exc))

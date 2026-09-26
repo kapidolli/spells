@@ -23,8 +23,8 @@ CUSTOM = Profile(
 )
 
 
-def _ctx(process: str, title: str = "", hwnd: int = 1) -> TargetContext:
-    return TargetContext(hwnd=hwnd, process=process, title=title, captured_at=0.0)
+def _ctx(process: str, title: str = "", window: int = 1) -> TargetContext:
+    return TargetContext(window=window, process=process, title=title, captured_at=0.0)
 
 
 def _settings(*rules: ProfileRule, tones: dict[str, str] | None = None) -> Settings:

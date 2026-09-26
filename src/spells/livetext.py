@@ -18,7 +18,7 @@ from __future__ import annotations
 import logging
 import threading
 
-from spells.inject import DEFAULT_BACKENDS, InjectBackends, target_holds_focus
+from spells.inject import InjectBackends, default_backends, target_holds_focus
 from spells.models import TargetContext
 
 log = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ class LiveSession:
         batch_size: int | None = None,
     ) -> None:
         self.ctx = ctx
-        self._backends = backends if backends is not None else DEFAULT_BACKENDS
+        self._backends = backends or default_backends()
         self._batch_size = batch_size
         self._lock = threading.RLock()
         self._inserted = ""
@@ -154,16 +154,16 @@ class LiveSession:
     def _send_backspaces(self, count: int) -> None:
         kwargs = {"extra_info": TAG, "release_modifiers": True}
         if self._batch_size is not None:
-            self._backends.input.send_backspaces(count, self._batch_size, **kwargs)
+            self._backends.keyboard.send_backspaces(count, self._batch_size, **kwargs)
         else:
-            self._backends.input.send_backspaces(count, **kwargs)
+            self._backends.keyboard.send_backspaces(count, **kwargs)
 
     def _type_text(self, tail: str) -> None:
         kwargs = {"extra_info": TAG, "release_modifiers": True}
         if self._batch_size is not None:
-            self._backends.input.type_unicode(tail, self._batch_size, **kwargs)
+            self._backends.keyboard.type_unicode(tail, self._batch_size, **kwargs)
         else:
-            self._backends.input.type_unicode(tail, **kwargs)
+            self._backends.keyboard.type_unicode(tail, **kwargs)
 
     def _focus_reason(self) -> str:
         try:
@@ -173,12 +173,12 @@ class LiveSession:
             return "foreground check failed"
 
     def _foreground_title(self) -> str:
-        window = self._backends.window
-        title = getattr(window, "window_title", None)
+        focus = self._backends.focus
+        title = getattr(focus, "title", None)
         if title is None:
             return ""
         try:
-            return str(title(int(window.foreground_hwnd())))[:80]
+            return str(title(int(focus.foreground())))[:80]
         except (OSError, TypeError, ValueError):
             return ""
 

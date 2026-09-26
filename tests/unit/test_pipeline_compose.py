@@ -161,7 +161,7 @@ def test_an_edit_puts_the_users_clipboard_back(tmp_path):
     h = ComposeHarness(tmp_path, selection=PARAGRAPH, writer=FakeWriter(content=SHORTER))
     h.write(chord=EDIT_CHORD)
     kinds = [entry[0] for entry in h.inject_log]
-    assert "send_ctrl_c" in kinds
+    assert "send_copy" in kinds
     assert kinds.count("restore") >= 1
 
 
@@ -186,7 +186,7 @@ def test_nothing_selected_is_recorded_as_a_compose_row(tmp_path):
 def test_an_edit_whose_focus_moved_never_copies_from_the_other_window(tmp_path):
     h = ComposeHarness(tmp_path, selection=PARAGRAPH, foreground=0x00CC00DD)
     h.write(chord=EDIT_CHORD)
-    assert not [entry for entry in h.inject_log if entry[0] == "send_ctrl_c"]
+    assert not [entry for entry in h.inject_log if entry[0] == "send_copy"]
     assert h.backends.clipboard.copies == 0
 
 
@@ -194,7 +194,7 @@ def test_an_edit_delivers_over_the_selection_by_the_usual_path(tmp_path):
     h = ComposeHarness(tmp_path, selection=PARAGRAPH, writer=FakeWriter(content=SHORTER))
     h.write(chord=EDIT_CHORD)
     kinds = [entry[0] for entry in h.inject_log]
-    assert kinds[-4:] == ["set_text", "release_held_modifiers", "send_ctrl_v", "restore"]
+    assert kinds[-4:] == ["set_text", "release_held_modifiers", "send_paste", "restore"]
 
 
 def test_an_edit_never_gains_the_leading_space_of_the_previous_delivery(tmp_path):
@@ -394,7 +394,7 @@ def test_a_retried_composition_goes_to_the_clipboard_like_any_retry(tmp_path):
     assert h.pipeline.retry_last() is True
     h.process()
     assert h.delivered_texts() == [EMAIL]
-    assert [entry[0] for entry in h.inject_log if entry[0] == "send_ctrl_v"] == []
+    assert [entry[0] for entry in h.inject_log if entry[0] == "send_paste"] == []
 
 
 # The writing engine ----------------------------------------------------------------------

@@ -263,7 +263,7 @@ class Harness:
             foreground=foreground,
             elevated=elevated,
         )
-        self.ctx_hwnd = TARGET_HWND
+        self.ctx_window = TARGET_HWND
         self.ctx_process = "notepad.exe"
         self.ctx_title = "Untitled - Notepad"
         self.capture_advance_s = 0.0
@@ -297,7 +297,7 @@ class Harness:
 
     def _capture(self) -> TargetContext:
         self.clock.advance(self.capture_advance_s)
-        return TargetContext(self.ctx_hwnd, self.ctx_process, self.ctx_title, self.clock.now())
+        return TargetContext(self.ctx_window, self.ctx_process, self.ctx_title, self.clock.now())
 
     @property
     def recorder(self) -> FakeRecorder:
@@ -397,7 +397,7 @@ def test_target_hwnd_follows_the_recording(tmp_path):
     assert h.last.target_hwnd is None
     h.process()
     assert all(e.target_hwnd is None for e in h.events if e.pill is not PillState.RECORDING)
-    h.ctx_hwnd = 0
+    h.ctx_window = 0
     h.press(2)
     assert h.last.pill is PillState.RECORDING
     assert h.last.target_hwnd is None
@@ -979,7 +979,7 @@ def test_last_delivery_is_updated_only_for_pasted_and_typed(tmp_path):
     h = Harness(tmp_path, foreground=OTHER_HWND)
     h.dictate(1)
     assert h.history.entries[-1].outcome == "copied_focus_changed"
-    h.backends.window.foreground = TARGET_HWND
+    h.backends.focus.foreground_window = TARGET_HWND
     h.dictate(2)
     assert h.delivered_texts() == [CLEANED, CLEANED]
     h.ctx_process = "WindowsTerminal.exe"
@@ -996,7 +996,7 @@ def test_last_delivery_is_updated_only_for_pasted_and_typed(tmp_path):
         ({}, "pasted", None, "", None),
         ({"foreground": OTHER_HWND}, "copied_focus_changed", Notice.COPIED, "Copied", COPIED_NOTICE),
         ({"elevated": True}, "copied_elevated", Notice.COPIED, "Copied", COPIED_NOTICE),
-        ({"input_error": ("send_ctrl_v",)}, "failed", Notice.COPIED, "Copied", COPIED_NOTICE),
+        ({"input_error": ("send_paste",)}, "failed", Notice.COPIED, "Copied", COPIED_NOTICE),
         ({"clipboard_error": ("snapshot",)}, "failed", Notice.ERROR, DELIVERY_FAILED, None),
     ],
 )
@@ -1098,7 +1098,7 @@ def test_retry_last_delivers_to_the_clipboard_and_keeps_the_pcm_until_done(tmp_p
     assert h.last.pill is PillState.PROCESSING
     h.process()
     assert ("set_text", CLEANED) in h.inject_log
-    assert ("send_ctrl_v",) not in h.inject_log
+    assert ("send_paste",) not in h.inject_log
     assert h.last.notice is Notice.COPIED
     assert h.last.notification == COPIED_NOTICE
     assert h.last.retry_available is False

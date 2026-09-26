@@ -145,7 +145,7 @@ def needs_leading_space(
     starts with whitespace, so a snippet beginning with a newline is not padded."""
     if last_delivery is None:
         return False
-    if last_delivery.hwnd != ctx.hwnd:
+    if last_delivery.hwnd != ctx.window:
         return False
     if last_delivery.outcome not in _DELIVERED:
         return False

@@ -88,11 +88,11 @@ def live_harness(tmp_path, **kwargs):
 
 
 def typed(h):
-    return [text for text, _ in h.backends.input.typed]
+    return [text for text, _ in h.backends.keyboard.typed]
 
 
 def erased(h):
-    return [count for count, _ in h.backends.input.backspaced]
+    return [count for count, _ in h.backends.keyboard.backspaced]
 
 
 # The tick ------------------------------------------------------------------------------
@@ -181,7 +181,7 @@ def test_an_unchanged_partial_sends_nothing(tmp_path):
     h = live_harness(tmp_path, whisper=FakeWhisperClient(responses=[PARTIAL_RESPONSE]))
     h.press()
     h.pipeline.run_partial_tick()
-    h.backends.input.typed.clear()
+    h.backends.keyboard.typed.clear()
     assert h.pipeline.run_partial_tick() == "ran"
     assert typed(h) == []
     assert h.pipeline.live.inserts == 1
@@ -266,7 +266,7 @@ def test_the_final_pass_reconciles_the_draft_instead_of_pasting(tmp_path):
     h.process()
     assert h.pipeline.live is None
     assert typed(h)[-1].endswith("installer work.")
-    assert ("send_ctrl_v",) not in h.inject_log
+    assert ("send_paste",) not in h.inject_log
     assert not [entry for entry in h.inject_log if entry[0] == "set_text"]
     assert h.history.entries[-1].outcome == DeliveryOutcome.TYPED.value
     assert h.last.notice is None
@@ -282,7 +282,7 @@ def test_the_reconciliation_keeps_the_prefix_the_draft_got_right(tmp_path):
     )
     h.press()
     h.pipeline.run_partial_tick()
-    h.backends.input.typed.clear()
+    h.backends.keyboard.typed.clear()
     h.release()
     h.process()
     assert erased(h) == []
@@ -328,7 +328,7 @@ def test_focus_moving_mid_dictation_stops_the_draft_and_copies(tmp_path):
     h.press()
     h.pipeline.run_partial_tick()
     before = list(typed(h))
-    h.backends.window.foreground = OTHER_HWND
+    h.backends.focus.foreground_window = OTHER_HWND
     h.pipeline.run_partial_tick()
     assert h.pipeline.live.session.stopped is True
     h.release()
@@ -347,7 +347,7 @@ def test_focus_moving_at_release_copies_rather_than_typing(tmp_path):
     h.pipeline.run_partial_tick()
     before = list(typed(h))
     h.release()
-    h.backends.window.foreground = OTHER_HWND
+    h.backends.focus.foreground_window = OTHER_HWND
     h.process()
     assert typed(h) == before
     assert h.last.notice is Notice.COPIED
@@ -380,7 +380,7 @@ def test_a_dictation_without_live_typing_says_so(tmp_path):
 
 def test_a_capture_without_a_window_never_types(tmp_path):
     h = live_harness(tmp_path)
-    h.ctx_hwnd = 0
+    h.ctx_window = 0
     h.press()
     assert h.pipeline.live is None
 

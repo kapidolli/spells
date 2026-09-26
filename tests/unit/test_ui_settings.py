@@ -17,6 +17,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from spells.audio import AudioDevice, MicError
 from spells.config import ProfileRule, Replacement, Snippet
 from spells.models import Chord, ChordMode, DeliveryMethod
+from spells.platform.stub import StubFocus
 from spells.ui.settings import (
     BUILTIN_PROFILES,
     MIC_DEVICE_HINT,
@@ -27,11 +28,13 @@ from spells.ui.settings import (
     HotkeyRecorder,
     RuleEditor,
     SettingsDialog,
+    _default_window_picker,
     mic_device_hint,
     probe_arguments,
 )
 from spells.ui.widgets import SegmentedControl, ToggleSwitch
 
+from .fake_platform import fake_platform
 from .fake_recorder import FakeRecorder
 from .test_ui_support import (
     SELECTION,
@@ -466,6 +469,21 @@ def test_apps_tab_picks_a_running_window(app, tmp_path):
     assert editor.title.text() == "settings.py - spells"
     editor.close()
     dialog.close()
+
+
+def test_the_default_window_picker_asks_the_platform_focus(use_platform):
+    class Focus(StubFocus):
+        def foreground(self):
+            return 42
+
+        def app_name(self, window):
+            return "Code.exe" if window == 42 else ""
+
+        def title(self, window):
+            return "settings.py - spells" if window == 42 else ""
+
+    use_platform(fake_platform(focus=Focus()))
+    assert _default_window_picker() == ("Code.exe", "settings.py - spells")
 
 
 # Vocabulary tab -------------------------------------------------------------------------------

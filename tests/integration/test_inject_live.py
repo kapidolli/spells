@@ -184,7 +184,7 @@ def report_ms(name, report):
 def test_capture_describes_the_focused_window(tkwin):
     tkwin.focus(tkwin.entry)
     ctx = capture()
-    assert ctx.hwnd == tkwin.hwnd
+    assert ctx.window == tkwin.hwnd
     assert ctx.process.lower() == Path(sys.executable).name.lower()
     assert ctx.title == tkwin.title()
     assert ctx.captured_at > 0
@@ -285,7 +285,7 @@ def test_focus_moved_after_capture_copies_instead_of_pasting(tk_root, preserved_
     try:
         first.focus(first.text)
         ctx = capture()
-        assert ctx.hwnd == first.hwnd
+        assert ctx.window == first.hwnd
         # The second window is created only now, after the capture: two always-on-top
         # windows alive in one Tk interpreter fight over the foreground, and a
         # focus_force on the younger one then blocks the event loop for seconds.
@@ -294,7 +294,7 @@ def test_focus_moved_after_capture_copies_instead_of_pasting(tk_root, preserved_
         assert foreground_hwnd() == second.hwnd
         report = deliver(TEXT, ctx, DeliveryMethod.PASTE, sleeper=second.pump)
         assert report.outcome is DeliveryOutcome.COPIED_FOCUS_CHANGED
-        assert str(ctx.hwnd) in report.result.detail
+        assert str(ctx.window) in report.result.detail
         assert str(second.hwnd) in report.result.detail
         assert get_text() == TEXT
         # No pump here: with both windows alive, one tkinter update can block for ten

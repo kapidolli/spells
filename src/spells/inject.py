@@ -8,9 +8,10 @@ clipboard formats survive a snapshot), V2-12 and batch 3 B3-31 (typing batches a
 breaks), V2-16 (a delayed-render change does not bump the sequence number, accepted) and
 E11 (our text carries the clipboard-history exclusion format).
 
-Every Win32 detail lives in spells.win32; this module only sequences those calls, times
-them and turns the outcome into a DeliveryResult. deliver() never raises: the pipeline
-records whatever comes back and the user is told through the pill or a notification.
+Every system detail lives behind the platform's focus, keyboard and clipboard; this module
+only sequences those calls, times them and turns the outcome into a DeliveryResult.
+deliver() never raises: the pipeline records whatever comes back and the user is told
+through the pill or a notification.
 
 The clock is time.perf_counter, not time.monotonic: monotonic is GetTickCount64 here and
 steps in 15.6 ms (batch 3 decision B3-23), which cannot measure a delivery against the
@@ -25,15 +26,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from spells import platform
 from spells.models import (
     DeliveryMethod,
     DeliveryOutcome,
     DeliveryResult,
     TargetContext,
 )
-from spells.win32 import clipboard as win32_clipboard
-from spells.win32 import input as win32_input
-from spells.win32 import window as win32_window
 
 logger = logging.getLogger(__name__)
 
@@ -44,14 +43,18 @@ RESTORE_DELAY_S = 0.3
 
 @dataclass(frozen=True)
 class InjectBackends:
-    """The Win32 modules delivery talks to. Tests pass fakes with the same functions."""
+    """The platform services delivery talks to. Tests pass fakes with the same methods."""
 
-    window: Any = win32_window
-    input: Any = win32_input
-    clipboard: Any = win32_clipboard
+    focus: Any
+    keyboard: Any
+    clipboard: Any
 
 
-DEFAULT_BACKENDS = InjectBackends()
+def default_backends() -> InjectBackends:
+    current = platform.current()
+    return InjectBackends(
+        focus=current.focus, keyboard=current.keyboard, clipboard=current.clipboard
+    )
 
 
 @dataclass(frozen=True)
@@ -92,10 +95,9 @@ def deliver(
     `ctx` is the context captured on the hotkey press. `sleeper` and `clock` are injected
     so tests can drive the restore delay and the timing without waiting.
     """
-    if backends is None:
-        backends = DEFAULT_BACKENDS
     started = clock()
     try:
+        backends = backends or default_backends()
         fallback = _target_check(text, ctx, backends)
         if fallback is not None:
             return fallback
@@ -116,12 +118,12 @@ def target_holds_focus(ctx: TargetContext, backends: InjectBackends) -> str:
     clipboard: live insertion (spec 6, B5-57) asks them before every burst it sends and a
     non-empty answer stops it at once.
     """
-    current = int(backends.window.foreground_hwnd())
-    if not current or not ctx.hwnd:
+    current = int(backends.focus.foreground())
+    if not current or not ctx.window:
         return "no target window"
     if _is_elevated(backends, current):
         return "foreground window is elevated"
-    if current != ctx.hwnd:
+    if current != ctx.window:
         return "focus moved"
     return ""
 
@@ -133,42 +135,42 @@ def _target_check(text: str, ctx: TargetContext, backends: InjectBackends) -> De
     the text goes on the clipboard as it is (no snapshot and no restore, because we are
     not taking the clipboard back off the user) and the outcome says why.
 
-    Order: a missing hwnd first, then elevation, then the focus comparison. hwnd 0 (the
+    Order: a missing window first, then elevation, then the focus comparison. Window 0 (the
     capture failed, or no window holds the foreground) owns no process, so the elevation
     query would answer "yes" about nothing; there is simply no window to inject into and
     the clipboard is the only safe place for the text. Otherwise elevation is checked on
     the CURRENT foreground window (V1-1, E12) and wins over a plain focus change, and it
     is checked even when the target kept focus.
     """
-    current = int(backends.window.foreground_hwnd())
-    if not current or not ctx.hwnd:
+    current = int(backends.focus.foreground())
+    if not current or not ctx.window:
         outcome = DeliveryOutcome.COPIED_FOCUS_CHANGED
         reason = "no target window"
     elif _is_elevated(backends, current):
         outcome = DeliveryOutcome.COPIED_ELEVATED
         reason = "foreground window is elevated"
-    elif current != ctx.hwnd:
+    elif current != ctx.window:
         outcome = DeliveryOutcome.COPIED_FOCUS_CHANGED
         reason = "focus moved"
     else:
         return None
     backends.clipboard.set_text(text)
-    detail = f"{reason}: captured hwnd {ctx.hwnd}, foreground hwnd {current}"
+    detail = f"{reason}: captured window {ctx.window}, foreground window {current}"
     logger.info("copied instead of injecting: %s", detail)
     return DeliveryReport(DeliveryResult(outcome, detail))
 
 
-def _is_elevated(backends: InjectBackends, hwnd: int) -> bool:
+def _is_elevated(backends: InjectBackends, window: int) -> bool:
     """Whether the foreground window runs above us; a broken query counts as not elevated.
 
-    win32.window.is_elevated_window already answers True for a window it cannot inspect,
-    so an exception here is the query itself failing, not a verdict, and it must not turn
-    every delivery into a failure.
+    The Windows focus already answers True for a window it cannot inspect, so an exception
+    here is the query itself failing, not a verdict, and it must not turn every delivery
+    into a failure.
     """
     try:
-        return bool(backends.window.is_elevated_window(hwnd))
+        return bool(backends.focus.is_elevated(window))
     except Exception:
-        logger.warning("elevation check failed for hwnd %s, treating it as not elevated", hwnd)
+        logger.warning("elevation check failed for window %s, treating it as not elevated", window)
         logger.debug("elevation check traceback", exc_info=True)
         return False
 
@@ -191,8 +193,8 @@ def _paste(
         logger.warning("clipboard could not be prepared for the paste", exc_info=True)
         return _failed(repr(exc))
     try:
-        backends.input.release_held_modifiers()
-        backends.input.send_ctrl_v()
+        backends.keyboard.release_held_modifiers()
+        backends.keyboard.send_paste()
     except Exception as exc:
         # Our text is on the clipboard and the user's copy is not back yet, which is
         # exactly where the copy fallback would have left things: say so, so the pipeline
@@ -224,8 +226,8 @@ def _type(
     started: float,
 ) -> DeliveryReport:
     """Spec 11 step 3 with decision V2-3: release held modifiers, then type the text."""
-    backends.input.release_held_modifiers()
-    backends.input.type_unicode(text)
+    backends.keyboard.release_held_modifiers()
+    backends.keyboard.type_unicode(text)
     return DeliveryReport(
         DeliveryResult(DeliveryOutcome.TYPED, ""), _elapsed_ms(clock, started), None
     )

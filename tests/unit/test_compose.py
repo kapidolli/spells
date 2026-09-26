@@ -374,7 +374,7 @@ def test_the_selection_is_copied_and_the_clipboard_put_back():
         "snapshot",
         "sequence_number",
         "release_held_modifiers",
-        "send_ctrl_c",
+        "send_copy",
     ]
     assert ("restore", SNAPSHOT, backends.clipboard.sequence) in log
 
@@ -408,11 +408,11 @@ def test_a_clipboard_that_cannot_be_snapshotted_reads_as_nothing_selected():
     picked = read_selection(backends, sleeper=lambda _s: None, clock=Clock())
     assert picked.copied is False
     assert picked.text == ""
-    assert not [entry for entry in log if entry[0] == "send_ctrl_c"]
+    assert not [entry for entry in log if entry[0] == "send_copy"]
 
 
 def test_a_ctrl_c_that_cannot_be_sent_reads_as_nothing_selected():
-    _log, backends = make(input_error={"send_ctrl_c"}, selection=PARAGRAPH)
+    _log, backends = make(input_error={"send_copy"}, selection=PARAGRAPH)
     picked = read_selection(backends, sleeper=lambda _s: None, clock=Clock())
     assert picked.copied is False
     assert picked.text == ""

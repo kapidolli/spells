@@ -1,4 +1,4 @@
-"""Unit tests for spells.inject with fake Win32 backends.
+"""Unit tests for spells.inject with fake platform backends.
 
 Spec 11 (all steps), 12 (delivery budget), 16 (focus moved or target elevated); batch 2
 decisions V1-1 and V2-3. No real clipboard, window or keystroke is touched here.
@@ -14,6 +14,7 @@ import pytest
 from spells.inject import (
     DeliveryReport,
     InjectBackends,
+    default_backends,
     deliver,
     ends_with_whitespace,
 )
@@ -26,10 +27,10 @@ TEXT = "Grüße aus Spells \U0001f600"
 SNAPSHOT = object()
 
 
-class FakeWindow:
+class FakeFocus:
     def __init__(self, log, foreground=TARGET_HWND, elevated=False, error_on=()):
         self.log = log
-        self.foreground = foreground
+        self.foreground_window = foreground
         self.elevated = elevated
         self.error_on = set(error_on)
 
@@ -37,19 +38,19 @@ class FakeWindow:
         if name in self.error_on:
             raise OSError(5, f"{name} failed")
 
-    def foreground_hwnd(self):
-        self.log.append(("foreground_hwnd",))
-        self._maybe_fail("foreground_hwnd")
-        return self.foreground
+    def foreground(self):
+        self.log.append(("foreground",))
+        self._maybe_fail("foreground")
+        return self.foreground_window
 
-    def is_elevated_window(self, hwnd):
-        self.log.append(("is_elevated_window", hwnd))
-        self._maybe_fail("is_elevated_window")
+    def is_elevated(self, window):
+        self.log.append(("is_elevated", window))
+        self._maybe_fail("is_elevated")
         return self.elevated
 
 
-class FakeInput:
-    """The win32.input calls delivery and live insertion make.
+class FakeKeyboard:
+    """The keyboard calls delivery and live insertion make.
 
     `typed` and `backspaced` record the live-insertion keyword arguments as well, which the
     livetext tests read; the shared log keeps the shape the delivery tests assert on.
@@ -71,14 +72,14 @@ class FakeInput:
         self._maybe_fail("release_held_modifiers")
         return []
 
-    def send_ctrl_v(self):
-        self.log.append(("send_ctrl_v",))
-        self._maybe_fail("send_ctrl_v")
+    def send_paste(self):
+        self.log.append(("send_paste",))
+        self._maybe_fail("send_paste")
 
-    def send_ctrl_c(self):
+    def send_copy(self):
         """Edit mode copies the selection with this (spec 8.5); the fake app answers it."""
-        self.log.append(("send_ctrl_c",))
-        self._maybe_fail("send_ctrl_c")
+        self.log.append(("send_copy",))
+        self._maybe_fail("send_copy")
         if self.clipboard is not None:
             self.clipboard.copy()
 
@@ -166,8 +167,8 @@ def make(window_error=(), input_error=(), clipboard_error=(), selection=None, **
     log: list[tuple] = []
     clipboard = FakeClipboard(log, error_on=clipboard_error, selection=selection)
     backends = InjectBackends(
-        window=FakeWindow(log, error_on=window_error, **window_kwargs),
-        input=FakeInput(log, error_on=input_error, clipboard=clipboard),
+        focus=FakeFocus(log, error_on=window_error, **window_kwargs),
+        keyboard=FakeKeyboard(log, error_on=input_error, clipboard=clipboard),
         clipboard=clipboard,
     )
     return log, backends
@@ -180,8 +181,8 @@ def make_sleeper(log):
     return sleeper
 
 
-def ctx(hwnd=TARGET_HWND):
-    return TargetContext(hwnd=hwnd, process="notepad.exe", title="Untitled", captured_at=1.0)
+def ctx(window=TARGET_HWND):
+    return TargetContext(window=window, process="notepad.exe", title="Untitled", captured_at=1.0)
 
 
 def run(
@@ -211,8 +212,8 @@ def test_focus_changed_copies_the_text_once_and_never_pastes():
     report = run(backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.COPIED_FOCUS_CHANGED
     assert log == [
-        ("foreground_hwnd",),
-        ("is_elevated_window", OTHER_HWND),
+        ("foreground",),
+        ("is_elevated", OTHER_HWND),
         ("set_text", TEXT),
     ]
 
@@ -236,8 +237,8 @@ def test_elevated_new_foreground_copies_with_copied_elevated():
     report = run(backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.COPIED_ELEVATED
     assert log == [
-        ("foreground_hwnd",),
-        ("is_elevated_window", OTHER_HWND),
+        ("foreground",),
+        ("is_elevated", OTHER_HWND),
         ("set_text", TEXT),
     ]
 
@@ -253,8 +254,8 @@ def test_elevation_is_checked_even_when_the_target_kept_focus():
     report = run(backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.COPIED_ELEVATED
     assert log == [
-        ("foreground_hwnd",),
-        ("is_elevated_window", TARGET_HWND),
+        ("foreground",),
+        ("is_elevated", TARGET_HWND),
         ("set_text", TEXT),
     ]
 
@@ -266,14 +267,14 @@ def test_elevation_wins_over_a_focus_change():
 
 
 def test_a_raising_elevation_check_still_pastes():
-    log, backends = make(window_error=["is_elevated_window"])
+    log, backends = make(window_error=["is_elevated"])
     report = run(backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.PASTED
-    assert ("send_ctrl_v",) in log
+    assert ("send_paste",) in log
 
 
 def test_a_raising_elevation_check_does_not_hide_a_focus_change():
-    log, backends = make(foreground=OTHER_HWND, window_error=["is_elevated_window"])
+    log, backends = make(foreground=OTHER_HWND, window_error=["is_elevated"])
     report = run(backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.COPIED_FOCUS_CHANGED
 
@@ -288,8 +289,8 @@ def test_a_missing_hwnd_copies_instead_of_pasting(foreground, target_hwnd):
     assert report.result.outcome is DeliveryOutcome.COPIED_FOCUS_CHANGED
     assert str(foreground) in report.result.detail
     assert str(target_hwnd) in report.result.detail
-    # hwnd 0 owns no process, so asking whether it is elevated would answer yes.
-    assert log == [("foreground_hwnd",), ("set_text", TEXT)]
+    # window 0 owns no process, so asking whether it is elevated would answer yes.
+    assert log == [("foreground",), ("set_text", TEXT)]
 
 
 # paste (spec 11 step 2)
@@ -299,12 +300,12 @@ def test_paste_call_order_and_restore_arguments():
     log, backends = make()
     report = run(backends=backends, log=log, clock=FakeClock(1.0, 1.02))
     assert log == [
-        ("foreground_hwnd",),
-        ("is_elevated_window", TARGET_HWND),
+        ("foreground",),
+        ("is_elevated", TARGET_HWND),
         ("snapshot",),
         ("set_text", TEXT),
         ("release_held_modifiers",),
-        ("send_ctrl_v",),
+        ("send_paste",),
         ("sleep", 0.3),
         ("restore", SNAPSHOT, SEQUENCE),
     ]
@@ -322,8 +323,8 @@ def test_paste_uses_the_given_restore_delay():
 def test_paste_restore_refused_is_still_pasted_with_a_note():
     log = []
     backends = InjectBackends(
-        window=FakeWindow(log),
-        input=FakeInput(log),
+        focus=FakeFocus(log),
+        keyboard=FakeKeyboard(log),
         clipboard=FakeClipboard(log, restore_result=False),
     )
     report = run(backends=backends, log=log)
@@ -351,7 +352,7 @@ def test_snapshot_failure_fails_without_touching_the_clipboard_or_keyboard():
     report = run(backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.FAILED
     assert "OSError" in report.result.detail
-    assert log == [("foreground_hwnd",), ("is_elevated_window", TARGET_HWND), ("snapshot",)]
+    assert log == [("foreground",), ("is_elevated", TARGET_HWND), ("snapshot",)]
 
 
 def test_set_text_failure_fails_and_sends_no_ctrl_v():
@@ -359,8 +360,8 @@ def test_set_text_failure_fails_and_sends_no_ctrl_v():
     report = run(backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.FAILED
     assert [entry[0] for entry in log] == [
-        "foreground_hwnd",
-        "is_elevated_window",
+        "foreground",
+        "is_elevated",
         "snapshot",
         "set_text",
     ]
@@ -374,8 +375,8 @@ def test_type_releases_modifiers_before_typing():
     log, backends = make()
     report = run(method=DeliveryMethod.TYPE, backends=backends, log=log, clock=FakeClock(2.0, 2.01))
     assert log == [
-        ("foreground_hwnd",),
-        ("is_elevated_window", TARGET_HWND),
+        ("foreground",),
+        ("is_elevated", TARGET_HWND),
         ("release_held_modifiers",),
         ("type_unicode", TEXT),
     ]
@@ -387,15 +388,15 @@ def test_type_releases_modifiers_before_typing():
 # failures (spec 11 step 4)
 
 
-def test_send_ctrl_v_raising_gives_failed_and_never_escapes():
-    log, backends = make(input_error=["send_ctrl_v"])
+def test_send_paste_raising_gives_failed_and_never_escapes():
+    log, backends = make(input_error=["send_paste"])
     report = run(backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.FAILED
     assert "RuntimeError" in report.result.detail
 
 
 def test_a_failure_after_set_text_says_the_text_is_on_the_clipboard():
-    for failing in ("release_held_modifiers", "send_ctrl_v"):
+    for failing in ("release_held_modifiers", "send_paste"):
         log, backends = make(input_error=[failing])
         report = run(backends=backends, log=log)
         assert report.result.outcome is DeliveryOutcome.FAILED
@@ -411,7 +412,7 @@ def test_type_unicode_raising_gives_failed():
 
 
 def test_a_failing_window_backend_gives_failed():
-    log, backends = make(window_error=["foreground_hwnd"])
+    log, backends = make(window_error=["foreground"])
     report = run(backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.FAILED
     assert "OSError" in report.result.detail
@@ -427,7 +428,7 @@ def test_an_unknown_method_fails_without_delivering():
     log, backends = make()
     report = run(method="shout", backends=backends, log=log)
     assert report.result.outcome is DeliveryOutcome.FAILED
-    assert log == [("foreground_hwnd",), ("is_elevated_window", TARGET_HWND)]
+    assert log == [("foreground",), ("is_elevated", TARGET_HWND)]
 
 
 # helpers and defaults
@@ -450,14 +451,14 @@ def test_ends_with_whitespace(text, expected):
     assert ends_with_whitespace(text) is expected
 
 
+@pytest.mark.windows
 def test_default_backends_are_the_win32_modules():
+    from spells.platform import windows
     from spells.win32 import clipboard as win32_clipboard
-    from spells.win32 import input as win32_input
-    from spells.win32 import window as win32_window
 
-    backends = InjectBackends()
-    assert backends.window is win32_window
-    assert backends.input is win32_input
+    backends = default_backends()
+    assert isinstance(backends.focus, windows.WindowsFocus)
+    assert isinstance(backends.keyboard, windows.WindowsKeyboard)
     assert backends.clipboard is win32_clipboard
 
 

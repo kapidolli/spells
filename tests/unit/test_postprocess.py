@@ -24,7 +24,7 @@ TERMINAL = Profile(
 )
 DEFAULT = Profile(name="Default", cleanup=True, tone="standard", delivery=DeliveryMethod.PASTE)
 
-CTX = TargetContext(hwnd=1, process="notepad.exe", title="Untitled", captured_at=100.0)
+CTX = TargetContext(window=1, process="notepad.exe", title="Untitled", captured_at=100.0)
 EMPTY = Vocabulary(terms=[], replacements=[], snippets=[])
 
 

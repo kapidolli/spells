@@ -24,7 +24,7 @@ from typing import Any
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from spells import modelcatalog
+from spells import modelcatalog, platform
 from spells.config import (
     RETENTION_CHOICES,
     ConfigStore,
@@ -172,10 +172,9 @@ def default_confirm(title: str, text: str) -> bool:
 
 
 def _default_window_picker() -> tuple[str, str]:
-    from spells.win32.window import foreground_hwnd, window_process_name, window_title
-
-    hwnd = foreground_hwnd()
-    return window_process_name(hwnd), window_title(hwnd)
+    focus = platform.current().focus
+    window = focus.foreground()
+    return focus.app_name(window), focus.title(window)
 
 
 def _split_list(text: str) -> list[str]:

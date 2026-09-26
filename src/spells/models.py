@@ -69,7 +69,7 @@ class TargetContext:
     window at delivery time.
     """
 
-    hwnd: int
+    window: int
     process: str
     title: str
     captured_at: float
