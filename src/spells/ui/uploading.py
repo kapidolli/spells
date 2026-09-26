@@ -48,6 +48,14 @@ def paused(settings: UploadSettings) -> bool:
     return settings.last_error == upload.TOKEN_REFUSED
 
 
+def _hold_of(settings: UploadSettings) -> tuple[bool, bool, tuple[str, ...]]:
+    return (
+        settings.enabled,
+        settings.enabled and settings.include_audio,
+        tuple(settings.skip_apps),
+    )
+
+
 def _plural(count: int, word: str) -> str:
     return f"{count} {word}" if count == 1 else f"{count} {word}s"
 
@@ -135,9 +143,8 @@ class UploadCoordinator(QtCore.QObject):
         self._relay.done.connect(self._deliver, QtCore.Qt.ConnectionType.QueuedConnection)
         current = config.settings.upload
         self._url = current.url
-        self._enabled = current.enabled
-        self._include_audio = current.include_audio
-        self._hold(current)
+        self._held = _hold_of(current)
+        self._call("set_upload_hold", *self._held)
         self._view = UploadView(waiting=self._count_waiting(current))
 
     @property
@@ -306,10 +313,10 @@ class UploadCoordinator(QtCore.QObject):
         job = self._job
         if job is not None and not current.enabled:
             job.cancel.set()
-        if (current.enabled, current.include_audio) != (self._enabled, self._include_audio):
-            self._enabled = current.enabled
-            self._include_audio = current.include_audio
-            self._hold(current)
+        held = _hold_of(current)
+        if held != self._held:
+            self._held = held
+            self._call("set_upload_hold", *held)
         if current.url != self._url:
             self._url = current.url
             if job is not None:
@@ -322,9 +329,6 @@ class UploadCoordinator(QtCore.QObject):
                 )
             )
             self._set(message="")
-
-    def _hold(self, current: UploadSettings) -> None:
-        self._call("set_upload_hold", current.enabled, current.enabled and current.include_audio)
 
     def _count_waiting(self, current: UploadSettings) -> int:
         if not current.enabled:

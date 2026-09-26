@@ -319,6 +319,18 @@ def test_skipped_apps_are_not_counted_as_waiting(world):
     assert world.coordinator.view.waiting == 1
 
 
+def test_the_history_learns_the_skipped_apps_with_the_hold(app, tmp_path):
+    world = World(tmp_path, enabled=True, url=URL, skip_apps=["KeePassXC.exe"])
+    assert world.history.upload_skip_apps == ("keepassxc.exe",)
+    world.history.add(make_entry(1, app_process="keepassxc.exe"))
+    assert world.history.pending_upload_count() == 0
+    world.change(skip_apps=["signal.exe"])
+    assert world.history.upload_skip_apps == ("signal.exe",)
+    world.change(enabled=False)
+    assert world.history.upload_skip_apps == ("signal.exe",)
+    world.history.close()
+
+
 def test_a_run_that_left_an_entry_out_says_so(world, monkeypatch):
     world.add(2)
     real = upload.wire_entry

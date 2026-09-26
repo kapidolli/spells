@@ -265,6 +265,14 @@ def _match(needle: str, *fields: str | None) -> int:
     return int(any(needle in (field or "").casefold() for field in fields))
 
 
+def _fold_app(name: str | None) -> str:
+    return (name or "").strip().casefold()
+
+
+def _fold_apps(apps: Iterable[str]) -> tuple[str, ...]:
+    return tuple(dict.fromkeys(folded for folded in map(_fold_app, apps) if folded))
+
+
 def _timings_to_json(timings: StageTimings) -> str:
     return json.dumps(dataclasses.asdict(timings))
 
@@ -404,6 +412,7 @@ class HistoryStore:
         recordings_dir: Path | None = None,
         upload_hold: bool = False,
         hold_recordings: bool = False,
+        upload_skip_apps: Iterable[str] = (),
     ) -> None:
         self.path: Path | None = Path(path) if path is not None else None
         if recordings_dir is not None:
@@ -415,6 +424,7 @@ class HistoryStore:
         self._retention = _check_retention(retention)
         self._upload_hold = bool(upload_hold)
         self._hold_recordings = bool(hold_recordings)
+        self._skip_apps = _fold_apps(upload_skip_apps)
         self._lock = threading.RLock()
         self._conn: sqlite3.Connection | None = None
         if self.path is None:
@@ -426,6 +436,7 @@ class HistoryStore:
         conn.executescript(_SCHEMA)
         _migrate(conn)
         conn.create_function("spells_match", 6, _match, deterministic=True)
+        conn.create_function("spells_fold", 1, _fold_app, deterministic=True)
         self._conn = conn
         self.prune()
 
@@ -469,10 +480,17 @@ class HistoryStore:
     def hold_recordings(self) -> bool:
         return self._hold_recordings
 
-    def set_upload_hold(self, hold: bool, recordings: bool = False) -> None:
+    @property
+    def upload_skip_apps(self) -> tuple[str, ...]:
+        return self._skip_apps
+
+    def set_upload_hold(
+        self, hold: bool, recordings: bool = False, skip_apps: Iterable[str] = ()
+    ) -> None:
         with self._lock:
             self._upload_hold = bool(hold)
             self._hold_recordings = bool(recordings)
+            self._skip_apps = _fold_apps(skip_apps)
             if self._conn is not None:
                 self._prune_locked()
 
@@ -660,14 +678,14 @@ class HistoryStore:
             self._set_meta_locked(_UPLOAD_LOST_KEY, str(left))
 
     def mark_upload_skipped(self, apps: Iterable[str]) -> int:
-        skipped = {app.strip().casefold() for app in apps if app and app.strip()}
+        skipped = set(_fold_apps(apps))
         with self._lock:
             if self._conn is None or not skipped:
                 return 0
             rows = self._conn.execute(
                 "SELECT id, app_process FROM entries WHERE uploaded_at >= 0"
             ).fetchall()
-            ids = [row[0] for row in rows if (row[1] or "").strip().casefold() in skipped]
+            ids = [row[0] for row in rows if _fold_app(row[1]) in skipped]
             return self._update_ids_locked("uploaded_at = ?", (UPLOAD_SKIPPED,), ids)
 
     def pending_upload_ids(self) -> list[int]:
@@ -675,8 +693,9 @@ class HistoryStore:
             if self._conn is None:
                 return []
             self._prune_locked()
+            pending, params = self._pending_locked()
             rows = self._conn.execute(
-                "SELECT id FROM entries WHERE " + _PENDING + _OLDEST_FIRST
+                f"SELECT id FROM entries WHERE {pending}{_OLDEST_FIRST}", params
             ).fetchall()
         return [int(row[0]) for row in rows]
 
@@ -685,7 +704,10 @@ class HistoryStore:
             if self._conn is None:
                 return 0
             self._prune_locked()
-            row = self._conn.execute("SELECT COUNT(*) FROM entries WHERE " + _PENDING).fetchone()
+            pending, params = self._pending_locked()
+            row = self._conn.execute(
+                f"SELECT COUNT(*) FROM entries WHERE {pending}", params
+            ).fetchone()
         return int(row[0]) if row else 0
 
     def entries_by_ids(self, ids: Iterable[int]) -> list[HistoryEntry]:
@@ -745,7 +767,7 @@ class HistoryStore:
         if retention == "off":
             return
         now = time.time()
-        params: list[float | int]
+        params: list[float | int | str]
         if retention == "100":
             where = "id NOT IN (SELECT id FROM entries ORDER BY created_at DESC, id DESC LIMIT ?)"
             params = [_COUNT_LIMIT]
@@ -754,10 +776,13 @@ class HistoryStore:
             params = [now - _RETENTION_DAYS[retention] * _DAY_S]
         lost = 0
         if self._upload_hold:
-            where += f" AND NOT ({_PENDING} AND created_at >= ?)"
-            params.append(now - UPLOAD_HOLD_DAYS * _DAY_S)
+            pending, pending_params = self._pending_locked()
+            where += f" AND NOT ({pending} AND created_at >= ?)"
+            params.extend([*pending_params, now - UPLOAD_HOLD_DAYS * _DAY_S])
+            sendable, sendable_params = self._sendable_locked()
             row = self._conn.execute(
-                f"SELECT COUNT(*) FROM entries WHERE uploaded_at = 0 AND {where}", params
+                f"SELECT COUNT(*) FROM entries WHERE uploaded_at = 0 AND {sendable} AND {where}",
+                [*sendable_params, *params],
             ).fetchone()
             lost = int(row[0]) if row else 0
         doomed = self._conn.execute(
@@ -842,12 +867,23 @@ class HistoryStore:
         if self._conn is None or not (self._upload_hold and self._hold_recordings):
             return set()
         cutoff = time.time() - UPLOAD_HOLD_DAYS * _DAY_S
+        pending, params = self._pending_locked()
         rows = self._conn.execute(
-            f"SELECT audio_file FROM entries WHERE audio_file <> '' AND {_PENDING} "
+            f"SELECT audio_file FROM entries WHERE audio_file <> '' AND {pending} "
             "AND created_at >= ?",
-            (cutoff,),
+            [*params, cutoff],
         ).fetchall()
         return {str(row[0]) for row in rows}
+
+    def _sendable_locked(self) -> tuple[str, list[str]]:
+        if not self._skip_apps:
+            return "1", []
+        marks = ", ".join("?" for _ in self._skip_apps)
+        return f"spells_fold(app_process) NOT IN ({marks})", list(self._skip_apps)
+
+    def _pending_locked(self) -> tuple[str, list[str]]:
+        sendable, params = self._sendable_locked()
+        return f"({_PENDING} AND {sendable})", params
 
     def _meta_locked(self, key: str) -> str:
         assert self._conn is not None

@@ -549,6 +549,7 @@ class _App:
             settings.history.retention,
             upload_hold=settings.upload.enabled,
             hold_recordings=settings.upload.enabled and settings.upload.include_audio,
+            upload_skip_apps=settings.upload.skip_apps,
         )
 
         self._pipeline = deps.pipeline(

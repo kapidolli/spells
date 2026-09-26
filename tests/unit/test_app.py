@@ -424,11 +424,18 @@ class World:
         return self.engines
 
     def make_history(
-        self, path, retention, *, upload_hold: bool = False, hold_recordings: bool = False
+        self,
+        path,
+        retention,
+        *,
+        upload_hold: bool = False,
+        hold_recordings: bool = False,
+        upload_skip_apps=(),
     ) -> FakeHistory:
         self.log.append("history")
         self.history = FakeHistory(self.log, path, retention, upload_hold)
         self.history.hold_recordings = hold_recordings
+        self.history.upload_skip_apps = list(upload_skip_apps)
         return self.history
 
     def make_pipeline(self, **kwargs) -> FakePipeline:
@@ -752,6 +759,25 @@ def test_the_history_holds_unsent_rows_from_the_start_when_uploading_is_on(world
     main([], deps=world.deps())
     assert world.history.upload_hold is True
     assert world.history.hold_recordings is False
+    assert world.history.upload_skip_apps == []
+
+
+def test_the_history_knows_the_skipped_apps_from_the_start(world):
+    settings = ConfigStore(world.settings_file()).settings
+    world.write_settings(
+        replace(
+            settings,
+            upload=replace(
+                settings.upload,
+                enabled=True,
+                url="https://example.com/spells",
+                skip_apps=["keepassxc.exe"],
+            ),
+        )
+    )
+    world.on_exec = lambda: None
+    main([], deps=world.deps())
+    assert world.history.upload_skip_apps == ["keepassxc.exe"]
 
 
 def test_the_pipeline_ends_recordings_through_the_hotkey_thread(world):

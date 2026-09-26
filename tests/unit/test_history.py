@@ -1247,6 +1247,49 @@ def test_recordings_are_not_held_when_they_are_not_uploaded(tmp_path):
         assert store.pending_upload_ids() == [1, 2, 3]
 
 
+def test_rows_from_skipped_apps_are_neither_held_nor_waiting_nor_lost(tmp_path):
+    now = time.time()
+    path = tmp_path / "history.db"
+    with HistoryStore(path, "7d", upload_hold=True, upload_skip_apps=["KeePassXC.exe"]) as store:
+        store.add(make_entry(1, created_at=now - 10 * DAY, app_process="keepassxc.exe"))
+        store.add(make_entry(2, created_at=now - 10 * DAY))
+        store.add(make_entry(3, created_at=now - 3600, app_process=" KEEPASSXC.exe "))
+        store.add(make_entry(4, created_at=now - 3600))
+        assert [entry.id for entry in store.recent()] == [4, 3, 2]
+        assert store.pending_upload_ids() == [2, 4]
+        assert store.pending_upload_count() == 2
+        assert store.upload_lost() == 0
+        assert uploaded_at(path)[3] == 0.0
+
+
+def test_set_upload_hold_takes_the_skip_list_and_prunes_with_it(tmp_path):
+    now = time.time()
+    with HistoryStore(tmp_path / "history.db", "7d", upload_hold=True) as store:
+        store.add(make_entry(1, created_at=now - 10 * DAY, app_process="Signal.exe"))
+        assert store.pending_upload_count() == 1
+        store.set_upload_hold(True, False, [" signal.EXE ", ""])
+        assert store.upload_skip_apps == ("signal.exe",)
+        assert row_count(store.path) == 0
+        assert store.upload_lost() == 0
+        store.set_upload_hold(True)
+        assert store.upload_skip_apps == ()
+
+
+def test_the_hold_does_not_keep_the_recordings_of_skipped_apps(tmp_path):
+    policy = AudioPolicy(keep=True, max_files=1, max_mb=1000)
+    with HistoryStore(
+        tmp_path / "history.db",
+        upload_hold=True,
+        hold_recordings=True,
+        upload_skip_apps=["secret.exe"],
+    ) as store:
+        store.add(young_entry(1, app_process="secret.exe"), pcm16=silence(0.2), audio=policy)
+        store.add(young_entry(2, app_process="secret.exe"), pcm16=silence(0.2), audio=policy)
+        store.add(young_entry(3), pcm16=silence(0.2), audio=policy)
+        assert store.recordings_usage()[0] == 1
+        assert [bool(entry.audio_file) for entry in store.recent()] == [True, False, False]
+
+
 def test_set_upload_hold_switches_the_recordings_hold_with_it(tmp_path):
     with HistoryStore(tmp_path / "history.db") as store:
         store.set_upload_hold(True, True)
