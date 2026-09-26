@@ -107,6 +107,42 @@ def test_windows_platform_claims_every_capability():
     assert record.capabilities == Capabilities.everything()
 
 
+@pytest.mark.windows
+def test_windows_platform_hooks_the_keyboard_through_win32():
+    from spells.hotkey import MASK_TAG, HotkeyThread
+    from spells.platform import windows
+    from spells.win32 import hook
+
+    record = windows.build()
+    assert record.key_hook is hook
+    assert hook.supports_probe is True
+    assert hook.mask_keys == ((0xE8, True, 0x5554544D), (0xE8, False, 0x5554544D))
+    assert hook.MASK_TAG == MASK_TAG
+    assert record.hotkeys.func is HotkeyThread
+    assert record.hotkeys.keywords == {"hook_backend": hook}
+
+
+@pytest.mark.windows
+def test_the_chord_probe_on_windows_asks_register_hotkey(monkeypatch):
+    from spells.platform import windows
+    from spells.ui.hotkeys import MOD_CONTROL, _default_probe
+    from spells.win32 import hook
+
+    calls = []
+
+    def probe(modifiers, vk):
+        calls.append((modifiers, vk))
+        return False
+
+    monkeypatch.setattr(hook, "register_hotkey_probe", probe)
+    previous = platform.swap(windows.build())
+    try:
+        assert _default_probe(MOD_CONTROL, 0x78) is False
+    finally:
+        platform.swap(previous)
+    assert calls == [(MOD_CONTROL, 0x78)]
+
+
 @pytest.mark.parametrize("system", ["windows", "linux"])
 def test_an_unmarked_test_parametrized_windows_is_not_skipped(system):
     assert system in ("windows", "linux")

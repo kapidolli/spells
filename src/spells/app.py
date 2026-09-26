@@ -26,11 +26,11 @@ import sys
 import threading
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from spells import __version__, autostart, calibrate, paths, updates
+from spells import __version__, autostart, calibrate, paths, platform, updates
 from spells.config import (
     FIRST_RUN_FILE,
     ConfigStore,
@@ -41,7 +41,6 @@ from spells.config import (
 from spells.engines import EnginePaths, EngineSupervisor
 from spells.gpu import NO_GPU, GpuSelection, choose_device, select_device
 from spells.history import HistoryStore
-from spells.hotkey import HotkeyThread
 from spells.modelcatalog import (
     CatalogModel,
     Hardware,
@@ -241,7 +240,7 @@ class Deps:
     cpu_plan: Callable[[], CpuPlan] = detect_cpu_plan
     history: Callable[..., Any] = HistoryStore
     pipeline: Callable[..., Any] = Pipeline
-    hotkey: Callable[..., Any] = HotkeyThread
+    hotkey: Callable[..., Any] = field(default_factory=lambda: platform.current().hotkeys)
     qapplication: Callable[[list[str]], Any] = _default_qapplication
     placeholder_tray: Callable[[], Any] = _default_placeholder_tray
     bridge: Callable[[], Any] = _default_bridge

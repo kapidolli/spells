@@ -28,6 +28,8 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from spells.hotkey import MASK_INJECT
+
 LLKHF_INJECTED = 0x10
 VK_PROBE = 0xE8
 
@@ -64,6 +66,8 @@ class FakeHook:
     LLKHF_INJECTED = LLKHF_INJECTED
     VK_PROBE = VK_PROBE
     KeyEvent = KeyEvent
+    mask_keys = MASK_INJECT
+    supports_probe = True
 
     def __init__(self, clock: FakeClock | None = None) -> None:
         self.clock = clock if clock is not None else FakeClock()
@@ -72,6 +76,7 @@ class FakeHook:
         self.uninstall_log: list[int] = []
         self.sent: list[tuple[int, bool, int]] = []
         self.timers: dict[int, int] = {}
+        self.loop_timers: dict[int, int] = {}
         self.timer_log: list[tuple[str, int, int | None]] = []
         # Ordered record of everything that crossed the fake: ("sent", vk, keydown,
         # extra_info), ("event", vk, keydown, swallowed) and ("lost", vk, keydown,
@@ -118,6 +123,7 @@ class FakeHook:
         on_timer: Callable[[int], None],
         poll_ms: int = 50,
     ) -> None:
+        self.loop_timers = dict(timers)
         for timer_id, interval_ms in timers.items():
             self.set_timer(timer_id, interval_ms)
         self._on_timer = on_timer
@@ -148,6 +154,9 @@ class FakeHook:
 
     def set_current_thread_priority_highest(self) -> None:
         self.priority_calls.append(threading.get_ident())
+
+    def chord_available(self, modifiers: int, vk: int) -> bool:
+        return True
 
     # Test helpers ---------------------------------------------------------
 

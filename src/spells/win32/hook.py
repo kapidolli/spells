@@ -43,6 +43,10 @@ LLKHF_ALTDOWN = 0x20
 LLKHF_UP = 0x80
 
 VK_PROBE = 0xE8  # unassigned virtual key used for the liveness probe and Start menu masking
+MASK_TAG = 0x5554544D
+
+mask_keys = ((VK_PROBE, True, MASK_TAG), (VK_PROBE, False, MASK_TAG))
+supports_probe = True
 
 WM_KEYDOWN = 0x0100
 WM_KEYUP = 0x0101
@@ -425,3 +429,7 @@ def register_hotkey_probe(modifiers: int, vk: int) -> bool:
     if error == ERROR_HOTKEY_ALREADY_REGISTERED:
         return False
     raise ctypes.WinError(error)
+
+
+def chord_available(modifiers: int, vk: int) -> bool:
+    return register_hotkey_probe(modifiers, vk)

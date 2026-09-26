@@ -13,9 +13,10 @@ uses time.perf_counter), B3-25 (the probe is recognized by vk, the injected flag
 and the private tag together) and B3-26 (a failed hook install is counted,
 reported through `on_error` and retried every tick; the thread never exits).
 
-The Win32 side is the spells.win32.hook contract. It is passed in as a backend
-object so unit tests run against tests/unit/fake_hook.py; the real module is
-imported only when no backend is given.
+The keyboard side is the KeyHook contract of spells.platform.base, always passed
+in as a backend object: the platform's hotkey factory passes spells.win32.hook
+on Windows, and unit tests pass tests/unit/fake_hook.py. The backend also says
+which keys mask the Start menu and whether the liveness probe can run.
 """
 
 from __future__ import annotations
@@ -140,10 +141,12 @@ class ChordStateMachine:
         tap_max_s: float = 0.25,
         tap_window_s: float = 0.4,
         on_exception: Callable[[BaseException], None] | None = None,
+        mask_inject: tuple[tuple[int, bool, int], ...] = MASK_INJECT,
     ) -> None:
         self._chords: tuple[Chord, ...] = tuple(chords)
         self._callbacks = callbacks
         self._now = now
+        self._mask_inject = mask_inject
         # Integer milliseconds: the spec states these limits in ms, the hook is
         # ms-granular, and float subtraction noise must not move a boundary.
         self._tap_max_ms = round(tap_max_s * 1000)
@@ -332,7 +335,7 @@ class ChordStateMachine:
             # would treat the key-up as a lone Win tap and open the Start menu.
             self._mask_pending = False
             if not released:
-                inject = MASK_INJECT
+                inject = self._mask_inject
         if (
             self._state is ChordState.HELD
             and self._active is not None
@@ -465,6 +468,8 @@ class HotkeyStats:
 class HotkeyThread(threading.Thread):
     """Owns the keyboard hook, its message loop, and the liveness probe (spec 5.1, 13).
 
+    The probe runs only on a backend whose supports_probe is true.
+
     Everything the hook callback and the timers do runs on this thread and never
     blocks (V1-6, V3-F3); end_recording, update_chords, request_reinstall and stop
     may be called from any thread.
@@ -478,22 +483,25 @@ class HotkeyThread(threading.Thread):
         self,
         chords: Iterable[Chord],
         callbacks: HotkeyCallbacks,
-        hook_backend=None,
+        hook_backend,
         probe_interval_s: float = 15.0,
         probe_check_s: float = 0.1,
         now: Callable[[], float] = time.perf_counter,
         on_error: Callable[[str], None] | None = None,
     ) -> None:
         super().__init__(name="spells-hotkey", daemon=True)
-        if hook_backend is None:
-            # Production path only: tests always pass a fake backend.
-            from spells.win32 import hook as hook_backend
         self._backend = hook_backend
         self._probe_interval_ms = max(1, round(probe_interval_s * 1000))
         self._probe_check_ms = max(1, round(probe_check_s * 1000))
         self._on_error = on_error
         self.stats = HotkeyStats()
-        self._sm = ChordStateMachine(chords, callbacks, now, on_exception=self._count_exception)
+        self._sm = ChordStateMachine(
+            chords,
+            callbacks,
+            now,
+            on_exception=self._count_exception,
+            mask_inject=tuple(hook_backend.mask_keys),
+        )
         self._stop_event = threading.Event()
         self._reinstall_requested = threading.Event()
         self._lock = threading.Lock()
@@ -560,7 +568,9 @@ class HotkeyThread(threading.Thread):
         # A refused install is not fatal: the message loop starts anyway and the tick
         # retries until the hook takes, so the thread outlives a bad moment (B3-26).
         self._install()
-        timers = {TIMER_TICK: TICK_MS, TIMER_PROBE: self._probe_interval_ms}
+        timers = {TIMER_TICK: TICK_MS}
+        if self._backend.supports_probe:
+            timers[TIMER_PROBE] = self._probe_interval_ms
         try:
             self._backend.run_message_loop(self._stop_event, timers, self._on_timer)
         finally:

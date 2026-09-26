@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 import pytest
 
 from spells.hotkey import (
+    MASK_INJECT,
     MASK_TAG,
     MASK_VK,
     MODIFIER_VKS,
@@ -1413,3 +1414,56 @@ def test_the_thread_arms_the_composition_from_any_thread():
     assert thread.writing_id == 11
     thread.set_writing(None)
     assert thread.writing_id is None
+
+
+def test_a_state_machine_without_mask_keys_injects_nothing_on_win_release(rec, clock):
+    sm = ChordStateMachine([WIN_CHORD], rec.callbacks(), clock.now, mask_inject=())
+    assert sm.on_key(ev(VK_LWIN, True)) == Decision(swallow=False)
+    assert sm.on_key(ev(VK_H, True)) == Decision(swallow=True)
+    clock.advance(0.3)
+    assert sm.on_key(ev(VK_H, False)) == Decision(swallow=True)
+    decision = sm.on_key(ev(VK_LWIN, False))
+    assert decision.swallow is False
+    assert decision.inject == ()
+    assert rec.events == [("pressed", WIN_CHORD, 1), ("released", WIN_CHORD, 1)]
+
+
+def test_the_default_mask_keys_are_the_start_menu_mask(rec, clock):
+    sm = ChordStateMachine([WIN_CHORD], rec.callbacks(), clock.now)
+    sm.on_key(ev(VK_LWIN, True))
+    sm.on_key(ev(VK_H, True))
+    clock.advance(0.3)
+    sm.on_key(ev(VK_H, False))
+    decision = sm.on_key(ev(VK_LWIN, False))
+    assert decision.swallow is False
+    assert decision.inject == MASK_INJECT
+    assert MASK_INJECT == MASK_PAIR
+
+
+def test_a_backend_without_the_probe_never_arms_it(rec):
+    hook = FakeHook()
+    hook.supports_probe = False
+    thread = HotkeyThread((), rec.callbacks(), hook)
+    thread.start()
+    assert hook.loop_started.wait(1.0)
+    thread.stop()
+    assert hook.loop_timers == {TIMER_TICK: TICK_MS}
+    assert TIMER_PROBE not in hook.loop_timers
+
+
+def test_the_thread_masks_with_the_backend_mask_keys(rec):
+    hook = FakeHook()
+    hook.mask_keys = ()
+    thread = HotkeyThread([WIN_CHORD], rec.callbacks(), hook, now=hook.clock.now)
+    thread.start()
+    assert hook.loop_started.wait(1.0)
+    try:
+        hook.press(VK_LWIN)
+        assert hook.press(VK_H) is True
+        hook.clock.advance(0.3)
+        hook.release(VK_H)
+        assert hook.release(VK_LWIN) is False
+        assert hook.sent == []
+        assert rec.events == [("pressed", WIN_CHORD, 1), ("released", WIN_CHORD, 1)]
+    finally:
+        thread.stop()
