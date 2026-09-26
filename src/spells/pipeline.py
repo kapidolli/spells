@@ -90,6 +90,7 @@ from spells.models import (
     TargetContext,
     Transcript,
 )
+from spells.platform.base import SETTINGS_MICROPHONE_PRIVACY, SETTINGS_SOUND
 
 log = logging.getLogger(__name__)
 
@@ -140,8 +141,8 @@ AUDIO_LOST_NOTIFICATION = (
     "Some audio was lost between the microphone and Spells, so words may be missing."
 )
 # The notification's "Open settings" button targets (spec 16, mic rows).
-SOUND_SETTINGS = "ms-settings:sound"
-PRIVACY_SETTINGS = "ms-settings:privacy-microphone"
+SOUND_SETTINGS = SETTINGS_SOUND
+PRIVACY_SETTINGS = SETTINGS_MICROPHONE_PRIVACY
 MIC_PILL_TEXT = {
     "missing": "No mic found",
     "busy": "Mic is busy",
@@ -267,7 +268,8 @@ class PipelineEvent:
     badge of spec 6 step 3) and `text` (the 9-minute warning or the mic-blocked hint) are
     the steady state. `notice` and `notice_text` are transient: the UI shows them for a
     moment and returns to the steady state. `notification` is a toast; when
-    `notification_action` is set it is a `ms-settings:` URI for an "Open settings" button.
+    `notification_action` is set it is a settings kind (`SOUND_SETTINGS` or
+    `PRIVACY_SETTINGS`) the platform shell opens from an "Open settings" button.
     `target_hwnd` is the window captured at press time while a recording is active (the pill
     goes on that window's monitor, spec 14.2), None otherwise or when the capture failed.
     `timings` is set once, on the event that completes a dictation that reached ASR, whether

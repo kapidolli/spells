@@ -3,25 +3,27 @@
 The seven states are composed from the engine status per engine, the hotkey install error,
 the GPU probe result and the pipeline's own tray state; `compose_tray_state` is pure so the
 composition is testable without a tray. Notifications go through QSystemTrayIcon.showMessage;
-a Windows balloon has no buttons, so when the pipeline names an `ms-settings:` URI the text
-invites a click and the click launches it. The update balloon of spec 19.7 uses the same
-mechanism with the sentinel `OPEN_ABOUT`, which is never launched: it opens the About page
-in this process, where the change list and the Install button are.
+a Windows balloon has no buttons, so when the pipeline names a settings kind the system can
+open, the text invites a click and the click opens it through the platform shell. The update
+balloon of spec 19.7 uses the same mechanism with the sentinel `OPEN_ABOUT`, which is never
+launched: it opens the About page in this process, where the change list and the Install
+button are.
 """
 
 from __future__ import annotations
 
 import logging
-import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from spells import platform
 from spells.config import ConfigStore, Settings, SettingsError
 from spells.models import Chord, Engine, EngineState
 from spells.pipeline import Notice, PillState, PipelineEvent, TrayState
+from spells.platform.base import SETTINGS_MICROPHONE_PRIVACY, SETTINGS_SOUND
 from spells.ui import style, theme
 from spells.ui.icons import TrayIconState, tray_icon
 
@@ -65,7 +67,7 @@ HEADLINES = {
     TrayIconState.IDLE: "Idle, engines unloaded",
 }
 WARNING_STATES = frozenset({EngineState.RESTARTING, EngineState.PAUSED, EngineState.CPU_FALLBACK})
-MIC_SETTINGS_PREFIX = "ms-settings:"
+SETTINGS_KINDS = frozenset({SETTINGS_SOUND, SETTINGS_MICROPHONE_PRIVACY})
 
 
 @dataclass(frozen=True)
@@ -199,7 +201,7 @@ class Tray(QtCore.QObject):
         self._config = config
         self._pipeline = pipeline
         self._hotkey = hotkey
-        self._launcher = launcher or os.startfile
+        self._launcher = launcher or platform.current().shell.open_path
         self._light = theme.taskbar_is_light() if light_taskbar is None else light_taskbar
         self._icons: dict[TrayIconState, QtGui.QIcon] = {}
         self._engines: dict[Engine, tuple[EngineState, str]] = {}
@@ -332,12 +334,18 @@ class Tray(QtCore.QObject):
         return True
 
     def notify(self, text: str, action: str | None = None, *, warning: bool = False) -> None:
-        """A toast; an `ms-settings:` action is launched when the toast is clicked."""
+        """A toast; its action opens when the toast is clicked.
+
+        A settings kind the system cannot open is dropped, and with it the hint to click.
+        """
         body = text
-        self._pending_action = action if action else None
+        openable = bool(action) and (
+            action not in SETTINGS_KINDS or platform.current().shell.has_settings(action)
+        )
+        self._pending_action = action if openable else None
         if action == OPEN_ABOUT:
             body = f"{text}\n{OPEN_ABOUT_HINT}"
-        elif action:
+        elif openable:
             body = f"{text}\n{OPEN_SETTINGS_HINT}"
         kind = (
             QtWidgets.QSystemTrayIcon.MessageIcon.Warning
@@ -353,11 +361,7 @@ class Tray(QtCore.QObject):
         self.retry_action.setEnabled(bool(event.retry_available))
         if event.pill in (PillState.RECORDING, PillState.LATCHED):
             self._mic_error = None
-        if (
-            event.notice is Notice.ERROR
-            and event.notification_action
-            and str(event.notification_action).startswith(MIC_SETTINGS_PREFIX)
-        ):
+        if event.notice is Notice.ERROR and event.notification_action in SETTINGS_KINDS:
             self._mic_error = event.notification or event.notice_text
         if event.notification:
             self.notify(event.notification, event.notification_action, warning=event.notice is Notice.ERROR)
@@ -451,7 +455,10 @@ class Tray(QtCore.QObject):
             self.open_requested.emit("about")
             return
         try:
-            self._launcher(action)
+            if action in SETTINGS_KINDS:
+                platform.current().shell.open_settings(action)
+            else:
+                self._launcher(action)
         except Exception:
             log.exception("could not open %s", action)
 

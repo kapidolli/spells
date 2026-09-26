@@ -21,6 +21,7 @@ from typing import Any
 import sounddevice as sd
 from PySide6 import QtCore, QtWidgets
 
+from spells import platform
 from spells.ui import style
 from spells.ui.widgets import IconButton, make_label
 
@@ -63,8 +64,8 @@ def default_stream(callback: Callable, sample_rate: int) -> Any:
 
 
 def default_reveal(path: Path) -> None:
-    """Show the file in Explorer with it selected."""
-    QtCore.QProcess.startDetached("explorer.exe", [f"/select,{path}"])
+    """Show the file in the system's file manager, selected where the system can."""
+    platform.current().shell.reveal(path)
 
 
 class WavPlayer(QtCore.QObject):

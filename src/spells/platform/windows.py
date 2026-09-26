@@ -14,11 +14,13 @@ from spells.platform.keys_windows import WindowsKeys
 from spells.win32 import autostart as win32_autostart
 from spells.win32 import clipboard as win32_clipboard
 from spells.win32 import cpu as win32_cpu
+from spells.win32 import dpapi as win32_dpapi
 from spells.win32 import hook as win32_hook
 from spells.win32 import input as win32_input
 from spells.win32 import instance as win32_instance
 from spells.win32 import msgwindow as win32_msgwindow
 from spells.win32 import process as win32_process
+from spells.win32 import shell as win32_shell
 from spells.win32 import window as win32_window
 
 
@@ -128,6 +130,31 @@ class WindowsAutostart:
         return win32_autostart.current_command()
 
 
+class WindowsShell:
+    def open_path(self, path: str) -> None:
+        win32_shell.open_path(path)
+
+    def reveal(self, path: Path) -> None:
+        win32_shell.reveal(path)
+
+    def has_settings(self, kind: str) -> bool:
+        return kind in win32_shell.SETTINGS_URIS
+
+    def open_settings(self, kind: str) -> bool:
+        return win32_shell.open_settings(kind)
+
+    def microphone_blocked(self) -> bool | None:
+        return win32_shell.microphone_privacy_denied()
+
+
+class WindowsSecrets:
+    def protect(self, data: bytes, description: str = "") -> bytes:
+        return win32_dpapi.protect(data, description)
+
+    def unprotect(self, blob: bytes) -> bytes:
+        return win32_dpapi.unprotect(blob)
+
+
 class WindowsUpdater:
     @property
     def can_apply(self) -> bool:
@@ -151,4 +178,6 @@ def build() -> Platform:
         instance=WindowsInstance(),
         autostart=WindowsAutostart(),
         updater=WindowsUpdater(),
+        shell=WindowsShell(),
+        secrets=WindowsSecrets(),
     )

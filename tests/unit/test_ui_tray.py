@@ -13,9 +13,12 @@ import pytest
 from PySide6 import QtGui, QtWidgets
 
 from spells.models import Chord, EngineState
+from spells.platform.base import SETTINGS_MICROPHONE_PRIVACY, SETTINGS_SOUND
+from spells.platform.stub import StubShell
 from spells.ui.icons import TrayIconState, render_tray_pixmap, tray_icon
 from spells.ui.tray import NO_CLEANUP_MODEL, Tray, TrayInputs, compose_tray_state
 
+from .fake_platform import fake_platform
 from .test_ui_support import (
     LLAMA,
     WHISPER,
@@ -233,6 +236,18 @@ class RecordingIcon(QtWidgets.QSystemTrayIcon):
         self.messages.append(args)
 
 
+class SettingsShell(StubShell):
+    def __init__(self) -> None:
+        self.opened: list[str] = []
+
+    def has_settings(self, kind):
+        return True
+
+    def open_settings(self, kind):
+        self.opened.append(kind)
+        return True
+
+
 def make_tray(tmp_path, *, no_vulkan_gpu=False, llama=(READY, "ok")):
     config = make_config(tmp_path)
     pipeline = FakePipeline()
@@ -315,7 +330,7 @@ def test_a_mic_error_keeps_the_tray_in_error_until_the_next_recording(app, tmp_p
             notice=Notice.ERROR,
             notice_text="Mic is busy",
             notification="Microphone busy: another app holds it",
-            notification_action="ms-settings:sound",
+            notification_action=SETTINGS_SOUND,
         )
     )
     assert tray.state is TrayIconState.ERROR
@@ -427,23 +442,26 @@ def test_menu_has_the_spec_entries_in_order(app, tmp_path):
     assert texts[-3:] == ["History", "Settings", "Quit"]
 
 
-def test_notification_with_a_settings_uri_launches_it_on_click(app, tmp_path):
+def test_notification_with_a_settings_kind_opens_it_on_click(app, tmp_path, use_platform):
+    shell = SettingsShell()
+    use_platform(fake_platform(shell=shell))
     tray, _config, _pipeline, _hotkey, icon, launched = make_tray(tmp_path)
     tray.apply_event(
         event(
             notice=Notice.ERROR,
             notice_text="Mic is blocked",
             notification="Microphone blocked by the privacy settings",
-            notification_action="ms-settings:privacy-microphone",
+            notification_action=SETTINGS_MICROPHONE_PRIVACY,
         )
     )
     assert len(icon.messages) == 1
     assert "Microphone blocked by the privacy settings" in icon.messages[0][1]
     assert "Open settings" in icon.messages[0][1]
     icon.messageClicked.emit()
-    assert launched == ["ms-settings:privacy-microphone"]
+    assert shell.opened == ["microphone_privacy"]
     icon.messageClicked.emit()
-    assert launched == ["ms-settings:privacy-microphone"]
+    assert shell.opened == ["microphone_privacy"]
+    assert launched == []
 
 
 def test_notification_without_an_action_launches_nothing(app, tmp_path):
@@ -590,10 +608,13 @@ def test_a_balloon_without_a_version_is_never_shown(app, tmp_path):
     assert len(icon.messages) == before
 
 
-def test_a_microphone_balloon_still_launches_its_settings_uri(app, tmp_path):
+def test_a_microphone_balloon_still_opens_its_settings(app, tmp_path, use_platform):
+    shell = SettingsShell()
+    use_platform(fake_platform(shell=shell))
     tray, _config, _pipeline, _hotkey, _icon, launched = make_tray(tmp_path)
 
-    tray.notify("No sound from the microphone.", "ms-settings:sound")
+    tray.notify("No sound from the microphone.", SETTINGS_SOUND)
     tray._on_message_clicked()
 
-    assert launched == ["ms-settings:sound"]
+    assert shell.opened == ["sound"]
+    assert launched == []

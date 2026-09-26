@@ -9,8 +9,9 @@ from typing import Any
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from spells import upload
+from spells import platform, upload
 from spells.config import ConfigStore, Settings, SettingsError, UploadSettings
+from spells.platform import PlatformUnavailable
 from spells.ui import style
 from spells.ui.uploading import UploadView, status_text
 from spells.ui.welcome import Notify
@@ -44,6 +45,7 @@ TOKEN_HINT = (
     "Sent as a bearer token. Kept encrypted for your Windows account, never in the "
     "settings file."
 )
+TOKEN_UNAVAILABLE = "Saving a token is not available on this system yet."
 SCHEDULE_TITLE = "When to upload"
 SCHEDULE_HINT = (
     "Daily and weekly run in the background, never during a dictation. Manual waits for "
@@ -103,6 +105,16 @@ def _blocked(*widgets: QtCore.QObject) -> Iterator[None]:
             widget.blockSignals(state)
 
 
+def _secrets_available() -> bool:
+    try:
+        platform.current().secrets.protect(b"")
+    except PlatformUnavailable:
+        return False
+    except OSError:
+        log.warning("the protected storage probe failed", exc_info=True)
+    return True
+
+
 def _line_edit(placeholder: str, parent: QtWidgets.QWidget) -> QtWidgets.QLineEdit:
     edit = QtWidgets.QLineEdit(parent)
     edit.setFont(style.font("body"))
@@ -147,7 +159,14 @@ class UploadPage(ScrollPage):
         self.token.setAccessibleName(TOKEN_TITLE)
         self.token.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
         self.token.editingFinished.connect(self._token_edited)
-        server.add_row(SettingRow(TOKEN_TITLE, TOKEN_HINT, self.token, wide_control=True))
+        self._secrets = _secrets_available()
+        self.token_row = SettingRow(
+            TOKEN_TITLE,
+            TOKEN_HINT if self._secrets else TOKEN_UNAVAILABLE,
+            self.token,
+            wide_control=True,
+        )
+        server.add_row(self.token_row)
         self.schedule = SegmentedControl(server)
         for code in upload.SCHEDULES:
             self.schedule.addItem(SCHEDULE_LABELS[code], code)
@@ -251,7 +270,7 @@ class UploadPage(ScrollPage):
             self.status_row.set_description(UNATTACHED_TEXT)
         else:
             self.status_row.set_description(status_text(current, self._view, self._clock()))
-        self.token.setEnabled(coordinator is not None)
+        self.token.setEnabled(coordinator is not None and self._secrets)
         self.test_button.setEnabled(coordinator is not None and address and not working)
         self.upload_button.setEnabled(
             coordinator is not None and address and current.enabled and not working

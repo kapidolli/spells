@@ -5,6 +5,8 @@ import os
 from collections.abc import Callable
 from pathlib import Path
 
+from spells import platform
+
 log = logging.getLogger(__name__)
 
 TOKEN_FILE = "upload-token.bin"
@@ -16,15 +18,11 @@ def token_path_for(history_path: Path) -> Path:
 
 
 def _protect(data: bytes) -> bytes:
-    from spells.win32 import dpapi
-
-    return dpapi.protect(data, DESCRIPTION)
+    return platform.current().secrets.protect(data, DESCRIPTION)
 
 
 def _unprotect(blob: bytes) -> bytes:
-    from spells.win32 import dpapi
-
-    return dpapi.unprotect(blob)
+    return platform.current().secrets.unprotect(blob)
 
 
 class TokenStore:

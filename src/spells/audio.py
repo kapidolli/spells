@@ -39,6 +39,8 @@ from typing import Any, Literal
 
 import sounddevice as sd
 
+from spells import platform
+
 logger = logging.getLogger(__name__)
 
 MicErrorKind = Literal["missing", "busy", "blocked", "unknown"]
@@ -71,16 +73,6 @@ _MISSING_PATTERNS = (
     "invalidated",
     "disconnected",
     "0x88890004",
-)
-
-# Where Windows keeps the microphone privacy switches (Settings, Privacy and
-# security, Microphone). HKLM: the device-wide switch; HKCU: this user's switch;
-# HKCU ...\NonPackaged: "Let desktop apps access your microphone", the one that
-# applies to Spells. A denied desktop app still opens the device but receives
-# silence, which is why the blocked check looks at the samples.
-_CONSENT_KEY = (
-    r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager"
-    r"\ConsentStore\microphone"
 )
 
 DEVICE_MOVED_NOTICE = (
@@ -463,27 +455,7 @@ def _map_open_error(exc: BaseException, label: str) -> MicError:
 
 
 def _microphone_privacy_denied() -> bool | None:
-    """True when a Windows microphone privacy switch is set to Deny, None when unreadable."""
-    try:
-        import winreg
-    except ImportError:
-        return None
-    checks = (
-        (winreg.HKEY_LOCAL_MACHINE, _CONSENT_KEY),
-        (winreg.HKEY_CURRENT_USER, _CONSENT_KEY),
-        (winreg.HKEY_CURRENT_USER, _CONSENT_KEY + r"\NonPackaged"),
-    )
-    readable = False
-    for root, subkey in checks:
-        try:
-            with winreg.OpenKey(root, subkey) as key:
-                value, _ = winreg.QueryValueEx(key, "Value")
-        except OSError:
-            continue
-        readable = True
-        if str(value).casefold() == "deny":
-            return True
-    return False if readable else None
+    return platform.current().shell.microphone_blocked()
 
 
 def _blocked_message() -> str:

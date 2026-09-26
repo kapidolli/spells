@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import sys
 import time
 import zipfile
@@ -25,6 +24,7 @@ from typing import Any
 
 from PySide6 import QtCore, QtWidgets
 
+from spells import platform
 from spells.audio import CaptureInfo
 from spells.config import ConfigStore, Settings, SettingsError
 from spells.datafiles import data_dir
@@ -375,7 +375,7 @@ class DiagnosticsTab(ScrollPage):
         self._selection = gpu_selection
         self.log_dir = Path(log_dir)
         self._notify = notify or default_notify
-        self._launcher = launcher or os.startfile
+        self._launcher = launcher or platform.current().shell.open_path
         self._save_dialog = save_dialog or _default_save_dialog
         self._loading = False
 
