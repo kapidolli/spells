@@ -10,16 +10,22 @@ the two can never say different things.
 
 ## [Unreleased]
 
-### Added
-
-- A new Upload page in Settings can send your dictations to a server you run: by hand, every day or every week, and never during a dictation. It is off until you switch it on and type an address, and it sends the text, the app and window title, the language and the timings of the dictations not sent yet, plus the kept recordings only if you ask for them. Apps you list are never uploaded. The token is kept encrypted for your Windows account, never in the settings file. docs/upload.md describes what is sent and has a small receiver to start from.
-- While uploading is on, dictations not sent yet are kept for up to 30 days, even past your history limit, so a computer away from its server for a while loses nothing.
-
 ### Planned
 
 - Albanian on the fast speech model, once the gated model is available.
 - A signed installer, so Windows stops warning about it.
 - Reading the few characters before the cursor, so spacing and capitals follow the text already there.
+
+## [0.6.0] - 2026-09-26
+
+Send your dictations to a server of your own, if you want to.
+
+### Added
+
+- A new Upload page in Settings can send your dictations to a server you run: by hand, every day or every week, and never during a dictation. It is off until you switch it on and type an address.
+- An upload carries the text, the app and window title, the language and the timings of the dictations not sent yet. Kept recordings go too only if you ask for them, and apps you list are never uploaded.
+- The upload token is kept encrypted for your Windows account, never in the settings file. docs/upload.md describes what is sent and has a small receiver to start from.
+- While uploading is on, dictations not sent yet are kept for up to 30 days, even past your history limit, so a computer away from its server for a while loses nothing. Their recordings are held too when you include them.
 
 ## [0.5.2] - 2026-09-21
 
@@ -153,7 +159,9 @@ and learned to tell you when there is a newer version.
 - A microphone that delivers no sound now says so instead of reporting a failed transcription.
 - Blocks of sound the card drops mid-recording are counted and shown, so a dictation that is missing words says why.
 
-[Unreleased]: https://github.com/kapidolli/spells/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/kapidolli/spells/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/kapidolli/spells/compare/v0.5.2...v0.6.0
+[0.5.2]: https://github.com/kapidolli/spells/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/kapidolli/spells/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/kapidolli/spells/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/kapidolli/spells/releases/tag/v0.4.0
