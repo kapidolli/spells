@@ -8,7 +8,11 @@ Spells is a desktop app for Windows 11 (64-bit), licensed GPL-3.0-or-later, with
 
 - [Website](https://kapidolli.github.io/spells/): overview, features, privacy, languages, download and questions
 - [Full description for assistants](https://kapidolli.github.io/spells/llms-full.txt): everything on the website as plain Markdown
-- [README](https://github.com/kapidolli/spells/blob/main/README.md): what Spells is and how to set up a development checkout
+- [README](https://github.com/kapidolli/spells/blob/main/README.md): what Spells is, in short
+- [Guide](https://github.com/kapidolli/spells/blob/main/docs/guide.md): every feature in detail
+- [Privacy](https://github.com/kapidolli/spells/blob/main/docs/privacy.md): what Spells sends, when, and what it keeps on disk
+- [Upload protocol](https://github.com/kapidolli/spells/blob/main/docs/upload.md): the spells-upload/1 format for a server of your own
+- [Building from source](https://github.com/kapidolli/spells/blob/main/docs/building.md): how to set up a development checkout
 - [CHANGELOG](https://github.com/kapidolli/spells/blob/main/CHANGELOG.md): what changed in each release, in the words the app uses
 - [LICENSE](https://github.com/kapidolli/spells/blob/main/LICENSE): GNU General Public License, version 3 or later
 
