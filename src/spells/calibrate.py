@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from spells import platform
 from spells.datafiles import data_path
 from spells.engines import EnginePaths, Variant, launch_args
 from spells.gpu import GpuSelection, engine_env
@@ -297,9 +298,7 @@ def _default_client(runtime: str, url: str) -> Any:
 
 
 def _default_spawn(args, *, env, log_path, cwd, job, affinity_mask) -> Any:
-    from spells.win32 import process as win32_process
-
-    return win32_process.spawn_hidden(
+    return platform.current().processes.spawn_hidden(
         args,
         env=env,
         stdout_path=log_path,
@@ -311,9 +310,7 @@ def _default_spawn(args, *, env, log_path, cwd, job, affinity_mask) -> Any:
 
 
 def _default_job() -> Any:
-    from spells.win32 import process as win32_process
-
-    return win32_process.JobObject()
+    return platform.current().processes.create_job()
 
 
 def _free_port() -> int:

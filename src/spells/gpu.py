@@ -25,11 +25,12 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from spells import platform
+
 logger = logging.getLogger(__name__)
 
 LIST_TIMEOUT_S = 20
 VISIBLE_DEVICES_ENV = "GGML_VK_VISIBLE_DEVICES"
-CREATE_NO_WINDOW = 0x08000000
 # Extra raw indices tried beyond the unfiltered count; the first empty run ends the probe.
 PROBE_SLACK = 2
 # Model path handed to whisper-server for the backend probe; it must never exist.
@@ -138,7 +139,7 @@ def _run_hidden(args: list[str], env: dict[str, str] | None, cwd: Path, runner) 
             timeout=LIST_TIMEOUT_S,
             env=env,
             cwd=str(cwd),
-            creationflags=CREATE_NO_WINDOW,
+            **platform.current().processes.hidden_process_kwargs(),
         )
     except subprocess.TimeoutExpired:
         logger.warning("%s did not finish within %s s", " ".join(args[:2]), LIST_TIMEOUT_S)

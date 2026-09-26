@@ -53,7 +53,6 @@ from spells.modelcatalog import (
 from spells.models import CpuPlan, Engine
 from spells.paths import Layout
 from spells.pipeline import Pipeline
-from spells.win32.cpu import detect_cpu_plan
 from spells.win32.instance import (
     acquire_single_instance,
     find_message_window,
@@ -237,7 +236,9 @@ class Deps:
     select_device: Callable[..., GpuSelection] = select_device
     model_catalog: Callable[[], Sequence[CatalogModel]] = load_catalog
     supervisor: Callable[..., Any] = EngineSupervisor
-    cpu_plan: Callable[[], CpuPlan] = detect_cpu_plan
+    cpu_plan: Callable[[], CpuPlan] = field(
+        default_factory=lambda: platform.current().processes.cpu_plan
+    )
     history: Callable[..., Any] = HistoryStore
     pipeline: Callable[..., Any] = Pipeline
     hotkey: Callable[..., Any] = field(default_factory=lambda: platform.current().hotkeys)

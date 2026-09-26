@@ -36,6 +36,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
+from spells import platform
 from spells.datafiles import data_path, read_lines
 from spells.gpu import GpuSelection, engine_env
 from spells.modelcatalog import (
@@ -381,17 +382,15 @@ def _default_llama_asr_client(base_url: str) -> Any:
     return LlamaAsrClient(base_url, timeout_s=60.0)
 
 
-class _Win32ProcessBackend:
+class _PlatformProcessBackend:
     def __init__(self) -> None:
-        from spells.win32 import process as win32_process
-
-        self._process = win32_process
+        self._processes = platform.current().processes
 
     def create_job(self) -> Any:
-        return self._process.JobObject()
+        return self._processes.create_job()
 
     def spawn(self, args, *, env, stdout_path, stderr_path, cwd, job, affinity_mask=None) -> Any:
-        return self._process.spawn_hidden(
+        return self._processes.spawn_hidden(
             args,
             env=env,
             stdout_path=stdout_path,
@@ -920,7 +919,7 @@ class EngineSupervisor:
 
     def _backend_instance(self) -> Any:
         if self._backend is None:
-            self._backend = _Win32ProcessBackend()
+            self._backend = _PlatformProcessBackend()
         return self._backend
 
     def _ensure_job(self) -> Any:
