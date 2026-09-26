@@ -845,7 +845,7 @@ class EngineSupervisor:
             self._set_state(runtime, state, reason)
         try:
             proc = self._spawn(runtime, variant)
-        except (OSError, ValueError) as exc:
+        except (OSError, ValueError, platform.PlatformUnavailable) as exc:
             logger.warning("engine %s: launch failed: %s", runtime.key, exc)
             self._on_classified(runtime, variant, "crash", is_trial=False)
             return

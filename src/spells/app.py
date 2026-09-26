@@ -288,6 +288,9 @@ def main(argv: Sequence[str] | None = None, *, deps: Deps | None = None) -> int:
         layout.llama_model.name if layout.llama_model else "none",
         layout.settings_path,
     )
+    record = platform.current()
+    if record.capabilities == platform.Capabilities():
+        log.info("Running on the %s platform stub", record.name)
     if args.unknown:
         log.warning("Ignoring unknown arguments: %s", " ".join(args.unknown))
     if args.quit:

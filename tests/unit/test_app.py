@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from spells import app as app_module
-from spells import calibrate, paths
+from spells import calibrate, paths, platform
 from spells.app import MUTEX_NAME, WINDOW_CLASS, Deps, main, parse_args
 from spells.config import ConfigStore, Settings, default_settings, load
 from spells.engines import SpeechEngine
@@ -24,7 +24,9 @@ from spells.gpu import GpuDevice, GpuSelection
 from spells.modelcatalog import CatalogError, load_catalog, parse_catalog
 from spells.models import CpuPlan, Engine, EngineId, EngineState
 from spells.pipeline import PillState, PipelineEvent, TrayState
-from spells.platform.base import MessageHandlers
+from spells.platform.base import Capabilities, MessageHandlers
+
+from .fake_platform import fake_platform
 
 RTX = "NVIDIA GeForce RTX 5060 Laptop GPU"
 SELECTION = GpuSelection(
@@ -607,6 +609,22 @@ def test_second_launch_asks_the_running_instance_to_open_settings(world):
     assert world.signals == [(WINDOW_CLASS, "open-settings")]
     assert "qapp" not in world.log
     assert world.engines is None
+
+
+def test_a_start_on_the_stub_says_so_in_the_log(world, caplog, use_platform):
+    use_platform(fake_platform())
+    world.taken = True
+    with caplog.at_level(logging.INFO, logger="spells.app"):
+        assert main([], deps=world.deps()) == 0
+    assert "Running on the linux platform stub" in caplog.text
+
+
+def test_a_start_with_every_capability_does_not_mention_the_stub(world, caplog, use_platform):
+    use_platform(replace(platform.current(), capabilities=Capabilities.everything()))
+    world.taken = True
+    with caplog.at_level(logging.INFO, logger="spells.app"):
+        assert main([], deps=world.deps()) == 0
+    assert "stub" not in caplog.text
 
 
 def test_settings_flag_reaches_the_running_instance(world):

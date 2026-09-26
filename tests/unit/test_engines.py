@@ -31,6 +31,7 @@ from spells.engines import (
 from spells.gpu import GpuDevice, GpuSelection
 from spells.modelcatalog import ModelChoice, ModelKind
 from spells.models import CpuPlan, Engine, EngineId, EngineState
+from spells.platform import PlatformUnavailable
 
 from .fake_process import FakeClock, FakePopen, FakeWorld
 
@@ -583,6 +584,17 @@ def test_persistent_spawn_error_ends_in_failed(harness, world):
         (EngineState.RESTARTING, "crash"),
         (EngineState.FAILED, "crash"),
     ]
+
+
+def test_a_system_that_cannot_start_engines_ends_in_failed_like_a_missing_exe(harness, world):
+    world.spawn_error = PlatformUnavailable("Starting the speech engines is not available on linux yet")
+    harness.run(LLAMA, 10.0)
+    assert harness.sup.status(LLAMA) is EngineState.FAILED
+    assert harness.events_for(LLAMA)[-2:] == [
+        (EngineState.RESTARTING, "crash"),
+        (EngineState.FAILED, "crash"),
+    ]
+    assert world.processes == []
 
 
 def test_startup_timeout_is_a_crash(tmp_path, world):
