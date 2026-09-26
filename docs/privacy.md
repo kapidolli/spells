@@ -17,7 +17,7 @@ That covers Spells itself. Windows and other software on your PC (SmartScreen, W
 | Settings | `%APPDATA%\Spells\settings.json` | Hotkeys, languages, app rules, your vocabulary, filler lists, tones, the upload address and schedule. No dictated text and no upload token |
 | Speed measurements | `%APPDATA%\Spells\calibration.json` | Only on integrated graphics: model names, the graphics device name and how fast each ran on the built-in sample clip |
 | History | `%LOCALAPPDATA%\Spells\history.db` | Your recent dictations (last 100 by default): the text as recognised, cleaned and inserted, the app and window title, language, timings, and which were uploaded. Set it to off, or clear it, any time. While uploading is on, dictations not sent yet are kept up to 30 days past your limit |
-| Recordings | `%LOCALAPPDATA%\Spells\recordings\` | Only if you turn on "Keep the recordings" (off by default) |
+| Recordings | `%LOCALAPPDATA%\Spells\recordings\` | Only if you turn on "Keep the recordings" (off by default). While an upload includes them, recordings not sent yet are kept up to 30 days past their limit |
 | Upload token | `%LOCALAPPDATA%\Spells\upload-token.bin` | Only if you type a token on the Upload page: the token, encrypted for your Windows account with DPAPI |
 | Logs | `%LOCALAPPDATA%\Spells\logs\` | App and engine logs, rotated at 5 MB, five files per log. See below |
 
