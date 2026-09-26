@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -279,6 +280,7 @@ def test_without_self_update_the_check_links_to_the_releases_page(app, tmp_path,
     view = coordinator.view
     assert view.phase is Phase.BLOCKED
     assert view.release is not None and view.release.version == "0.3.0"
+    assert view.download_page == updatecheck.RELEASES_URL
     assert updatecheck.RELEASES_URL in view.message
     coordinator.start_download()
     coordinator.install()
@@ -290,15 +292,60 @@ def test_without_self_update_the_about_page_shows_the_link_instead_of_install(
     app, tmp_path, use_platform
 ):
     use_platform(fake_platform())
+    opened = []
     coordinator = coordinator_for(tmp_path)
-    page = AboutPage()
+    page = AboutPage(open_url=opened.append)
     page.attach(coordinator)
 
     coordinator.check()
 
     assert not page.release_panel.isHidden()
     assert page.install_button.isHidden()
+    assert not page.download_page_button.isHidden()
+    assert page.download_page_button.text() == "Open the download page"
     assert updatecheck.RELEASES_URL in page.version_row.description_label.text()
+    page.download_page_button.click()
+    assert opened == [updatecheck.RELEASES_URL]
+    page.close()
+
+
+def test_a_stepping_stone_release_keeps_its_message_and_offers_no_download_page(
+    app, tmp_path, use_platform
+):
+    use_platform(fake_platform())
+    opened = []
+    coordinator = coordinator_for(
+        tmp_path, fetch=lambda url: replace(release_for(), minimum_version="0.9.0")
+    )
+    page = AboutPage(open_url=opened.append)
+    page.attach(coordinator)
+
+    coordinator.check()
+
+    assert coordinator.view.phase is Phase.BLOCKED
+    assert coordinator.view.download_page == ""
+    assert "0.9.0" in page.version_row.description_label.text()
+    assert page.install_button.isHidden()
+    assert page.download_page_button.isHidden()
+    page.close()
+
+
+def test_a_self_updating_platform_keeps_the_install_button_on_the_about_page(
+    app, tmp_path, use_platform
+):
+    use_platform(fake_platform(capabilities=Capabilities.everything()))
+    opened = []
+    coordinator = coordinator_for(tmp_path)
+    page = AboutPage(open_url=opened.append)
+    page.attach(coordinator)
+
+    coordinator.check()
+
+    assert coordinator.view.phase is Phase.AVAILABLE
+    assert coordinator.view.download_page == ""
+    assert not page.install_button.isHidden()
+    assert page.download_page_button.isHidden()
+    assert opened == []
     page.close()
 
 

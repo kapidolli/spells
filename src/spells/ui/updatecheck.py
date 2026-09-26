@@ -67,6 +67,7 @@ class UpdateView:
     done_bytes: int = 0
     total_bytes: int = 0
     weekly_check: bool = False
+    download_page: str = ""
 
 
 def capture(work: Callable[[], Any]) -> Any:
@@ -238,10 +239,18 @@ class UpdateCoordinator(QtCore.QObject):
         assert release is not None
         phase = Phase.BLOCKED if decision.blocked else Phase.AVAILABLE
         message = decision.reason
+        download_page = ""
         if not decision.blocked and not platform.current().capabilities.self_update:
             phase = Phase.BLOCKED
             message = MANUAL_UPDATE_TEXT
-        self._set(phase=phase, release=release, message=message, last_check=now)
+            download_page = RELEASES_URL
+        self._set(
+            phase=phase,
+            release=release,
+            message=message,
+            last_check=now,
+            download_page=download_page,
+        )
         if not decision.blocked and not manual:
             self._offer(release, now)
 

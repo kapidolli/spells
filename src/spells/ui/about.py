@@ -11,9 +11,10 @@ without a coordinator simply shows the version and the licences).
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 from typing import Any
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from spells import __version__, updates
 from spells.ui import style, theme
@@ -39,6 +40,7 @@ WEEKLY_DESCRIPTION = (
     "audio, no text and no history."
 )
 INSTALL_BUTTON = "Install this version"
+DOWNLOAD_PAGE_BUTTON = "Open the download page"
 CANCEL_BUTTON = "Cancel"
 NO_CHANGES = "The version file lists no changes for this release."
 
@@ -77,11 +79,22 @@ def release_headline(view: UpdateView) -> str:
     return ", ".join(parts)
 
 
+def _open_url(url: str) -> None:
+    QtGui.QDesktopServices.openUrl(QtCore.QUrl(url))
+
+
 class AboutPage(ScrollPage):
-    def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
+    def __init__(
+        self,
+        parent: QtWidgets.QWidget | None = None,
+        *,
+        open_url: Callable[[str], Any] | None = None,
+    ) -> None:
         super().__init__("About", "", parent)
         self.title_label.hide()
         self._coordinator: Any = None
+        self._open_url = open_url or _open_url
+        self._download_page = ""
 
         hero = QtWidgets.QWidget(self.body)
         hero_layout = QtWidgets.QHBoxLayout(hero)
@@ -201,6 +214,12 @@ class AboutPage(ScrollPage):
         self.install_button = make_button(INSTALL_BUTTON, "primary", glyph=style.Glyph.DOWNLOAD)
         self.install_button.clicked.connect(self._on_install)
         buttons.addWidget(self.install_button)
+        self.download_page_button = make_button(
+            DOWNLOAD_PAGE_BUTTON, "primary", glyph=style.Glyph.GLOBE
+        )
+        self.download_page_button.clicked.connect(self._on_download_page)
+        self.download_page_button.setVisible(False)
+        buttons.addWidget(self.download_page_button)
         self.cancel_button = make_button(CANCEL_BUTTON, glyph=style.Glyph.CLOSE)
         self.cancel_button.clicked.connect(self._on_cancel)
         buttons.addWidget(self.cancel_button)
@@ -219,6 +238,7 @@ class AboutPage(ScrollPage):
     def apply_update_view(self, view: UpdateView) -> None:
         """Render one snapshot. Every decision was taken before this was called."""
         phase = view.phase
+        self._download_page = view.download_page if phase is Phase.BLOCKED else ""
         configured = phase is not Phase.UNCONFIGURED
         working = phase in (Phase.CHECKING, Phase.DOWNLOADING, Phase.INSTALLING)
         self.check_button.setEnabled(configured and not working)
@@ -258,6 +278,7 @@ class AboutPage(ScrollPage):
         self.install_button.setText(
             INSTALL_BUTTON if phase is Phase.AVAILABLE else "Close Spells and install"
         )
+        self.download_page_button.setVisible(bool(self._download_page))
         self.cancel_button.setVisible(downloading)
 
     def apply_settings(self, settings: object) -> None:
@@ -281,6 +302,10 @@ class AboutPage(ScrollPage):
             coordinator.install()
         else:
             coordinator.start_download()
+
+    def _on_download_page(self) -> None:
+        if self._download_page:
+            self._open_url(self._download_page)
 
     def _on_cancel(self) -> None:
         if self._coordinator is not None:
