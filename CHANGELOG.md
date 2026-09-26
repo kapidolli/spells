@@ -16,6 +16,22 @@ the two can never say different things.
 - A signed installer, so Windows stops warning about it.
 - Reading the few characters before the cursor, so spacing and capitals follow the text already there.
 
+## [0.6.2] - 2026-09-27
+
+The first step towards Spells on Linux and macOS, and Show in folder finds every recording.
+
+### Added
+
+- Diagnostics has a new System card. It names the operating system and lists anything Spells cannot do on it yet, which on Windows is nothing.
+
+### Changed
+
+- Spells now reaches Windows through one small layer, the groundwork for versions for Linux and macOS. On Windows everything works as before.
+
+### Fixed
+
+- Show in folder in History now selects the recording when a folder in its path has a space in its name. It opened the Documents folder instead.
+
 ## [0.6.1] - 2026-09-26
 
 Recordings you decide to include later reach your server too.
@@ -167,7 +183,8 @@ and learned to tell you when there is a newer version.
 - A microphone that delivers no sound now says so instead of reporting a failed transcription.
 - Blocks of sound the card drops mid-recording are counted and shown, so a dictation that is missing words says why.
 
-[Unreleased]: https://github.com/kapidolli/spells/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/kapidolli/spells/compare/v0.6.2...HEAD
+[0.6.2]: https://github.com/kapidolli/spells/compare/v0.6.1...v0.6.2
 [0.6.1]: https://github.com/kapidolli/spells/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/kapidolli/spells/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/kapidolli/spells/compare/v0.5.1...v0.5.2
