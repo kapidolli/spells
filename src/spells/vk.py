@@ -1,9 +1,11 @@
 """Shared virtual-key (VK) constants for hotkey chords.
 
-Values come from the Win32 VK_* table (winuser.h), but this module is stdlib
-only and has no Win32 dependency, so any module can import it without pulling
-in ctypes. spells.config uses it for chord-conflict validation, spells.hotkey
-for the chord state machine, and spells.win32.input for modifier release.
+Values come from the Win32 VK_* table (winuser.h) and are the key vocabulary on
+every system, but this module is stdlib only and has no Win32 dependency, so any
+module can import it without pulling in ctypes. spells.config uses it for
+chord-conflict validation, spells.hotkey for the chord state machine, the key
+name tables in spells.platform to name keys and read key events, and
+spells.win32.input for modifier release.
 """
 
 from __future__ import annotations

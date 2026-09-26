@@ -146,3 +146,21 @@ def test_the_chord_probe_on_windows_asks_register_hotkey(monkeypatch):
 @pytest.mark.parametrize("system", ["windows", "linux"])
 def test_an_unmarked_test_parametrized_windows_is_not_skipped(system):
     assert system in ("windows", "linux")
+
+
+@pytest.mark.windows
+def test_the_windows_record_has_no_stub_left():
+    from dataclasses import fields
+
+    from spells.platform import stub, windows
+
+    record = windows.build()
+    stub_types = {
+        value
+        for value in vars(stub).values()
+        if isinstance(value, type) and value.__module__ == stub.__name__
+    }
+    for item in fields(record):
+        value = getattr(record, item.name)
+        assert type(value) not in stub_types, item.name
+        assert value is not stub.StubHotkeys, item.name
