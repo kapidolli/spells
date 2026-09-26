@@ -1,9 +1,11 @@
 """Version checks and the one-click installer download (spec 2 G3, 3, 17, 19.7).
 
-Spells is an offline app and stays one. Nothing in this module runs by itself: every
-function here has to be called, by the About page's button or by the weekly check the user
-switched on, and a build that was not given an update address checks nothing at all
-(``source_url`` returns an empty string and the About page says so).
+Spells does its work offline. Nothing in this module runs by itself: every function here
+has to be called, by the About page's button or by the weekly check the user switched on,
+and a build that was not given an update address checks nothing at all (``source_url``
+returns an empty string and the About page says so). The only other code that opens a
+connection is the upload to a server of the user's own (``spells.upload``), which sends
+nothing until the user sets it up on the Upload page.
 
 The split is deliberate. Everything above ``fetch_release`` is pure: version comparison,
 parsing and validating the version file, deciding whether a release applies, and the two

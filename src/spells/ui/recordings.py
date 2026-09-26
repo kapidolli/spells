@@ -28,7 +28,8 @@ log = logging.getLogger(__name__)
 
 RECORDINGS_NOTE = (
     "Recordings stay on this computer, in a folder next to your history, and are never "
-    "sent anywhere or added to a diagnostics bundle."
+    "added to a diagnostics bundle. They are sent only if you upload them to your own "
+    "server on the Upload page."
 )
 KEEP_AUDIO_TITLE = "Keep the recordings"
 KEEP_AUDIO_HINT = (

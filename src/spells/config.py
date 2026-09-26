@@ -182,12 +182,13 @@ class UploadSettings:
 class UpdateSettings:
     """The About page's update switch and its bookkeeping (spec 3, 17, 19.7).
 
-    ``weekly_check`` is off by default and is the only thing that lets Spells open a
-    connection without the user pressing a button. The three timestamps are what the check
-    and the tray balloon need between restarts: when a check last completed, and which
-    version the tray last told the user about and when, so a balloon shows at most once a
-    day. A settings file written before this release simply has no ``updates`` block and
-    loads with these defaults, which is the whole migration.
+    ``weekly_check`` is off by default and, with the upload schedule of ``UploadSettings``,
+    one of the two things that let Spells open a connection without the user pressing a
+    button. The three timestamps are what the check and the tray balloon need between
+    restarts: when a check last completed, and which version the tray last told the user
+    about and when, so a balloon shows at most once a day. A settings file written before
+    this release simply has no ``updates`` block and loads with these defaults, which is the
+    whole migration.
     """
 
     weekly_check: bool = False

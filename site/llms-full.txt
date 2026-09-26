@@ -82,10 +82,10 @@ Tap the hotkey twice to keep recording hands-free, then press it once more to fi
 
 Spells is private dictation: it does all of its work on your computer.
 
-- Speech and text are processed on your PC and never sent anywhere.
+- Speech and text are processed on your PC and sent nowhere unless you set up an upload to a server of your own.
 - The speech and cleanup engines listen only on 127.0.0.1, the loopback address, so nothing outside your PC can reach them.
 - There is no telemetry, no analytics, no crash reporting and no account.
-- The only code that opens an internet connection is the update check. It is off by default, runs only when you press the button on the About page or switch on the weekly check, and fetches a small version file.
+- The only code that opens an internet connection is the update check and the upload to your own server, and both are off by default. The update check runs only when you press the button on the About page or switch on the weekly check, and fetches a small version file. The upload sends your dictations only to the address you type on the Upload page.
 - The online installer downloads the model files once, at install time, and checks each one against a pinned SHA-256 hash. The offline installer needs no network at all.
 - You can dictate with the network cable unplugged.
 
@@ -149,7 +149,7 @@ The installer is not code-signed yet, so Windows SmartScreen says it does not re
 
 ### Is Spells really offline?
 
-Yes. Speech recognition and cleanup run on your PC, and the engines listen only on 127.0.0.1, so you can dictate with the network cable unplugged. The only code that opens an internet connection is the update check, which is off by default and fetches a small version file when you ask for it. The online installer downloads the models once, at install time; the offline installer needs no network at all.
+Yes. Speech recognition and cleanup run on your PC, and the engines listen only on 127.0.0.1, so you can dictate with the network cable unplugged. The only code that opens an internet connection is the update check, which fetches a small version file when you ask for it, and the upload to a server of your own, which sends nothing until you set it up. Both are off by default. The online installer downloads the models once, at install time; the offline installer needs no network at all.
 
 ### Which languages can I dictate in?
 
@@ -169,7 +169,7 @@ The installer is not code-signed yet, so Windows SmartScreen does not recognise 
 
 ### How is Spells different from Wispr Flow?
 
-It does the same kind of job, dictation with cleanup into any app, but everything runs on your own PC: your speech and text are never sent anywhere, and there is no account or subscription. It runs on Windows 11 only, and its languages today are English, German and Albanian.
+It does the same kind of job, dictation with cleanup into any app, but everything runs on your own PC: your speech and text go nowhere unless you upload them to a server of your own, and there is no account or subscription. It runs on Windows 11 only, and its languages today are English, German and Albanian.
 
 ## Open source and credits
 

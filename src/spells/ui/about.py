@@ -1,8 +1,9 @@
 """The About page: the mark, the version, updates (spec 19.7) and the licences of spec 21.
 
-The update section is the only place in the app that can open a connection, and only
-because somebody pressed a button or switched the weekly check on. The page itself holds no
-policy: `spells.ui.updatecheck.UpdateCoordinator` decides everything and hands this page one
+The update section opens a connection only because somebody pressed a button or switched
+the weekly check on; the only other code that can is the upload to a server of the user's
+own, which the Upload page sets up. The page itself holds no policy:
+`spells.ui.updatecheck.UpdateCoordinator` decides everything and hands this page one
 `UpdateView` at a time, which is why the page works unattached (a settings dialog built
 without a coordinator simply shows the version and the licences).
 """
@@ -34,8 +35,8 @@ CHECK_BUTTON = "Check for updates"
 WEEKLY_TITLE = "Check every week"
 WEEKLY_DESCRIPTION = (
     "Off by default. With it on, Spells asks the update server once a week, never during a "
-    "dictation, and tells you in the tray when there is something new. Nothing else about "
-    "the app changes: no audio, no text and no history ever leaves this computer."
+    "dictation, and tells you in the tray when there is something new. The check sends no "
+    "audio, no text and no history."
 )
 INSTALL_BUTTON = "Install this version"
 CANCEL_BUTTON = "Cancel"
@@ -106,7 +107,8 @@ class AboutPage(ScrollPage):
         privacy.add_row(
             SettingRow(
                 "Runs on this computer",
-                "Speech recognition and cleanup run in local engines. Nothing you say is sent anywhere.",
+                "Speech recognition and cleanup run in local engines. Nothing you say is sent "
+                "anywhere unless you set up an upload to your own server on the Upload page.",
                 glyph=style.Glyph.SHIELD,
             )
         )

@@ -98,7 +98,7 @@
      "name": "Is Spells really offline?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "Yes. Speech recognition and cleanup run on your PC, and the engines listen only on 127.0.0.1, so you can dictate with the network cable unplugged. The only code that opens an internet connection is the update check, which is off by default and fetches a small version file when you ask for it. The online installer downloads the models once, at install time; the offline installer needs no network at all."
+      "text": "Yes. Speech recognition and cleanup run on your PC, and the engines listen only on 127.0.0.1, so you can dictate with the network cable unplugged. The only code that opens an internet connection is the update check, which fetches a small version file when you ask for it, and the upload to a server of your own, which sends nothing until you set it up. Both are off by default. The online installer downloads the models once, at install time; the offline installer needs no network at all."
      }
     },
     {
@@ -138,7 +138,7 @@
      "name": "How is Spells different from Wispr Flow?",
      "acceptedAnswer": {
       "@type": "Answer",
-      "text": "It does the same kind of job, dictation with cleanup into any app, but everything runs on your own PC: your speech and text are never sent anywhere, and there is no account or subscription. It runs on Windows 11 only, and its languages today are English, German and Albanian."
+      "text": "It does the same kind of job, dictation with cleanup into any app, but everything runs on your own PC: your speech and text go nowhere unless you upload them to a server of your own, and there is no account or subscription. It runs on Windows 11 only, and its languages today are English, German and Albanian."
      }
     }
    ]
@@ -509,15 +509,15 @@
       </div>
       <div class="outside">
         <p class="outside-label">The internet</p>
-        <p>Nothing, until you press Check for updates or switch on the weekly check. Then one small version file.</p>
+        <p>Nothing, until you press Check for updates or switch on the weekly check, which fetch one small version file, or set up an upload to a server of your own.</p>
       </div>
     </div>
 
     <ul class="facts">
-      <li><strong>Processed where you are.</strong> Speech and text are processed on your PC and never sent anywhere.</li>
+      <li><strong>Processed where you are.</strong> Speech and text are processed on your PC and sent nowhere unless you set up an upload to a server of your own.</li>
       <li><strong>Engines on loopback.</strong> The speech and cleanup engines listen only on 127.0.0.1, the loopback address, so nothing outside your PC can reach them.</li>
       <li><strong>Nothing counted.</strong> There is no telemetry, no analytics, no crash reporting and no account.</li>
-      <li><strong>One connection, and only when you ask.</strong> The only code that opens an internet connection is the update check. It is off by default, runs only when you press the button on the About page or switch on the weekly check, and fetches a small version file.</li>
+      <li><strong>Connections only when you ask.</strong> The only code that opens an internet connection is the update check and the upload to your own server, and both are off by default. The update check runs only when you press the button on the About page or switch on the weekly check, and fetches a small version file. The upload sends your dictations only to the address you type on the Upload page.</li>
       <li><strong>Models checked once.</strong> The online installer downloads the model files once, at install time, and checks each one against a pinned SHA-256 hash. The offline installer needs no network at all.</li>
       <li><strong>Unplug it.</strong> You can dictate with the network cable unplugged.</li>
     </ul>
@@ -610,7 +610,7 @@
     <div class="faq-list">
       <article class="faq-item">
         <h3>Is Spells really offline?</h3>
-        <p>Yes. Speech recognition and cleanup run on your PC, and the engines listen only on 127.0.0.1, so you can dictate with the network cable unplugged. The only code that opens an internet connection is the update check, which is off by default and fetches a small version file when you ask for it. The online installer downloads the models once, at install time; the offline installer needs no network at all.</p>
+        <p>Yes. Speech recognition and cleanup run on your PC, and the engines listen only on 127.0.0.1, so you can dictate with the network cable unplugged. The only code that opens an internet connection is the update check, which fetches a small version file when you ask for it, and the upload to a server of your own, which sends nothing until you set it up. Both are off by default. The online installer downloads the models once, at install time; the offline installer needs no network at all.</p>
       </article>
       <article class="faq-item">
         <h3>Which languages can I dictate in?</h3>
@@ -630,7 +630,7 @@
       </article>
       <article class="faq-item">
         <h3>How is Spells different from Wispr Flow?</h3>
-        <p>It does the same kind of job, dictation with cleanup into any app, but everything runs on your own PC: your speech and text are never sent anywhere, and there is no account or subscription. It runs on Windows 11 only, and its languages today are English, German and Albanian.</p>
+        <p>It does the same kind of job, dictation with cleanup into any app, but everything runs on your own PC: your speech and text go nowhere unless you upload them to a server of your own, and there is no account or subscription. It runs on Windows 11 only, and its languages today are English, German and Albanian.</p>
       </article>
     </div>
   </div>

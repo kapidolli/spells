@@ -1,10 +1,10 @@
 # Spells
 
-**Private voice dictation for Windows 11.** Hold a hotkey, speak, let go, and clean text appears at your cursor. Everything runs on your own PC.
+**Private voice dictation for Windows 11.** Hold a hotkey, speak, let go, and clean text appears at your cursor. Everything runs on your own PC, and your dictations leave it only if you set up an upload to a server of your own.
 
 **[Download for Windows](https://github.com/kapidolli/spells/releases/latest/download/Spells-Online-Setup.exe)** (online installer, about 100 MB) · [All downloads](https://github.com/kapidolli/spells/releases/latest) · [Website](https://kapidolli.github.io/spells/)
 
-Spells is a dictation app that works in any Windows program: Outlook, Word, Slack, Teams, a browser, a code editor. Hold the hotkey and talk. When you release it, Spells turns your speech into text, tidies it up (the "um"s go, and "no wait, I mean Wednesday" becomes just "Wednesday") and types the result where your cursor is. Speech recognition and cleanup run in local AI models on your processor or graphics card. There is no account, no subscription and no cloud service: your voice and your text never leave your computer. If you know cloud dictation tools such as Wispr Flow, this is the same idea, done locally and open source.
+Spells is a dictation app that works in any Windows program: Outlook, Word, Slack, Teams, a browser, a code editor. Hold the hotkey and talk. When you release it, Spells turns your speech into text, tidies it up (the "um"s go, and "no wait, I mean Wednesday" becomes just "Wednesday") and types the result where your cursor is. Speech recognition and cleanup run in local AI models on your processor or graphics card. There is no account, no subscription and no cloud service: your voice and your text stay on your computer, unless you choose to send them to a server you run. If you know cloud dictation tools such as Wispr Flow, this is the same idea, done locally and open source.
 
 - English, German and Albanian, plus any other language Whisper knows
 - Hold to talk, or tap twice for hands-free
@@ -111,6 +111,10 @@ Spells keeps your recent dictations on your PC: the last 100 by default, or the 
 
 If you want, Spells can also keep the recording of each dictation so you can play it back. That is off by default and has its own limit (the newest 200 recordings within 1000 MB, both adjustable).
 
+### Upload to your own server
+
+If you run a server of your own, the Upload page can send your dictations there, by hand, every day or every week, so you can keep and analyse them beyond the history on your PC. It is off by default and sends nothing until you switch it on and type an address. You choose whether the kept recordings go too, and which apps are never uploaded. [docs/upload.md](docs/upload.md) describes the protocol and has a small receiver to start from. See [Privacy](#privacy) for exactly what is sent.
+
 ### The pill
 
 A small pill at the bottom of the screen you are dictating on shows what is happening: a level meter that moves with your voice, a lock when you are hands-free, a spinner while it works, "Starting engines" while the models load, "Writing" with a timer, and short notices when something needs your attention. It never takes focus from the window you are typing into.
@@ -135,12 +139,13 @@ Spells runs the models on your processor, or on any graphics card with a Vulkan 
 
 ## Privacy
 
-**Your voice and your text never leave your computer.** Speech recognition, cleanup and writing run in engines that Spells starts itself and that listen only on 127.0.0.1, the loopback address that no other computer can reach. Spells talks to them directly, never through a proxy server, even when Windows or an environment variable has one configured. Spells has no account, no telemetry, no analytics and no crash reporting.
+**Your voice and your text stay on your computer, unless you set up an upload to your own server.** Speech recognition, cleanup and writing run in engines that Spells starts itself and that listen only on 127.0.0.1, the loopback address that no other computer can reach. Spells talks to them directly, never through a proxy server, even when Windows or an environment variable has one configured. Spells has no account, no telemetry, no analytics and no crash reporting.
 
-The only network traffic Spells can cause is this, and you start both:
+Spells causes network traffic in only these three cases, and you start each one:
 
 1. **The online installer downloading the models.** It downloads the model files your languages and hardware need, from this project's GitHub Releases and from Hugging Face, and checks each one against a SHA-256 hash pinned into the installer. If you would rather have no network at all, use the offline installer: it carries its models and never connects.
 2. **Checking for updates, when you ask.** The About page has a Check for updates button, and you can switch on a weekly check, which is off by default and never runs during a dictation. A check fetches one small version file, `latest.json`, from this project's latest GitHub release. It sends nothing but the request itself, with the user agent `Spells/<version>`: no identifier, no settings, no text. If there is a newer version and you press Install this version, Spells downloads that installer from the same server and checks it against the SHA-256 in the version file; a file that does not match is deleted unrun, and only a matching one is offered for installing. An update fetches the installer only, never your models. As with any web request, the server sees your IP address.
+3. **Uploading to your own server, when you set it up.** Off by default. On the Upload page you can type the address of a server you run and a token, and have Spells send your dictations there by hand, daily or weekly, never during a dictation. Each upload is an HTTP POST to exactly that address, with the token as a bearer token, and carries every dictation not sent yet: the text as recognised, cleaned and inserted, what you asked the write and edit hotkeys for, the program name and window title, the language, the time, the timings, the quality signals and the result of any quality check. The kept recordings go too only if you switch on "Include the recordings". Each request also names the Spells version, a random ID for this installation, the computer name (or a name you choose) and how many dictations were removed before they could be sent. Dictations into apps you list are never uploaded. An `http://` address is sent unencrypted; the page says so. Spells never follows a redirect, so nothing goes to an address you did not type. [docs/upload.md](docs/upload.md) has the details.
 
 That covers Spells itself. Windows and other software on your PC (SmartScreen, Windows Error Reporting, your antivirus) behave as they always do.
 
@@ -148,14 +153,15 @@ That covers Spells itself. Windows and other software on your PC (SmartScreen, W
 
 | What | Where | What it holds |
 |---|---|---|
-| Settings | `%APPDATA%\Spells\settings.json` | Hotkeys, languages, app rules, your vocabulary, filler lists, tones. No dictated text |
+| Settings | `%APPDATA%\Spells\settings.json` | Hotkeys, languages, app rules, your vocabulary, filler lists, tones, the upload address and schedule. No dictated text and no upload token |
 | Speed measurements | `%APPDATA%\Spells\calibration.json` | Only on integrated graphics: model names, the graphics device name and how fast each ran on the built-in sample clip |
-| History | `%LOCALAPPDATA%\Spells\history.db` | Your recent dictations (last 100 by default): the text as recognised, cleaned and inserted, the app and window title, language, timings. Set it to off, or clear it, any time |
+| History | `%LOCALAPPDATA%\Spells\history.db` | Your recent dictations (last 100 by default): the text as recognised, cleaned and inserted, the app and window title, language, timings, and which were uploaded. Set it to off, or clear it, any time. While uploading is on, dictations not sent yet are kept up to 30 days past your limit |
 | Recordings | `%LOCALAPPDATA%\Spells\recordings\` | Only if you turn on "Keep the recordings" (off by default) |
+| Upload token | `%LOCALAPPDATA%\Spells\upload-token.bin` | Only if you type a token on the Upload page: the token, encrypted for your Windows account with DPAPI |
 | Logs | `%LOCALAPPDATA%\Spells\logs\` | App and engine logs, rotated at 5 MB, five files per log. See below |
 
-- **Audio.** Your recording is held in memory for the current dictation and sent to the local speech engine over loopback. Spells writes it to disk only if you turn on "Keep the recordings". After a failed transcription it stays in memory until you retry or start the next dictation.
-- **Logs.** At the default level the logs hold no dictated text: timings, model and device names, errors, and now and then the title of a window (when live typing stops because you switched windows). Debug logging, off by default on the Diagnostics page, can include transcript text. The diagnostics bundle is a zip of the logs and the settings file, never the history or recordings, saved where you choose and sent nowhere.
+- **Audio.** Your recording is held in memory for the current dictation and sent to the local speech engine over loopback. Spells writes it to disk only if you turn on "Keep the recordings", and a kept recording leaves your PC only if you also switch on "Include the recordings" for an upload. After a failed transcription it stays in memory until you retry or start the next dictation.
+- **Logs.** At the default level the logs hold no dictated text: timings, model and device names, errors, and now and then the title of a window (when live typing stops because you switched windows). Debug logging, off by default on the Diagnostics page, can include transcript text. The diagnostics bundle is a zip of the logs and the settings file, never the history, the recordings or the upload token, saved where you choose and sent nowhere.
 - **Other windows.** Spells reads the program name and title of the window you dictate into, to pick the app profile and to make sure the text goes back to the same window. It does not read what is in your windows, with one exception you trigger yourself: the edit hotkey copies your selection.
 - **Clipboard.** To paste, Spells keeps a copy of your clipboard in memory, puts the text on the clipboard, presses Ctrl+V and a moment later puts your own clipboard back. Text that Spells places on the clipboard is marked so Windows leaves it out of clipboard history and cloud clipboard sync. Live typing never touches the clipboard. The edit hotkey copies your selection with Ctrl+C just as you would, and your previous clipboard is restored afterwards; because the app you are in makes that copy, Windows clipboard history and cloud sync, if you use them, treat it like any other copy.
 - **Keyboard.** Spells installs a keyboard hook to notice your hotkeys. It reacts only to your hotkeys and to Esc while recording, and never logs or stores what you type.

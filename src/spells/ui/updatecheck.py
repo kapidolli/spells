@@ -259,7 +259,7 @@ class UpdateCoordinator(QtCore.QObject):
     # Downloading and installing -----------------------------------------------------------
 
     def start_download(self) -> None:
-        """Fetch the installer the check found. The only other network call Spells makes."""
+        """Fetch the installer the check found. The only other network call the check makes."""
         release = self._view.release
         if release is None or self._view.phase not in (Phase.AVAILABLE, Phase.ERROR):
             return

@@ -11,8 +11,9 @@ dictation's PCM as a 16 kHz mono WAV named after its row into a recordings folde
 beside the database, the row points at the file, deleting a row deletes its file,
 clearing the history clears the folder, and a retention of its own (a number of
 recordings and a number of megabytes, oldest deleted first) runs after each
-dictation. The recordings never leave the machine and never enter a diagnostics
-bundle.
+dictation. The recordings never enter a diagnostics bundle, and they leave the machine
+only when the user sets up an upload to a server of their own with the recordings
+included (spells.upload).
 
 created_at is wall-clock seconds as returned by time.time(): age pruning
 ("7d", "30d") compares it against time.time(), so any other clock would

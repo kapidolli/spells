@@ -10,6 +10,11 @@ the two can never say different things.
 
 ## [Unreleased]
 
+### Added
+
+- A new Upload page in Settings can send your dictations to a server you run: by hand, every day or every week, and never during a dictation. It is off until you switch it on and type an address, and it sends the text, the app and window title, the language and the timings of the dictations not sent yet, plus the kept recordings only if you ask for them. Apps you list are never uploaded. The token is kept encrypted for your Windows account, never in the settings file. docs/upload.md describes what is sent and has a small receiver to start from.
+- While uploading is on, dictations not sent yet are kept for up to 30 days, even past your history limit, so a computer away from its server for a while loses nothing.
+
 ### Planned
 
 - Albanian on the fast speech model, once the gated model is available.
