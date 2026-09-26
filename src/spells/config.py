@@ -30,6 +30,7 @@ from spells.cleanup import default_corrections, default_fillers
 from spells.datafiles import data_path
 from spells.history import DEFAULT_AUDIO_KEEP_COUNT, DEFAULT_AUDIO_KEEP_MB
 from spells.models import Chord, ChordMode, DeliveryMethod, Profile
+from spells.upload import SCHEDULE_DAILY, SCHEDULES, url_problem
 from spells.vk import generic_modifier
 
 log = logging.getLogger(__name__)
@@ -164,6 +165,20 @@ class HistorySettings:
 
 
 @dataclass(frozen=True)
+class UploadSettings:
+    enabled: bool = False
+    url: str = ""
+    schedule: str = SCHEDULE_DAILY
+    include_audio: bool = False
+    skip_apps: list[str] = field(default_factory=list)
+    device_name: str = ""
+    last_success: float = 0.0
+    last_attempt: float = 0.0
+    last_error: str = ""
+    last_sent: int = 0
+
+
+@dataclass(frozen=True)
 class UpdateSettings:
     """The About page's update switch and its bookkeeping (spec 3, 17, 19.7).
 
@@ -204,6 +219,7 @@ class Settings:
     profiles: list[ProfileRule] = field(default_factory=list)
     vocabulary: Vocabulary = field(default_factory=Vocabulary)
     history: HistorySettings = field(default_factory=HistorySettings)
+    upload: UploadSettings = field(default_factory=UploadSettings)
     updates: UpdateSettings = field(default_factory=UpdateSettings)
     diagnostics: DiagnosticsSettings = field(default_factory=DiagnosticsSettings)
 
@@ -372,6 +388,18 @@ def to_dict(settings: Settings) -> dict:
             "keep_audio": settings.history.keep_audio,
             "audio_keep_count": settings.history.audio_keep_count,
             "audio_keep_mb": settings.history.audio_keep_mb,
+        },
+        "upload": {
+            "enabled": settings.upload.enabled,
+            "url": settings.upload.url,
+            "schedule": settings.upload.schedule,
+            "include_audio": settings.upload.include_audio,
+            "skip_apps": list(settings.upload.skip_apps),
+            "device_name": settings.upload.device_name,
+            "last_success": settings.upload.last_success,
+            "last_attempt": settings.upload.last_attempt,
+            "last_error": settings.upload.last_error,
+            "last_sent": settings.upload.last_sent,
         },
         "updates": {
             "weekly_check": settings.updates.weekly_check,
@@ -735,6 +763,27 @@ def _parse_history(node: _Node) -> HistorySettings:
     )
 
 
+def _parse_upload(node: _Node) -> UploadSettings:
+    defaults = UploadSettings()
+    url = node.get_str("url", defaults.url)
+    if url:
+        problem = url_problem(url)
+        if problem:
+            raise SettingsError(f"{node._label('url')}: {problem}")
+    return UploadSettings(
+        enabled=node.get_bool("enabled", defaults.enabled),
+        url=url,
+        schedule=node.get_str("schedule", defaults.schedule, choices=SCHEDULES),
+        include_audio=node.get_bool("include_audio", defaults.include_audio),
+        skip_apps=node.get_str_list("skip_apps", []),
+        device_name=node.get_str("device_name", defaults.device_name),
+        last_success=node.get_float("last_success", defaults.last_success),
+        last_attempt=node.get_float("last_attempt", defaults.last_attempt),
+        last_error=node.get_str("last_error", defaults.last_error),
+        last_sent=node.get_int("last_sent", defaults.last_sent, minimum=0),
+    )
+
+
 def _parse_updates(node: _Node) -> UpdateSettings:
     defaults = UpdateSettings()
     return UpdateSettings(
@@ -775,6 +824,7 @@ def from_dict(raw: dict) -> Settings:
         profiles=root.get_list("profiles", [], _parse_rule),
         vocabulary=_parse_vocabulary(root.child("vocabulary")),
         history=_parse_history(root.child("history")),
+        upload=_parse_upload(root.child("upload")),
         updates=_parse_updates(root.child("updates")),
         diagnostics=_parse_diagnostics(root.child("diagnostics")),
     )

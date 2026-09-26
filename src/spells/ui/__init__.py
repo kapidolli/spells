@@ -23,7 +23,9 @@ from spells.ui.pill import Pill
 from spells.ui.settings import SettingsDialog
 from spells.ui.tray import Tray
 from spells.ui.updatecheck import UpdateCoordinator
+from spells.ui.uploading import UploadCoordinator
 from spells.ui.welcome import WelcomePage
+from spells.uploadtoken import TokenStore, token_path_for
 
 log = logging.getLogger(__name__)
 
@@ -39,6 +41,7 @@ class UiHandles:
     welcome: WelcomePage | None = None
     settings_dialog: SettingsDialog | None = None
     updates: UpdateCoordinator | None = None
+    uploads: UploadCoordinator | None = None
     _closers: list[Callable[[], None]] = field(default_factory=list, repr=False)
 
     def close(self) -> None:
@@ -100,12 +103,20 @@ def create_ui(
         busy=tray.busy,
         on_quit=quit_app,
     )
+    history_path = getattr(history, "path", None)
+    uploads = UploadCoordinator(
+        config=config,
+        history=history,
+        tokens=TokenStore(token_path_for(history_path) if history_path else None),
+        busy=tray.busy,
+    )
     handles = UiHandles(
         bridge=bridge,
         tray=tray,
         pill=pill,
         open_settings=lambda tab="general": None,
         updates=coordinator,
+        uploads=uploads,
     )
 
     bridge.connect_pipeline(tray.apply_event)
@@ -114,6 +125,7 @@ def create_ui(
     bridge.connect_hotkey_error(tray.set_hook_error)
     bridge.connect_settings(tray.apply_settings)
     bridge.connect_settings(coordinator.apply_settings)
+    bridge.connect_settings(uploads.apply_settings)
     coordinator.update_found.connect(tray.notify_update)
     unsubscribe = config.subscribe(bridge.on_settings)
     handles._closers.append(unsubscribe)
@@ -153,6 +165,7 @@ def create_ui(
             bridge.connect_engine_status(dialog.on_engine_status)
             dialog.welcome_requested.connect(show_welcome)
             dialog.about.attach(coordinator)
+            dialog.upload.attach(uploads)
             handles.settings_dialog = dialog
         dialog.show_tab(tab)
         dialog.show()
@@ -173,7 +186,9 @@ def create_ui(
 
     handles._closers.append(close_widgets)
     handles._closers.append(coordinator.stop_timer)
+    handles._closers.append(uploads.shutdown)
     coordinator.start_timer()
+    uploads.start_timer()
 
     tray.show()
     if first_run:
@@ -181,4 +196,4 @@ def create_ui(
     return handles
 
 
-__all__ = ["UiBridge", "UiHandles", "UpdateCoordinator", "create_ui"]
+__all__ = ["UiBridge", "UiHandles", "UpdateCoordinator", "UploadCoordinator", "create_ui"]

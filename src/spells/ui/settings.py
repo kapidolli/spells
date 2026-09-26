@@ -6,7 +6,8 @@ through the bridge (apply_settings), and every refresh path blocks the widget si
 refresh never writes back.
 
 The pages are General (hotkey, microphone, behaviour), Languages (languages.py), Cleanup,
-Apps, Vocabulary, History, Diagnostics (diagnostics.py) and About (about.py). The Apps page
+Apps, Vocabulary, History, Upload (uploadpage.py), Diagnostics (diagnostics.py) and About
+(about.py). The Apps page
 edits rules that pick a built-in profile and a delivery method; a rule has no tone of its
 own (B3-7). Tones are edited on the Cleanup page per profile name.
 """
@@ -61,6 +62,7 @@ from spells.ui.recordings import (
     WavPlayer,
     default_reveal,
 )
+from spells.ui.uploadpage import UploadPage
 from spells.ui.welcome import MicMeter, MicPicker, Notify, default_notify
 from spells.ui.widgets import (
     Badge,
@@ -126,6 +128,7 @@ PAGES: tuple[tuple[str, str, str, bool], ...] = (
     ("apps", "Apps", style.Glyph.APPS, False),
     ("vocabulary", "Vocabulary", style.Glyph.BOOK, False),
     ("history", "History", style.Glyph.HISTORY, False),
+    ("upload", "Upload", style.Glyph.UPLOAD, False),
     ("diagnostics", "Diagnostics", style.Glyph.PULSE, True),
     ("about", "About", style.Glyph.INFO, True),
 )
@@ -1983,6 +1986,12 @@ class SettingsDialog(QtWidgets.QDialog):
             pipeline=pipeline,
             parent=self.pages,
         )
+        self.upload = UploadPage(
+            config=config,
+            notify=notify,
+            confirm=confirm or default_confirm,
+            parent=self.pages,
+        )
         self.about = AboutPage(parent=self.pages)
         self._tabs_by_name: dict[str, QtWidgets.QWidget] = {
             "general": self.general,
@@ -1991,6 +2000,7 @@ class SettingsDialog(QtWidgets.QDialog):
             "apps": self.apps,
             "vocabulary": self.vocabulary,
             "history": self.history,
+            "upload": self.upload,
             "diagnostics": self.diagnostics,
             "about": self.about,
         }
@@ -2071,6 +2081,7 @@ __all__ = [
     "HotkeyRecorder",
     "RuleEditor",
     "SettingsDialog",
+    "UploadPage",
     "VocabularyTab",
     "fold_keys",
     "probe_arguments",

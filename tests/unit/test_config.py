@@ -1097,3 +1097,59 @@ def test_a_left_control_writing_chord_still_conflicts_with_the_generic_main_chor
     raw["general"]["compose_chord"] = {"keys": [0xA2, 0x5B], "mode": "compose"}
     with pytest.raises(SettingsError):
         from_dict(raw)
+
+
+# --- the upload block ---
+
+
+def test_uploading_is_off_by_default_and_a_file_without_the_block_loads():
+    upload = default_settings().upload
+    assert upload.enabled is False
+    assert upload.url == ""
+    assert upload.schedule == "daily"
+    assert upload.include_audio is False
+    assert upload.skip_apps == []
+    assert upload.device_name == ""
+    assert (upload.last_success, upload.last_attempt, upload.last_sent) == (0.0, 0.0, 0)
+    assert upload.last_error == ""
+    assert from_dict(migrate({"schema_version": 1, "history": {}})).upload == upload
+
+
+def test_upload_settings_round_trip():
+    settings = dataclasses.replace(
+        default_settings(),
+        upload=config.UploadSettings(
+            enabled=True,
+            url="http://example.com:8080/spells",
+            schedule="weekly",
+            include_audio=True,
+            skip_apps=["keepassxc.exe", "1Password.exe"],
+            device_name="Study",
+            last_success=1_800_000_000.5,
+            last_attempt=1_800_000_100.0,
+            last_error="The server had a problem (503).",
+            last_sent=42,
+        ),
+    )
+    raw = json.loads(json.dumps(to_dict(settings)))
+    assert raw["upload"]["skip_apps"] == ["keepassxc.exe", "1Password.exe"]
+    assert "token" not in json.dumps(raw["upload"]).lower()
+    assert from_dict(raw) == settings
+
+
+@pytest.mark.parametrize(
+    "upload",
+    [
+        {"url": "ftp://example.com/in"},
+        {"url": "example.com/in"},
+        {"url": 5},
+        {"schedule": "hourly"},
+        {"enabled": "yes"},
+        {"skip_apps": "keepassxc.exe"},
+        {"last_sent": -1},
+        {"last_success": "yesterday"},
+    ],
+)
+def test_bad_upload_values_are_refused(upload):
+    with pytest.raises(SettingsError):
+        from_dict({"schema_version": 1, "upload": upload})

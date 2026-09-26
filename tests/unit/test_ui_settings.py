@@ -106,10 +106,13 @@ def test_pages_are_the_spec_sections_plus_languages_and_about(app, tmp_path):
         "Apps",
         "Vocabulary",
         "History",
+        "Upload",
         "Diagnostics",
         "About",
     ]
     assert dialog.page_names() == list(TAB_NAMES)
+    dialog.show_tab("upload")
+    assert dialog.tabs.currentWidget() is dialog.upload
     dialog.show_tab("history")
     assert dialog.tabs.currentWidget() is dialog.history
     assert dialog.nav.current() == "history"

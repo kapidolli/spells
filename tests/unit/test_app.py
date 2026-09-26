@@ -268,10 +268,11 @@ class FakeHotkey:
 
 
 class FakeHistory:
-    def __init__(self, log: list[str], path, retention) -> None:
+    def __init__(self, log: list[str], path, retention, upload_hold: bool = False) -> None:
         self._log = log
         self.path = path
         self.retention = retention
+        self.upload_hold = upload_hold
         self.retentions: list[str] = []
         self.closed = 0
         self.closing: threading.Event | None = None
@@ -422,9 +423,9 @@ class World:
         self.engines = FakeEngines(self.log, engine_paths, gpu, on_status, **kwargs)
         return self.engines
 
-    def make_history(self, path, retention) -> FakeHistory:
+    def make_history(self, path, retention, *, upload_hold: bool = False) -> FakeHistory:
         self.log.append("history")
-        self.history = FakeHistory(self.log, path, retention)
+        self.history = FakeHistory(self.log, path, retention, upload_hold)
         return self.history
 
     def make_pipeline(self, **kwargs) -> FakePipeline:
@@ -732,7 +733,21 @@ def test_wiring_hands_each_collaborator_the_bridge_callbacks(world):
     settings = world.config.settings
     assert world.hotkey.chords == [settings.general.main_chord, *settings.general.language_chords]
     assert world.history.retention == settings.history.retention
+    assert world.history.upload_hold is settings.upload.enabled
     assert world.engines.paths.whisper_model == world.layout.whisper_model
+
+
+def test_the_history_holds_unsent_rows_from_the_start_when_uploading_is_on(world):
+    settings = ConfigStore(world.settings_file()).settings
+    world.write_settings(
+        replace(
+            settings,
+            upload=replace(settings.upload, enabled=True, url="https://example.com/spells"),
+        )
+    )
+    world.on_exec = lambda: None
+    main([], deps=world.deps())
+    assert world.history.upload_hold is True
 
 
 def test_the_pipeline_ends_recordings_through_the_hotkey_thread(world):

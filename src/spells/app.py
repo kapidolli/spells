@@ -239,7 +239,7 @@ class Deps:
     model_catalog: Callable[[], Sequence[CatalogModel]] = load_catalog
     supervisor: Callable[..., Any] = EngineSupervisor
     cpu_plan: Callable[[], CpuPlan] = detect_cpu_plan
-    history: Callable[[Path, str], Any] = HistoryStore
+    history: Callable[..., Any] = HistoryStore
     pipeline: Callable[..., Any] = Pipeline
     hotkey: Callable[..., Any] = HotkeyThread
     qapplication: Callable[[list[str]], Any] = _default_qapplication
@@ -544,7 +544,11 @@ class _App:
         )
         self._engines.start()
 
-        self._history = deps.history(layout.history_path, settings.history.retention)
+        self._history = deps.history(
+            layout.history_path,
+            settings.history.retention,
+            upload_hold=settings.upload.enabled,
+        )
 
         self._pipeline = deps.pipeline(
             config=config,
