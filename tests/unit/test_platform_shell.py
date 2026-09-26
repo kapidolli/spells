@@ -326,7 +326,10 @@ def test_windows_opens_settings_and_paths_with_startfile(monkeypatch):
 
 
 @pytest.mark.windows
-def test_windows_reveals_a_file_in_explorer_detached(monkeypatch):
+@pytest.mark.parametrize(
+    "folder", ["C:\\Users\\me\\Spells\\recordings", "C:\\Users\\Jane Doe\\Spells\\recordings"]
+)
+def test_windows_reveals_a_file_in_explorer_detached(monkeypatch, folder):
     from spells.platform import windows
     from spells.win32 import shell as win32_shell
 
@@ -334,13 +337,13 @@ def test_windows_reveals_a_file_in_explorer_detached(monkeypatch):
     monkeypatch.setattr(
         win32_shell.subprocess, "Popen", lambda args, **kwargs: started.append((args, kwargs))
     )
-    path = Path("C:\\Users\\me\\Spells\\recordings\\000001.wav")
+    path = Path(f"{folder}\\000001.wav")
 
     windows.build().shell.reveal(path)
 
     assert started == [
         (
-            ["explorer.exe", "/select,C:\\Users\\me\\Spells\\recordings\\000001.wav"],
+            f'explorer.exe /select,"{folder}\\000001.wav"',
             {"close_fds": True, "creationflags": 0x00000008 | 0x00000200},
         )
     ]

@@ -31,7 +31,7 @@ def open_path(path: str) -> None:
 
 def reveal(path: Path) -> None:
     subprocess.Popen(
-        ["explorer.exe", f"/select,{path}"],
+        f'explorer.exe /select,"{path}"',
         close_fds=True,
         creationflags=DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
     )
