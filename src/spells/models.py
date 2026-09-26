@@ -155,7 +155,7 @@ class DeliveryResult:
 class LastDelivery:
     """The previous delivery, for the leading-space rule (spec 10.4)."""
 
-    hwnd: int
+    window: int
     finished_at: float
     outcome: DeliveryOutcome
     ended_with_whitespace: bool

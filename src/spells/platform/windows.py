@@ -11,6 +11,7 @@ from spells.models import CpuPlan
 from spells.platform import stub
 from spells.platform.base import Capabilities, MessageHandlers, Platform
 from spells.platform.keys_windows import WindowsKeys
+from spells.win32 import appearance as win32_appearance
 from spells.win32 import autostart as win32_autostart
 from spells.win32 import clipboard as win32_clipboard
 from spells.win32 import cpu as win32_cpu
@@ -36,6 +37,37 @@ class WindowsFocus:
 
     def is_elevated(self, window: int) -> bool:
         return win32_window.is_elevated_window(window)
+
+
+class WindowsOverlay:
+    def monitor_rect_for(self, window: int) -> tuple[int, int, int, int]:
+        return win32_window.monitor_rect_for_window(window)
+
+    def set_no_activate(self, native_id: int) -> None:
+        win32_window.set_window_no_activate(native_id)
+
+
+class WindowsAppearance:
+    def apps_dark(self) -> bool | None:
+        return win32_appearance.apps_dark()
+
+    def taskbar_light(self) -> bool:
+        return win32_appearance.taskbar_light()
+
+    def accent_palette(self) -> tuple[str, ...] | None:
+        return win32_appearance.accent_palette()
+
+    def accent_colour(self) -> str | None:
+        return win32_appearance.accent_colour()
+
+    def animations_enabled(self) -> bool:
+        return win32_window.animations_enabled()
+
+    def style_title_bar(self, native_id: int, *, dark: bool, caption: str, text: str) -> bool:
+        return win32_appearance.style_title_bar(native_id, dark=dark, caption=caption, text=text)
+
+    def round_corners(self, native_id: int) -> bool:
+        return win32_appearance.round_corners(native_id)
 
 
 class WindowsKeyboard:
@@ -173,6 +205,8 @@ def build() -> Platform:
         focus=WindowsFocus(),
         keyboard=WindowsKeyboard(),
         clipboard=win32_clipboard,
+        overlay=WindowsOverlay(),
+        appearance=WindowsAppearance(),
         keys=WindowsKeys(),
         processes=WindowsProcesses(),
         instance=WindowsInstance(),

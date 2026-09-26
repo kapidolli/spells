@@ -23,6 +23,7 @@ from typing import Any
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from spells import platform
 from spells.compose import writing_text
 from spells.pipeline import (
     COPIED_NOTICE,
@@ -267,24 +268,17 @@ def notice_for(event: PipelineEvent) -> tuple[PillContent, int] | None:
 # The widget -------------------------------------------------------------------------------------
 
 
-def _default_monitor_rect(hwnd: int) -> tuple[int, int, int, int]:
-    from spells.win32.window import monitor_rect_for_window
-
-    return monitor_rect_for_window(hwnd)
+def _default_monitor_rect(window: int) -> tuple[int, int, int, int]:
+    return platform.current().overlay.monitor_rect_for(window)
 
 
 def _default_screen_at(point: QtCore.QPoint) -> Any:
     return QtGui.QGuiApplication.screenAt(point)
 
 
-def _default_no_activate(hwnd: int) -> None:
+def _default_no_activate(native_id: int) -> None:
     try:
-        from spells.win32.window import set_window_no_activate
-    except Exception:
-        log.debug("win32 window helpers unavailable", exc_info=True)
-        return
-    try:
-        set_window_no_activate(hwnd)
+        platform.current().overlay.set_no_activate(native_id)
     except Exception:
         log.debug("could not set WS_EX_NOACTIVATE on the pill", exc_info=True)
 
@@ -325,7 +319,7 @@ class Pill(QtWidgets.QWidget):
         self._content: PillContent | None = None
         self._displayed_text = ""
         self._pill_size = QtCore.QSizeF(self.metrics.min_width, self.metrics.height)
-        self._target_hwnd: int | None = None
+        self._target_window: int | None = None
         self._level = 0.0
         self.smoother = LevelSmoother()
         self.bar_heights: list[float] = list(STATIC_POSE)
@@ -390,9 +384,9 @@ class Pill(QtWidgets.QWidget):
     def apply(self, event: PipelineEvent) -> None:
         """Render the latest pipeline event (Qt thread)."""
         self._level = meter_level(event.level or 0.0)
-        hwnd = getattr(event, "target_hwnd", None)
-        if hwnd:
-            self._target_hwnd = int(hwnd)
+        window = getattr(event, "target_window", None)
+        if window:
+            self._target_window = int(window)
         steady = content_for(event)
         if steady is not None and steady.writing:
             previous = self._steady
@@ -444,14 +438,14 @@ class Pill(QtWidgets.QWidget):
         self._refresh()
         return True
 
-    def screen_for(self, hwnd: int | None) -> Any:
+    def screen_for(self, window: int | None) -> Any:
         """The QScreen at the top-left corner of the window's monitor, else the primary screen."""
         if self._screen_for is not None:
-            return self._screen_for(hwnd)
+            return self._screen_for(window)
         app = QtGui.QGuiApplication.instance()
-        if hwnd:
+        if window:
             try:
-                left, top, _right, _bottom = self._monitor_rect(hwnd)
+                left, top, _right, _bottom = self._monitor_rect(window)
                 screen = self._screen_at(QtCore.QPoint(int(left), int(top)))
             except Exception:
                 log.debug("could not resolve the target's monitor", exc_info=True)
@@ -519,7 +513,7 @@ class Pill(QtWidgets.QWidget):
         if content is None:
             return
         try:
-            screen = self.screen_for(self._target_hwnd)
+            screen = self.screen_for(self._target_window)
             x, y = place_pill(self.work_area(screen), width, m.height, m)
             self.move(round(x), round(y))
         except Exception:

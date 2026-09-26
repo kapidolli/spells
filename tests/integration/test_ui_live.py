@@ -53,7 +53,7 @@ from spells.ui.pill import Pill
 
 TARGET = foreground_hwnd()
 STATES = [
-    PipelineEvent(pill=PillState.RECORDING, tray=TrayState.RECORDING, level=0.6, target_hwnd=TARGET),
+    PipelineEvent(pill=PillState.RECORDING, tray=TrayState.RECORDING, level=0.6, target_window=TARGET),
     PipelineEvent(pill=PillState.RECORDING, tray=TrayState.RECORDING, level=0.6, busy=True),
     PipelineEvent(pill=PillState.LATCHED, tray=TrayState.RECORDING, level=0.3),
     PipelineEvent(pill=PillState.PROCESSING, tray=TrayState.PROCESSING),

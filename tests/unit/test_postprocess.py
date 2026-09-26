@@ -40,13 +40,13 @@ def _vocab(
 
 
 def _last(
-    hwnd: int = 1,
+    window: int = 1,
     finished_at: float = 100.0,
     outcome: DeliveryOutcome = DeliveryOutcome.PASTED,
     ended_with_whitespace: bool = False,
 ) -> LastDelivery:
     return LastDelivery(
-        hwnd=hwnd,
+        window=window,
         finished_at=finished_at,
         outcome=outcome,
         ended_with_whitespace=ended_with_whitespace,
@@ -299,7 +299,7 @@ def test_no_leading_space_without_last_delivery():
 
 
 def test_no_leading_space_for_a_different_window():
-    assert _apply("hello", last=_last(hwnd=2), now=150.0) == "hello"
+    assert _apply("hello", last=_last(window=2), now=150.0) == "hello"
 
 
 def test_leading_space_window_is_sixty_seconds():

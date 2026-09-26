@@ -17,6 +17,8 @@ from typing import ClassVar
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from spells import platform
+
 log = logging.getLogger(__name__)
 
 SPACE_XS = 4
@@ -297,37 +299,23 @@ def shades_from_colour(colour: QtGui.QColor) -> AccentShades:
     return AccentShades(shade(0.36), shade(0.24), shade(0.12), _hex(base), shade(-0.06), shade(-0.14), shade(-0.22))
 
 
-def _read_registry(path: str, name: str) -> object | None:
-    try:
-        import winreg
-    except ImportError:
-        return None
-    try:
-        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
-            value, _kind = winreg.QueryValueEx(key, name)
-            return value
-    except OSError:
-        return None
-
-
 def system_accent() -> AccentShades | None:
-    """The Windows accent shades, or None when they cannot be read."""
-    data = _read_registry(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent", "AccentPalette")
-    shades = shades_from_palette_bytes(data) if data is not None else None
-    if shades is not None:
-        return shades
-    abgr = _read_registry(r"Software\Microsoft\Windows\DWM", "AccentColor")
-    if isinstance(abgr, int):
-        red, green, blue = abgr & 0xFF, (abgr >> 8) & 0xFF, (abgr >> 16) & 0xFF
-        return shades_from_colour(QtGui.QColor(red, green, blue))
+    """The system accent shades, or None when they cannot be read."""
+    appearance = platform.current().appearance
+    colours = appearance.accent_palette()
+    if colours is not None:
+        return AccentShades(*colours)
+    colour = appearance.accent_colour()
+    if colour is not None:
+        return shades_from_colour(QtGui.QColor(colour))
     return None
 
 
 def apps_use_dark_theme() -> bool:
-    """Whether Windows apps use the dark theme (AppsUseLightTheme is 0)."""
-    value = _read_registry(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme")
-    if isinstance(value, int):
-        return value == 0
+    """Whether apps use the dark theme: the system setting (AppsUseLightTheme is 0 on Windows), else Qt's."""
+    value = platform.current().appearance.apps_dark()
+    if value is not None:
+        return value
     app = QtGui.QGuiApplication.instance()
     if app is not None:
         try:
@@ -714,14 +702,6 @@ def _follow_system(app: QtWidgets.QApplication) -> None:
 
 # Window chrome -------------------------------------------------------------------------------------
 
-DWMWA_USE_IMMERSIVE_DARK_MODE = 20
-DWMWA_WINDOW_CORNER_PREFERENCE = 33
-DWMWA_BORDER_COLOR = 34
-DWMWA_CAPTION_COLOR = 35
-DWMWA_TEXT_COLOR = 36
-DWMWCP_ROUND = 2
-DWMWCP_ROUNDSMALL = 3
-
 
 def colorref(colour: str | QtGui.QColor) -> int:
     value = QtGui.QColor(colour)
@@ -730,17 +710,6 @@ def colorref(colour: str | QtGui.QColor) -> int:
 
 def _native_windows() -> bool:
     return sys.platform == "win32" and QtGui.QGuiApplication.platformName() == "windows"
-
-
-def _set_dwm_attribute(hwnd: int, attribute: int, value: int) -> bool:
-    import ctypes
-    from ctypes import wintypes
-
-    data = ctypes.c_int(int(value))
-    result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
-        wintypes.HWND(hwnd), ctypes.c_uint(attribute), ctypes.byref(data), ctypes.sizeof(data)
-    )
-    return result == 0
 
 
 def apply_window_chrome(widget: QtWidgets.QWidget) -> bool:
@@ -752,14 +721,15 @@ def apply_window_chrome(widget: QtWidgets.QWidget) -> bool:
         return False
     current = palette()
     try:
-        hwnd = int(widget.winId())
-        _set_dwm_attribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, 1 if current.dark else 0)
-        _set_dwm_attribute(hwnd, DWMWA_CAPTION_COLOR, colorref(current.base))
-        _set_dwm_attribute(hwnd, DWMWA_TEXT_COLOR, colorref(current.text))
+        return platform.current().appearance.style_title_bar(
+            int(widget.winId()),
+            dark=current.dark,
+            caption=_hex(QtGui.QColor(current.base)),
+            text=_hex(QtGui.QColor(current.text)),
+        )
     except Exception:
         log.debug("could not colour the title bar", exc_info=True)
         return False
-    return True
 
 
 def round_popup(widget: QtWidgets.QWidget) -> bool:
@@ -767,7 +737,7 @@ def round_popup(widget: QtWidgets.QWidget) -> bool:
     if not _native_windows():
         return False
     try:
-        return _set_dwm_attribute(int(widget.winId()), DWMWA_WINDOW_CORNER_PREFERENCE, DWMWCP_ROUNDSMALL)
+        return platform.current().appearance.round_corners(int(widget.winId()))
     except Exception:
         log.debug("could not round the popup corners", exc_info=True)
         return False

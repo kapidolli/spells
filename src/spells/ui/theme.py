@@ -99,35 +99,18 @@ def chord_label(chord: Chord | Iterable[int]) -> str:
     return "+".join(chord_keys(chord))
 
 
-# Windows appearance --------------------------------------------------------------------------------
+# System appearance ---------------------------------------------------------------------------------
 
 
 def taskbar_is_light() -> bool:
-    """Whether the Windows taskbar uses the light theme (SystemUsesLightTheme); dark when unknown."""
-    try:
-        import winreg
-    except ImportError:
-        return False
-    try:
-        with winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER,
-            r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
-        ) as key:
-            value, _kind = winreg.QueryValueEx(key, "SystemUsesLightTheme")
-            return bool(value)
-    except OSError:
-        return False
+    """Whether the taskbar uses the light theme (SystemUsesLightTheme on Windows); dark when unknown."""
+    return platform.current().appearance.taskbar_light()
 
 
 def reduced_motion() -> bool:
-    """True when Windows animations are switched off (the pill's reduced motion path)."""
+    """True when the system's animations are switched off (the pill's reduced motion path)."""
     try:
-        from spells.win32.window import animations_enabled
-    except Exception:
-        log.debug("win32 window helpers unavailable", exc_info=True)
-        return False
-    try:
-        return not animations_enabled()
+        return not platform.current().appearance.animations_enabled()
     except Exception:
         log.debug("could not query the animation setting", exc_info=True)
         return False

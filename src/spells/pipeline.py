@@ -270,7 +270,7 @@ class PipelineEvent:
     moment and returns to the steady state. `notification` is a toast; when
     `notification_action` is set it is a settings kind (`SOUND_SETTINGS` or
     `PRIVACY_SETTINGS`) the platform shell opens from an "Open settings" button.
-    `target_hwnd` is the window captured at press time while a recording is active (the pill
+    `target_window` is the window captured at press time while a recording is active (the pill
     goes on that window's monitor, spec 14.2), None otherwise or when the capture failed.
     `timings` is set once, on the event that completes a dictation that reached ASR, whether
     or not anything was delivered (a dictation that failed carries a notice instead).
@@ -286,7 +286,7 @@ class PipelineEvent:
     busy: bool = False
     text: str = ""
     live_typing: bool = False
-    target_hwnd: int | None = None
+    target_window: int | None = None
     notice: Notice | None = None
     notice_text: str = ""
     notification: str | None = None
@@ -693,7 +693,7 @@ class Pipeline:
         self._rec_pill: PillState | None = None
         self._rec_text = ""
         self._level = 0.0
-        self._target_hwnd: int | None = None
+        self._target_window: int | None = None
         self._live_typing = False
         self._writing = False
         self._writing_text = ""
@@ -962,7 +962,7 @@ class Pipeline:
             self._rec_pill = PillState.RECORDING
             self._rec_text = ""
             self._level = 0.0
-            self._target_hwnd = ctx.window or None
+            self._target_window = ctx.window or None
             self._live_typing = live is not None
         self._level_value = 0.0
         self._emit(dictation_id, **self._settle_device(recorder))
@@ -1147,7 +1147,7 @@ class Pipeline:
             self._rec_pill = None
             self._rec_text = ""
             self._level = 0.0
-            self._target_hwnd = None
+            self._target_window = None
             self._live_typing = False
 
     # Live partials (spec 6, B5-57) ---------------------------------------------------------
@@ -2040,7 +2040,7 @@ class Pipeline:
             return
         finished_at = started + (report.elapsed_ms or 0.0) / 1000.0
         self._last_delivery = LastDelivery(
-            hwnd=recording.ctx.window,
+            window=recording.ctx.window,
             finished_at=finished_at,
             outcome=report.outcome,
             ended_with_whitespace=inject.ends_with_whitespace(text),
@@ -2262,7 +2262,7 @@ class Pipeline:
                 retry_available=self._retry is not None,
                 dictation_id=dictation_id,
                 timings=timings,
-                target_hwnd=self._target_hwnd,
+                target_window=self._target_window,
             )
         try:
             self._on_event(event)

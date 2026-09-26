@@ -300,7 +300,7 @@ def test_text_states_grow_to_fit_and_cap_at_320(app):
 
 def test_pill_is_placed_on_the_target_monitor(app):
     pill, resolved, _activated = make_pill()
-    pill.apply(event(PillState.RECORDING, TrayState.RECORDING, target_hwnd=4242))
+    pill.apply(event(PillState.RECORDING, TrayState.RECORDING, target_window=4242))
     flush(app)
     assert resolved == [4242]
     m = pill.metrics

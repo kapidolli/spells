@@ -365,7 +365,7 @@ def test_press_emits_the_recording_event_in_the_same_step(tmp_path):
     assert h.last.tray is TrayState.RECORDING
     assert h.last.dictation_id == 1
     assert h.last.busy is False
-    assert h.last.target_hwnd == TARGET_HWND
+    assert h.last.target_window == TARGET_HWND
     assert ("ensure_ready",) in h.engines.calls
     assert ("note_activity",) not in h.engines.calls
 
@@ -386,21 +386,21 @@ def test_press_reloads_unloaded_engines_while_recording(tmp_path):
     assert h.history.entries[-1].outcome == "pasted"
 
 
-def test_target_hwnd_follows_the_recording(tmp_path):
+def test_target_window_follows_the_recording(tmp_path):
     h = Harness(tmp_path)
     h.press()
-    assert h.last.target_hwnd == TARGET_HWND
+    assert h.last.target_window == TARGET_HWND
     h.recorder.feed_level(0.3)
     h.pipeline.drain_controller()
-    assert h.last.target_hwnd == TARGET_HWND
+    assert h.last.target_window == TARGET_HWND
     h.release()
-    assert h.last.target_hwnd is None
+    assert h.last.target_window is None
     h.process()
-    assert all(e.target_hwnd is None for e in h.events if e.pill is not PillState.RECORDING)
+    assert all(e.target_window is None for e in h.events if e.pill is not PillState.RECORDING)
     h.ctx_window = 0
     h.press(2)
     assert h.last.pill is PillState.RECORDING
-    assert h.last.target_hwnd is None
+    assert h.last.target_window is None
 
 
 def test_release_enqueues_the_recording_with_the_chord_language_forced(tmp_path):
@@ -1216,7 +1216,7 @@ def test_stop_during_a_recording_cancels_it_and_joins(tmp_path):
     assert h.recorder.calls == ["start", "cancel", "close"]
     assert h.hotkey.ended == [1]
     assert events[-1].pill is PillState.IDLE
-    assert events[-1].target_hwnd is None
+    assert events[-1].target_window is None
 
 
 def test_stop_from_an_event_handler_does_not_join_itself(tmp_path):
