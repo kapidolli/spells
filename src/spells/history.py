@@ -35,7 +35,7 @@ import threading
 import time
 import uuid
 import wave
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Literal, Self
@@ -706,16 +706,29 @@ class HistoryStore:
         entries.sort(key=lambda entry: (entry.created_at, entry.id or 0))
         return entries
 
-    def mark_uploaded(self, ids: Iterable[int], when: float) -> int:
+    def mark_uploaded(
+        self,
+        ids: Iterable[int],
+        when: float,
+        checked_at: Mapping[int, float] | None = None,
+    ) -> int:
+        wanted = [int(entry_id) for entry_id in ids]
         with self._lock:
             if self._conn is None:
                 return 0
-            return self._update_ids_locked(
-                "uploaded_at = ?",
-                (float(when),),
-                [int(entry_id) for entry_id in ids],
-                " AND uploaded_at >= 0",
+            if checked_at is None:
+                return self._update_ids_locked(
+                    "uploaded_at = ?", (float(when),), wanted, " AND uploaded_at >= 0"
+                )
+            cursor = self._conn.executemany(
+                "UPDATE entries SET uploaded_at = ? "
+                "WHERE id = ? AND checked_at = ? AND uploaded_at >= 0",
+                [
+                    (float(when), entry_id, float(checked_at.get(entry_id, 0.0)))
+                    for entry_id in wanted
+                ],
             )
+            return int(cursor.rowcount or 0)
 
     def reset_uploaded(self) -> int:
         with self._lock:

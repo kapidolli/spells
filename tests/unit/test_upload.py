@@ -335,6 +335,25 @@ def test_a_run_sends_everything_oldest_first_and_marks_it(store):
     assert store.pending_upload_ids() == []
 
 
+def test_a_check_that_finishes_while_its_batch_is_in_flight_is_sent_again(store):
+    for n in range(3):
+        store.add(make_entry(n))
+
+    def check_then_accept(_payload):
+        store.set_check(1, "POOR", "garbled")
+        return 200
+
+    transport = FakeTransport(check_then_accept)
+    result = uploader(store, transport).run()
+    assert result.ok
+    assert transport.sent[0].payload["entries"][0]["quality"]["checkVerdict"] == ""
+    assert store.pending_upload_ids() == [1]
+    uploader(store, transport).run()
+    assert transport.ids(1) == [1]
+    assert transport.sent[1].payload["entries"][0]["quality"]["checkVerdict"] == "POOR"
+    assert store.pending_upload_ids() == []
+
+
 def test_without_a_token_there_is_no_authorization_header(store):
     store.add(make_entry(1))
     transport = FakeTransport()

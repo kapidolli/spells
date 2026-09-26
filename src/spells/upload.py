@@ -197,10 +197,11 @@ class Item:
     id: int
     wire: dict
     data: bytes
+    checked_at: float = 0.0
 
     @classmethod
-    def of(cls, wire: dict) -> Item:
-        return cls(int(wire["id"]), wire, encode(wire))
+    def of(cls, wire: dict, checked_at: float = 0.0) -> Item:
+        return cls(int(wire["id"]), wire, encode(wire), float(checked_at))
 
     @property
     def size(self) -> int:
@@ -211,7 +212,9 @@ class Item:
         return self.wire.get("audio") is not None
 
     def without_audio(self) -> Item:
-        return Item.of({**self.wire, "audio": None, "audioSkipped": AUDIO_TOO_LARGE})
+        return Item.of(
+            {**self.wire, "audio": None, "audioSkipped": AUDIO_TOO_LARGE}, self.checked_at
+        )
 
 
 def envelope(
@@ -453,7 +456,7 @@ class Uploader:
                 audio = None
                 if self._include_audio and entry.audio_file:
                     audio = read_audio(self._history.recording_path(entry))
-                yield Item.of(wire_entry(entry, self._install_id, audio))
+                yield Item.of(wire_entry(entry, self._install_id, audio), entry.checked_at)
 
     def _overhead(self) -> int:
         head = self._head(self._history.upload_lost())
@@ -516,7 +519,11 @@ class Uploader:
         outcome = classify(int(response.status), response.body, self._token)
         if outcome.kind == OK and record:
             if items:
-                history.mark_uploaded([item.id for item in items], self._clock())
+                history.mark_uploaded(
+                    [item.id for item in items],
+                    self._clock(),
+                    checked_at={item.id: item.checked_at for item in items},
+                )
                 self._sent += len(items)
             if reported:
                 history.settle_upload_lost(reported)

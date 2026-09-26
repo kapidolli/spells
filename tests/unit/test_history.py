@@ -1103,6 +1103,24 @@ def test_a_check_that_finishes_after_the_upload_makes_the_row_pending_again(stor
     assert store.pending_upload_ids() == [2]
 
 
+def test_a_row_is_marked_only_when_its_check_is_still_the_one_that_was_sent(store):
+    store.add(make_entry(1))
+    store.add(make_entry(2))
+    store.add(make_entry(3))
+    store.set_check(3, "GOOD", "fine", checked_at=BASE + 10)
+    sent = {1: 0.0, 2: 0.0, 3: BASE + 10}
+    store.set_check(1, "POOR", "garbled", checked_at=BASE + 50)
+    assert store.mark_uploaded([1, 2, 3], BASE + 100, checked_at=sent) == 2
+    marks = uploaded_at(store.path)
+    assert marks[1] == 0.0
+    assert marks[2] == marks[3] == BASE + 100
+    assert store.pending_upload_ids() == [1]
+    store.set_check(2, "POOR", "garbled", checked_at=BASE + 150)
+    assert store.mark_uploaded([2], BASE + 200, checked_at={2: BASE + 120}) == 0
+    assert uploaded_at(store.path)[2] == BASE + 100
+    assert store.pending_upload_ids() == [1, 2]
+
+
 def test_rows_from_skipped_apps_are_marked_and_never_pending(store):
     store.add(make_entry(1, app_process="KeePassXC.exe"))
     store.add(make_entry(2, app_process="notepad.exe"))
