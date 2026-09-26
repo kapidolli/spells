@@ -321,11 +321,6 @@ class FakeLlamaAsr(FakeWhisper):
 
 class Rig:
     def __init__(self, tmp_path: Path, seconds: dict[str, float], text=CALIBRATION_TEXT) -> None:
-        for variant in ("vulkan", "cpu"):
-            folder = tmp_path / "engines" / variant
-            folder.mkdir(parents=True)
-            (folder / "whisper-server.exe").write_bytes(b"")
-            (folder / "llama-server.exe").write_bytes(b"")
         self.clock = FakeClock()
         self.spawned: list[dict] = []
         self.procs: list[FakeProc] = []
@@ -341,6 +336,10 @@ class Rig:
             llama_model=None,
             log_dir=tmp_path / "logs",
         )
+        for variant in ("vulkan", "cpu"):
+            self.paths.variant_dir(variant).mkdir(parents=True)
+            self.paths.whisper_exe(variant).write_bytes(b"")
+            self.paths.llama_exe(variant).write_bytes(b"")
         self.calibrator = Calibrator(
             paths=self.paths,
             gpu=device(uma=True),
@@ -428,7 +427,7 @@ def test_a_wrong_transcript_is_recorded_as_such(tmp_path):
 
 def test_a_missing_build_is_an_error_not_a_crash(tmp_path):
     rig = Rig(tmp_path, {"vulkan": 0.5, "cpu": 2.3})
-    (tmp_path / "engines" / "vulkan" / "llama-server.exe").unlink()
+    rig.paths.llama_exe("vulkan").unlink()
     result = rig.calibrator.calibrate(choice_for(QWEN))
     assert result.gpu.latency_ms is None
     assert "missing" in result.gpu.error

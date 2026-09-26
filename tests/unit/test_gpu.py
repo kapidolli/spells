@@ -20,6 +20,18 @@ from spells.gpu import (
     probe_raw_indices,
     select_device,
 )
+from spells.platform.stub import StubProcesses
+
+from .fake_platform import fake_platform
+
+
+class HiddenWindowProcesses(StubProcesses):
+    def __init__(self):
+        super().__init__("linux")
+
+    def hidden_process_kwargs(self):
+        return {"creationflags": 0x08000000}
+
 
 LLAMA = Path("C:/engines/vulkan/llama-server.exe")
 WHISPER = Path("C:/engines/vulkan/whisper-server.exe")
@@ -126,7 +138,8 @@ def test_parse_keeps_parentheses_inside_device_names():
 # list_devices -----------------------------------------------------------------
 
 
-def test_list_devices_runs_hidden_with_timeout_and_merges_stderr():
+def test_list_devices_runs_hidden_with_timeout_and_merges_stderr(use_platform):
+    use_platform(fake_platform(processes=HiddenWindowProcesses()))
     calls = []
 
     def runner(args, **kwargs):
@@ -237,7 +250,8 @@ def test_parse_backend_info_keeps_parentheses_in_names_and_reads_the_vendor():
     ]
 
 
-def test_probe_backend_info_runs_whisper_server_hidden_with_a_missing_model():
+def test_probe_backend_info_runs_whisper_server_hidden_with_a_missing_model(use_platform):
+    use_platform(fake_platform(processes=HiddenWindowProcesses()))
     runner = make_runner({}, backend={"1": AMD_BACKEND})
     info = probe_backend_info(WHISPER, 1, env={"KEEP": "y"}, runner=runner)
     assert info == AMD_INTEGRATED
