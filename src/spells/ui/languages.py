@@ -22,7 +22,7 @@ from spells.config import ConfigStore, Settings, SettingsError
 from spells.gpu import GpuSelection
 from spells.models import Chord
 from spells.ui import style, theme
-from spells.ui.capabilities import apply_capability
+from spells.ui.capabilities import apply_capability, unavailable_caption
 from spells.ui.hotkeys import ChordCaptureDialog, chord_is_free, fold_keys
 from spells.ui.tray import chords_of
 from spells.ui.widgets import (
@@ -469,6 +469,11 @@ class LanguagesPage(ScrollPage):
             self.language_list,
             description="A per-language hotkey dictates one utterance in that language without changing the language mode.",
         )
+        self.chord_note = unavailable_caption(
+            platform.current().capabilities.app_records_chords, "app_records_chords", self.body
+        )
+        if self.chord_note is not None:
+            self.add_widget(self.chord_note)
         adder_card = Card(self.body)
         self.adder = LanguageAdder(adder_card)
         self.adder.add_language.connect(lambda code: self.set_language_enabled(code, True))

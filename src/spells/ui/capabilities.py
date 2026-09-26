@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from PySide6 import QtWidgets
 
+from spells.ui.widgets import make_label
+
 UNAVAILABLE = "Not available on this system yet."
 NOTES = {
     "hold_to_talk": "Dictation hotkeys are not available on this system yet.",
@@ -32,4 +34,10 @@ def apply_capability(widget: QtWidgets.QWidget, available: bool, flag: str) -> N
     widget.setToolTip(note_for(flag))
 
 
-__all__ = ["NOTES", "UNAVAILABLE", "apply_capability", "note_for"]
+def unavailable_caption(available: bool, flag: str, parent: QtWidgets.QWidget) -> QtWidgets.QLabel | None:
+    if available:
+        return None
+    return make_label(note_for(flag), "caption", "secondary", wrap=True, parent=parent)
+
+
+__all__ = ["NOTES", "UNAVAILABLE", "apply_capability", "note_for", "unavailable_caption"]

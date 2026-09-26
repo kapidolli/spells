@@ -11,8 +11,6 @@ from spells.platform.base import (
     Platform,
     PlatformUnavailable,
 )
-from spells.platform.keys_linux import LinuxKeys
-from spells.platform.keys_macos import MacKeys
 
 
 def _refuse(system: str, job: str) -> PlatformUnavailable:
@@ -249,7 +247,11 @@ class StubUpdater:
 
 def _keys(name: str) -> Any:
     if name == "macos":
+        from spells.platform.keys_macos import MacKeys
+
         return MacKeys()
+    from spells.platform.keys_linux import LinuxKeys
+
     return LinuxKeys()
 
 

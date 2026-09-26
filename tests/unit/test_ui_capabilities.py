@@ -84,6 +84,13 @@ def label_texts(page: QtWidgets.QWidget) -> list[str]:
     return [label.text() for label in page.findChildren(QtWidgets.QLabel) if label.text()]
 
 
+def form_position(editor: RuleEditor, widget: QtWidgets.QWidget) -> tuple:
+    layout = editor.layout()
+    forms = [layout.itemAt(index).layout() for index in range(layout.count())]
+    (form,) = [item for item in forms if isinstance(item, QtWidgets.QFormLayout)]
+    return form.getWidgetPosition(widget)
+
+
 def test_every_flag_has_its_own_plain_note():
     assert {item.name: note_for(item.name) for item in fields(Capabilities)} == NOTES
     assert UNAVAILABLE == "Not available on this system yet."
@@ -146,6 +153,18 @@ def test_live_typing_toggles_are_disabled_with_the_note(app, folder, use_platfor
     dialog.close()
 
 
+def test_live_typing_group_has_one_visible_line_with_the_note(app, folder, use_platform):
+    use_platform(fake_platform())
+    dialog, *_ = make_dialog(folder("settings"))
+    general = dialog.general
+    note = general.live_typing_note
+    assert note.text() == note_for("live_typing")
+    assert note.isVisibleTo(general)
+    assert card_of(general.live_text).isAncestorOf(note)
+    assert label_texts(general).count(note_for("live_typing")) == 1
+    dialog.close()
+
+
 def test_app_profiles_offers_only_default_with_the_note(app, folder, use_platform):
     use_platform(fake_platform())
     dialog, *_ = make_dialog(folder("settings"))
@@ -167,6 +186,18 @@ def test_window_titles_disable_the_title_field_with_the_note(app, use_platform):
     assert not editor.title.isEnabled()
     assert editor.title.toolTip() == NOTES["window_titles"]
     assert editor.process.isEnabled()
+    editor.close()
+
+
+def test_window_titles_show_one_line_under_the_title_field(app, use_platform):
+    use_platform(fake_platform())
+    editor = RuleEditor(profile_names=list(BUILTIN_PROFILES))
+    note = editor.title_note
+    assert note.text() == note_for("window_titles")
+    assert note.isVisibleTo(editor)
+    title_row, _role = form_position(editor, editor.title)
+    assert form_position(editor, note) == (title_row + 1, QtWidgets.QFormLayout.ItemRole.FieldRole)
+    assert label_texts(editor).count(note_for("window_titles")) == 1
     editor.close()
 
 
@@ -224,6 +255,23 @@ def test_chord_recorder_buttons_are_disabled_with_the_note(app, folder, use_plat
     dialog.close()
 
 
+def test_each_section_with_chord_recorders_has_one_visible_line(app, folder, use_platform):
+    use_platform(fake_platform())
+    dialog, *_ = make_dialog(folder("settings"))
+    general = dialog.general
+    languages = dialog.languages
+    notes = [general.dictation_chord_note, general.writing_chord_note, languages.chord_note]
+    for note in notes:
+        assert note.text() == note_for("app_records_chords")
+    assert general.dictation_chord_note.isVisibleTo(general)
+    assert general.writing_chord_note.isVisibleTo(general)
+    assert languages.chord_note.isVisibleTo(languages)
+    assert len(languages.language_list.language_rows) > 0
+    assert label_texts(general).count(note_for("app_records_chords")) == 2
+    assert label_texts(languages).count(note_for("app_records_chords")) == 1
+    dialog.close()
+
+
 def test_diagnostics_system_card_names_the_system_and_its_gaps(app, folder, use_platform):
     use_platform(fake_platform())
     tab, *_ = make_tab(folder("diagnostics"))
@@ -248,6 +296,14 @@ def test_with_every_capability_the_controls_stay_as_today(app, folder, use_platf
     assert "Edit hotkey" in rows
     assert "Start with Windows" in rows
     assert general.hotkey_note is None
+    assert general.live_typing_note is None
+    assert general.dictation_chord_note is None
+    assert general.writing_chord_note is None
+    assert dialog.languages.chord_note is None
+    for page in (general, dialog.languages):
+        texts = label_texts(page)
+        assert note_for("live_typing") not in texts
+        assert note_for("app_records_chords") not in texts
     assert section_description(general, "Writing") == WRITING_HOTKEYS_HINT
     apps = dialog.apps
     assert apps.profiles_note is None
@@ -259,6 +315,8 @@ def test_with_every_capability_the_controls_stay_as_today(app, folder, use_platf
     assert editor.title.isEnabled()
     assert editor.title.toolTip() == ""
     assert editor.delivery_note is None
+    assert editor.title_note is None
+    assert note_for("window_titles") not in label_texts(editor)
     editor.close()
     dialog.close()
     page, *_ = make_page(folder("welcome"))

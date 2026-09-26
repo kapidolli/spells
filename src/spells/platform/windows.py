@@ -1,14 +1,12 @@
 from __future__ import annotations
 
 import functools
-from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
 from spells import updates
 from spells.hotkey import HotkeyThread
 from spells.models import CpuPlan
-from spells.platform import stub
 from spells.platform.base import Capabilities, MessageHandlers, Platform
 from spells.platform.keys_windows import WindowsKeys
 from spells.win32 import appearance as win32_appearance
@@ -134,7 +132,7 @@ class WindowsProcesses:
         return win32_cpu.detect_cpu_plan()
 
     def hidden_process_kwargs(self) -> dict[str, Any]:
-        return {"creationflags": 0x08000000}
+        return {"creationflags": win32_process.CREATE_NO_WINDOW}
 
 
 class WindowsInstance:
@@ -197,8 +195,8 @@ class WindowsUpdater:
 
 
 def build() -> Platform:
-    return replace(
-        stub.build("windows"),
+    return Platform(
+        name="windows",
         capabilities=Capabilities.everything(),
         key_hook=win32_hook,
         hotkeys=functools.partial(HotkeyThread, hook_backend=win32_hook),

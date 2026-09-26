@@ -164,3 +164,20 @@ def test_the_windows_record_has_no_stub_left():
         value = getattr(record, item.name)
         assert type(value) not in stub_types, item.name
         assert value is not stub.StubHotkeys, item.name
+
+
+@pytest.mark.windows
+def test_building_the_windows_record_loads_no_qt():
+    import subprocess
+
+    script = (
+        "import sys\n"
+        "import spells.app\n"
+        "from spells import platform\n"
+        "platform.current()\n"
+        "print(any(name.startswith('PySide6') for name in sys.modules))\n"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "False"

@@ -50,7 +50,7 @@ from spells.profiles import BUILTIN_PROFILES
 from spells.quality import CheckResult, check_label, summarize
 from spells.ui import brand, style, theme
 from spells.ui.about import AboutPage
-from spells.ui.capabilities import apply_capability, note_for
+from spells.ui.capabilities import apply_capability, note_for, unavailable_caption
 from spells.ui.checks import CheckJob, CheckRunner
 from spells.ui.diagnostics import DiagnosticsTab
 from spells.ui.hotkeys import ChordCaptureDialog, HotkeyRecorder, fold_keys, probe_arguments
@@ -341,6 +341,11 @@ class GeneralTab(ScrollPage):
             self.hotkey_note = InfoBar(note_for("hold_to_talk"), "caution", flush=True, parent=dictation)
             dictation.add_widget(self.hotkey_note)
         self.add_section("Dictation", dictation)
+        self.dictation_chord_note = unavailable_caption(
+            capabilities.app_records_chords, "app_records_chords", self.body
+        )
+        if self.dictation_chord_note is not None:
+            self.add_widget(self.dictation_chord_note)
 
         writing = Card(self.body)
         self.compose_recorder = HotkeyRecorder(
@@ -393,6 +398,11 @@ class GeneralTab(ScrollPage):
             writing,
             description=WRITING_HOTKEYS_HINT if capabilities.edit_hotkey else WRITE_HOTKEY_HINT,
         )
+        self.writing_chord_note = unavailable_caption(
+            capabilities.app_records_chords, "app_records_chords", self.body
+        )
+        if self.writing_chord_note is not None:
+            self.add_widget(self.writing_chord_note)
 
         mic = Card(self.body)
         self.mic_picker = MicPicker(config=config, devices=devices, notify=notify, parent=mic)
@@ -453,6 +463,10 @@ class GeneralTab(ScrollPage):
         )
         apply_capability(self.live_text, self._live_typing, "live_typing")
         apply_capability(self.live_text_everywhere, self._live_typing, "live_typing")
+        self.live_typing_note = unavailable_caption(self._live_typing, "live_typing", behaviour)
+        if self.live_typing_note is not None:
+            self.live_typing_note.setContentsMargins(16, 0, 16, 12)
+            behaviour.add_widget(self.live_typing_note)
         self.idle_unload = SpinBox(behaviour)
         self.idle_unload.setRange(0, 24 * 60)
         self.idle_unload.setSuffix(" min")
@@ -845,12 +859,16 @@ class RuleEditor(QtWidgets.QDialog):
         form.setHorizontalSpacing(20)
         form.setVerticalSpacing(12)
         form.setFieldGrowthPolicy(QtWidgets.QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
+        capabilities = platform.current().capabilities
         self.name = _line_edit("Slack", self)
         form.addRow(make_label("Name", parent=self), self.name)
         self.process = _line_edit("slack.exe, teams.exe", self)
         form.addRow(make_label("Process names", parent=self), self.process)
         self.title = _line_edit("a part of the window title", self)
         form.addRow(make_label("Title contains", parent=self), self.title)
+        self.title_note = unavailable_caption(capabilities.window_titles, "window_titles", self)
+        if self.title_note is not None:
+            form.setWidget(form.rowCount(), QtWidgets.QFormLayout.ItemRole.FieldRole, self.title_note)
         self.profile = ComboBox(self)
         for profile_name in profile_names:
             self.profile.addItem(profile_name)
@@ -860,12 +878,10 @@ class RuleEditor(QtWidgets.QDialog):
             self.delivery.addItem(DELIVERY_LABELS.get(method, method.value.capitalize()), method)
         form.addRow(make_label("Delivery", parent=self), self.delivery)
         layout.addLayout(form)
-        capabilities = platform.current().capabilities
         apply_capability(self.title, capabilities.window_titles, "window_titles")
-        self.delivery_note: QtWidgets.QLabel | None = None
-        if not capabilities.clipboard_restore:
+        self.delivery_note = unavailable_caption(capabilities.clipboard_restore, "clipboard_restore", self)
+        if self.delivery_note is not None:
             layout.addSpacing(8)
-            self.delivery_note = make_label(note_for("clipboard_restore"), "caption", "secondary", wrap=True, parent=self)
             layout.addWidget(self.delivery_note)
         layout.addSpacing(8)
         layout.addWidget(make_label("Separate several names with commas.", "caption", "tertiary", parent=self))
