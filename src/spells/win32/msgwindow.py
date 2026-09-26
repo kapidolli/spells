@@ -21,7 +21,8 @@ import logging
 import threading
 from collections.abc import Callable
 from ctypes import wintypes
-from dataclasses import dataclass
+
+from spells.platform.base import MessageHandlers
 
 from . import hook
 
@@ -152,17 +153,6 @@ _wtsapi32.WTSRegisterSessionNotification.argtypes = (wintypes.HWND, wintypes.DWO
 _wtsapi32.WTSRegisterSessionNotification.restype = wintypes.BOOL
 _wtsapi32.WTSUnRegisterSessionNotification.argtypes = (wintypes.HWND,)
 _wtsapi32.WTSUnRegisterSessionNotification.restype = wintypes.BOOL
-
-
-@dataclass
-class MessageHandlers:
-    """Callbacks invoked on the window's thread. Any of them may be None."""
-
-    on_copydata: Callable[[str], None] | None = None
-    on_query_end_session: Callable[[int], bool] | None = None
-    on_end_session: Callable[[int], None] | None = None
-    on_resume: Callable[[], None] | None = None
-    on_session_unlock: Callable[[], None] | None = None
 
 
 class SessionNotificationRetry:

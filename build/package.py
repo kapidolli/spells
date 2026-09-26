@@ -107,12 +107,14 @@ import subprocess
 import sys
 import time
 import tomllib
-import winreg
 import zipfile
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlsplit
+
+if sys.platform == "win32":
+    import winreg
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -1737,10 +1739,8 @@ def step_latest(version: str, installer: Path | None, base_url: str,
 
 # ----------------------------------------------------------------------------- 20.5 installer tests
 
-user32 = ctypes.WinDLL("user32", use_last_error=True)
-
-
 def window_exists(class_name: str = WINDOW_CLASS) -> bool:
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
     return bool(user32.FindWindowW(ctypes.c_wchar_p(class_name), None))
 
 

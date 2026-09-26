@@ -36,7 +36,10 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-markers = ["integration: needs GPU or engines"]
+markers = [
+    "integration: needs GPU or engines",
+    "windows: exercises Windows itself; skipped on other systems",
+]
 addopts = "-m 'not integration'"
 
 [tool.ruff]
