@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import IO, Literal, Self
 
 from spells.models import StageTimings
+from spells.platform.paths import current_paths
 from spells.quality import QualitySignals, RowStats, signals_from_dict, signals_to_dict
 
 log = logging.getLogger(__name__)
@@ -149,10 +150,10 @@ class AudioPolicy:
 
 
 def default_history_path() -> Path:
-    """%LOCALAPPDATA%\\Spells\\history.db (spec 15)."""
-    base = os.environ.get("LOCALAPPDATA")
-    root = Path(base) if base else Path.home() / "AppData" / "Local"
-    return root / "Spells" / "history.db"
+    """The history database (spec 15): %LOCALAPPDATA%\\Spells\\history.db on Windows,
+    ~/.local/share/spells/history.db on Linux, ~/Library/Application Support/Spells/history.db
+    on macOS."""
+    return current_paths().history_path
 
 
 def recordings_dir_for(history_path: Path) -> Path:
@@ -161,7 +162,8 @@ def recordings_dir_for(history_path: Path) -> Path:
 
 
 def default_recordings_dir() -> Path:
-    """%LOCALAPPDATA%\\Spells\\recordings\\ (spec 15)."""
+    """The recordings folder beside the default history database (spec 15): a `recordings`
+    folder next to whichever history.db default_history_path() resolves to on this system."""
     return recordings_dir_for(default_history_path())
 
 

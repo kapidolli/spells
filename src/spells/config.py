@@ -30,6 +30,7 @@ from spells.cleanup import default_corrections, default_fillers
 from spells.datafiles import data_path
 from spells.history import DEFAULT_AUDIO_KEEP_COUNT, DEFAULT_AUDIO_KEEP_MB
 from spells.models import Chord, ChordMode, DeliveryMethod, Profile
+from spells.platform.paths import current_paths
 from spells.upload import SCHEDULE_DAILY, SCHEDULES, url_problem
 from spells.vk import generic_modifier
 
@@ -231,8 +232,10 @@ def default_settings() -> Settings:
 
 
 def settings_path() -> Path:
-    """%APPDATA%\\Spells\\settings.json (spec 15)."""
-    return Path(os.environ["APPDATA"]) / "Spells" / "settings.json"
+    """The settings file (spec 15): %APPDATA%\\Spells\\settings.json on Windows,
+    ~/.config/spells/settings.json on Linux, ~/Library/Application Support/Spells/settings.json
+    on macOS."""
+    return current_paths().settings_path
 
 
 # --- the installer's language choice (spec 19.3 step 7, B5-32) ---

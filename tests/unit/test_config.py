@@ -433,6 +433,7 @@ def test_migrate_rejects_non_object():
 # --- paths, save, load ---
 
 
+@pytest.mark.windows
 def test_settings_path_uses_appdata(monkeypatch, tmp_path):
     monkeypatch.setenv("APPDATA", str(tmp_path))
     assert settings_path() == tmp_path / "Spells" / "settings.json"
@@ -663,6 +664,7 @@ def test_store_loads_existing_file(tmp_path):
     assert store.path == path
 
 
+@pytest.mark.windows
 def test_store_defaults_to_appdata_path(tmp_path, monkeypatch):
     monkeypatch.setenv("APPDATA", str(tmp_path))
 

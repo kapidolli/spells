@@ -1474,6 +1474,7 @@ def test_the_gate_inputs_follow_the_models(tmp_path, world):
     assert harness.sup.cleanup_languages == frozenset({"en", "de"})
 
 
+@pytest.mark.windows
 def test_engine_paths_take_the_selection_choices(tmp_path):
     models = tmp_path / "models"
 

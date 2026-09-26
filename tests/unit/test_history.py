@@ -73,6 +73,7 @@ def store(tmp_path: Path):
         yield s
 
 
+@pytest.mark.windows
 def test_default_history_path_uses_localappdata(monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\someone\AppData\Local")
     expected = Path(r"C:\Users\someone\AppData\Local") / "Spells" / "history.db"
@@ -771,6 +772,7 @@ def test_the_recordings_folder_sits_beside_the_database(tmp_path):
     assert recordings_dir_for(tmp_path / "history.db") == tmp_path / "recordings"
 
 
+@pytest.mark.windows
 def test_default_recordings_dir_follows_localappdata(monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", r"C:\Users\someone\AppData\Local")
     expected = Path(r"C:\Users\someone\AppData\Local") / "Spells" / "recordings"

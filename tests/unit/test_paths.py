@@ -74,6 +74,7 @@ def test_frozen_layout_sits_beside_the_executable(tmp_path):
     assert layout.licenses_dir == tmp_path / "licenses"
 
 
+@pytest.mark.windows
 def test_engine_executables_and_engine_paths(tmp_path):
     make_frozen_tree(tmp_path, models=(paths.WHISPER_MODEL_NAME, paths.VAD_MODEL_NAME, "m.gguf"))
     layout = frozen(tmp_path)
@@ -169,6 +170,7 @@ def test_a_pins_file_that_cannot_be_read_is_survivable(tmp_path):
 # User data locations --------------------------------------------------------------------
 
 
+@pytest.mark.windows
 def test_user_data_defaults_to_the_windows_locations(tmp_path):
     make_dev_tree(tmp_path)
     layout = paths.resolve(frozen=False, repo_root=tmp_path, env=None)

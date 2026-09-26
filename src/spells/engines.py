@@ -46,6 +46,7 @@ from spells.modelcatalog import (
     resolve_extra_files,
 )
 from spells.models import CpuPlan, Engine, EngineId, EngineState
+from spells.platform.paths import engine_suffix
 
 logger = logging.getLogger(__name__)
 
@@ -173,10 +174,10 @@ class EnginePaths:
         return self.vulkan_dir if variant == "vulkan" else self.cpu_dir
 
     def whisper_exe(self, variant: Variant) -> Path:
-        return self.variant_dir(variant) / "whisper-server.exe"
+        return self.variant_dir(variant) / f"whisper-server{engine_suffix()}"
 
     def llama_exe(self, variant: Variant) -> Path:
-        return self.variant_dir(variant) / "llama-server.exe"
+        return self.variant_dir(variant) / f"llama-server{engine_suffix()}"
 
     def exe(self, engine: EngineRef, variant: Variant) -> Path:
         if self.runtime(engine) == WHISPER_SERVER:

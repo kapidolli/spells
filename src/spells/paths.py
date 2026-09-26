@@ -22,6 +22,7 @@ from pathlib import Path
 from spells.config import settings_path
 from spells.engines import EnginePaths, Variant
 from spells.history import RECORDINGS_DIR_NAME, default_history_path, recordings_dir_for
+from spells.platform.paths import current_paths, engine_suffix
 
 log = logging.getLogger(__name__)
 
@@ -67,10 +68,10 @@ class Layout:
         return self.vulkan_dir if variant == "vulkan" else self.cpu_dir
 
     def whisper_exe(self, variant: Variant) -> Path:
-        return self.variant_dir(variant) / "whisper-server.exe"
+        return self.variant_dir(variant) / f"whisper-server{engine_suffix()}"
 
     def llama_exe(self, variant: Variant) -> Path:
-        return self.variant_dir(variant) / "llama-server.exe"
+        return self.variant_dir(variant) / f"llama-server{engine_suffix()}"
 
     def engine_paths(self) -> EnginePaths:
         """The supervisor's view of this layout (spec 13).
@@ -159,7 +160,7 @@ def _log_dir(env: Mapping[str, str]) -> Path:
     override = env.get(DATA_DIR_ENV)
     if override:
         return Path(override) / LOGS_DIR
-    return default_history_path().parent / LOGS_DIR
+    return current_paths().log_dir
 
 
 # Models ---------------------------------------------------------------------------------
