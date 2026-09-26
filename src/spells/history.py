@@ -32,6 +32,7 @@ import os
 import sqlite3
 import threading
 import time
+import uuid
 import wave
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -43,7 +44,7 @@ from spells.quality import QualitySignals, RowStats, signals_from_dict, signals_
 
 log = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 Retention = Literal["100", "7d", "30d", "off"]
 
@@ -59,6 +60,13 @@ RECORDING_SUFFIX = ".wav"
 MEGABYTE = 1024 * 1024
 DEFAULT_AUDIO_KEEP_COUNT = 200
 DEFAULT_AUDIO_KEEP_MB = 1000
+
+UPLOAD_HOLD_DAYS = 30
+UPLOAD_SKIPPED = -1.0
+_INSTALL_ID_KEY = "install_id"
+_UPLOAD_LOST_KEY = "upload_lost"
+_PENDING = "(uploaded_at = 0 OR (uploaded_at > 0 AND checked_at > uploaded_at))"
+_ID_CHUNK = 500
 
 EXPORT_FORMATS = ("json", "csv", "markdown")
 EXPORT_SUFFIXES = {"json": ".json", "csv": ".csv", "markdown": ".md"}
@@ -185,7 +193,8 @@ CREATE TABLE IF NOT EXISTS entries (
     checked_at REAL NOT NULL DEFAULT 0,
     mode TEXT NOT NULL DEFAULT 'dictate',
     instruction TEXT NOT NULL DEFAULT '',
-    selection_chars INTEGER NOT NULL DEFAULT 0
+    selection_chars INTEGER NOT NULL DEFAULT 0,
+    uploaded_at REAL NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS entries_created_at ON entries (created_at DESC, id DESC);
 """
@@ -206,6 +215,10 @@ _ADDED_IN_3: tuple[tuple[str, str], ...] = (
     ("mode", "mode TEXT NOT NULL DEFAULT 'dictate'"),
     ("instruction", "instruction TEXT NOT NULL DEFAULT ''"),
     ("selection_chars", "selection_chars INTEGER NOT NULL DEFAULT 0"),
+)
+
+_ADDED_IN_4: tuple[tuple[str, str], ...] = (
+    ("uploaded_at", "uploaded_at REAL NOT NULL DEFAULT 0"),
 )
 
 _COLUMNS = (
@@ -240,6 +253,7 @@ _INSERT = (
     + ", ".join("?" for _ in _COLUMNS[1:]) + ")"
 )
 _NEWEST_FIRST = " ORDER BY created_at DESC, id DESC LIMIT ?"
+_OLDEST_FIRST = " ORDER BY created_at ASC, id ASC"
 _SEARCH_WHERE = (
     " WHERE spells_match(?, raw_text, cleaned_text, delivered_text, app_process, app_title)"
 )
@@ -387,6 +401,7 @@ class HistoryStore:
         retention: Retention = "100",
         *,
         recordings_dir: Path | None = None,
+        upload_hold: bool = False,
     ) -> None:
         self.path: Path | None = Path(path) if path is not None else None
         if recordings_dir is not None:
@@ -396,6 +411,7 @@ class HistoryStore:
         else:
             self.recordings_dir = None
         self._retention = _check_retention(retention)
+        self._upload_hold = bool(upload_hold)
         self._lock = threading.RLock()
         self._conn: sqlite3.Connection | None = None
         if self.path is None:
@@ -439,6 +455,16 @@ class HistoryStore:
         """Change the policy and apply it right away (spec 14.4: no restart)."""
         with self._lock:
             self._retention = _check_retention(retention)
+            if self._conn is not None:
+                self._prune_locked()
+
+    @property
+    def upload_hold(self) -> bool:
+        return self._upload_hold
+
+    def set_upload_hold(self, hold: bool) -> None:
+        with self._lock:
+            self._upload_hold = bool(hold)
             if self._conn is not None:
                 self._prune_locked()
 
@@ -599,6 +625,97 @@ class HistoryStore:
             ).fetchall()
         return [_timings_from_json(row[0]) for row in rows]
 
+    # Upload bookkeeping
+
+    def install_id(self) -> str:
+        with self._lock:
+            if self._conn is None:
+                return ""
+            value = self._meta_locked(_INSTALL_ID_KEY)
+            if value:
+                return value
+            value = str(uuid.uuid4())
+            self._set_meta_locked(_INSTALL_ID_KEY, value)
+            return value
+
+    def upload_lost(self) -> int:
+        with self._lock:
+            if self._conn is None:
+                return 0
+            return _to_int(self._meta_locked(_UPLOAD_LOST_KEY))
+
+    def settle_upload_lost(self, reported: int) -> None:
+        with self._lock:
+            if self._conn is None or reported <= 0:
+                return
+            left = max(0, _to_int(self._meta_locked(_UPLOAD_LOST_KEY)) - int(reported))
+            self._set_meta_locked(_UPLOAD_LOST_KEY, str(left))
+
+    def mark_upload_skipped(self, apps: Iterable[str]) -> int:
+        skipped = {app.strip().casefold() for app in apps if app and app.strip()}
+        with self._lock:
+            if self._conn is None or not skipped:
+                return 0
+            rows = self._conn.execute(
+                "SELECT id, app_process FROM entries WHERE uploaded_at >= 0"
+            ).fetchall()
+            ids = [row[0] for row in rows if (row[1] or "").strip().casefold() in skipped]
+            return self._update_ids_locked("uploaded_at = ?", (UPLOAD_SKIPPED,), ids)
+
+    def pending_upload_ids(self) -> list[int]:
+        with self._lock:
+            if self._conn is None:
+                return []
+            self._prune_locked()
+            rows = self._conn.execute(
+                "SELECT id FROM entries WHERE " + _PENDING + _OLDEST_FIRST
+            ).fetchall()
+        return [int(row[0]) for row in rows]
+
+    def pending_upload_count(self) -> int:
+        with self._lock:
+            if self._conn is None:
+                return 0
+            self._prune_locked()
+            row = self._conn.execute("SELECT COUNT(*) FROM entries WHERE " + _PENDING).fetchone()
+        return int(row[0]) if row else 0
+
+    def entries_by_ids(self, ids: Iterable[int]) -> list[HistoryEntry]:
+        wanted = [int(entry_id) for entry_id in ids]
+        found: list[tuple] = []
+        with self._lock:
+            if self._conn is None:
+                return []
+            for start in range(0, len(wanted), _ID_CHUNK):
+                chunk = wanted[start : start + _ID_CHUNK]
+                marks = ", ".join("?" for _ in chunk)
+                found.extend(
+                    self._conn.execute(
+                        _SELECT + f" WHERE id IN ({marks})" + _OLDEST_FIRST, chunk
+                    ).fetchall()
+                )
+        entries = [_row_to_entry(row) for row in found]
+        entries.sort(key=lambda entry: (entry.created_at, entry.id or 0))
+        return entries
+
+    def mark_uploaded(self, ids: Iterable[int], when: float) -> int:
+        with self._lock:
+            if self._conn is None:
+                return 0
+            return self._update_ids_locked(
+                "uploaded_at = ?",
+                (float(when),),
+                [int(entry_id) for entry_id in ids],
+                " AND uploaded_at >= 0",
+            )
+
+    def reset_uploaded(self) -> int:
+        with self._lock:
+            if self._conn is None:
+                return 0
+            cursor = self._conn.execute("UPDATE entries SET uploaded_at = 0 WHERE uploaded_at > 0")
+            return int(cursor.rowcount or 0)
+
     # Internals (call with the lock held and a connection open)
 
     def _prune_locked(self) -> None:
@@ -606,24 +723,29 @@ class HistoryStore:
         retention = self._retention
         if retention == "off":
             return
+        now = time.time()
+        params: list[float | int]
         if retention == "100":
-            doomed = self._conn.execute(
-                "SELECT audio_file FROM entries WHERE audio_file <> '' AND id NOT IN "
-                "(SELECT id FROM entries ORDER BY created_at DESC, id DESC LIMIT ?)",
-                (_COUNT_LIMIT,),
-            ).fetchall()
-            self._conn.execute(
-                "DELETE FROM entries WHERE id NOT IN "
-                "(SELECT id FROM entries ORDER BY created_at DESC, id DESC LIMIT ?)",
-                (_COUNT_LIMIT,),
-            )
+            where = "id NOT IN (SELECT id FROM entries ORDER BY created_at DESC, id DESC LIMIT ?)"
+            params = [_COUNT_LIMIT]
         else:
-            cutoff = time.time() - _RETENTION_DAYS[retention] * _DAY_S
-            doomed = self._conn.execute(
-                "SELECT audio_file FROM entries WHERE audio_file <> '' AND created_at < ?",
-                (cutoff,),
-            ).fetchall()
-            self._conn.execute("DELETE FROM entries WHERE created_at < ?", (cutoff,))
+            where = "created_at < ?"
+            params = [now - _RETENTION_DAYS[retention] * _DAY_S]
+        lost = 0
+        if self._upload_hold:
+            where += f" AND NOT ({_PENDING} AND created_at >= ?)"
+            params.append(now - UPLOAD_HOLD_DAYS * _DAY_S)
+            row = self._conn.execute(
+                f"SELECT COUNT(*) FROM entries WHERE uploaded_at = 0 AND {where}", params
+            ).fetchone()
+            lost = int(row[0]) if row else 0
+        doomed = self._conn.execute(
+            f"SELECT audio_file FROM entries WHERE audio_file <> '' AND {where}", params
+        ).fetchall()
+        self._conn.execute(f"DELETE FROM entries WHERE {where}", params)
+        if lost:
+            total = _to_int(self._meta_locked(_UPLOAD_LOST_KEY)) + lost
+            self._set_meta_locked(_UPLOAD_LOST_KEY, str(total))
         if doomed:
             self._remove_files([str(row[0]) for row in doomed])
 
@@ -671,9 +793,13 @@ class HistoryStore:
         files = self._recording_files()
         max_files = max(0, audio.max_files)
         max_bytes = audio.max_bytes
+        held = self._held_recordings_locked()
         doomed: list[str] = []
         kept_bytes = 0
         for index, (name, size, _mtime) in enumerate(files):
+            if name in held:
+                kept_bytes += size
+                continue
             over_count = index >= max_files
             over_bytes = kept_bytes + size > max_bytes
             if over_count or over_bytes:
@@ -690,6 +816,41 @@ class HistoryStore:
                 doomed,
             )
         return removed
+
+    def _held_recordings_locked(self) -> set[str]:
+        if self._conn is None or not self._upload_hold:
+            return set()
+        cutoff = time.time() - UPLOAD_HOLD_DAYS * _DAY_S
+        rows = self._conn.execute(
+            f"SELECT audio_file FROM entries WHERE audio_file <> '' AND {_PENDING} "
+            "AND created_at >= ?",
+            (cutoff,),
+        ).fetchall()
+        return {str(row[0]) for row in rows}
+
+    def _meta_locked(self, key: str) -> str:
+        assert self._conn is not None
+        row = self._conn.execute("SELECT value FROM meta WHERE key = ?", (key,)).fetchone()
+        return str(row[0]) if row and row[0] is not None else ""
+
+    def _set_meta_locked(self, key: str, value: str) -> None:
+        assert self._conn is not None
+        self._conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)", (key, value))
+
+    def _update_ids_locked(
+        self, assignment: str, values: tuple, ids: list[int], extra: str = ""
+    ) -> int:
+        assert self._conn is not None
+        changed = 0
+        for start in range(0, len(ids), _ID_CHUNK):
+            chunk = ids[start : start + _ID_CHUNK]
+            marks = ", ".join("?" for _ in chunk)
+            cursor = self._conn.execute(
+                f"UPDATE entries SET {assignment} WHERE id IN ({marks}){extra}",
+                (*values, *chunk),
+            )
+            changed += int(cursor.rowcount or 0)
+        return changed
 
     def _remove_files(self, names: Iterable[str]) -> int:
         if self.recordings_dir is None:
@@ -724,9 +885,10 @@ def _migrate(conn: sqlite3.Connection) -> int:
     columns of version 2 with empty defaults, so an upgraded history reads exactly as it
     did, with the quality fields blank until the next dictation fills them. Version 3 adds
     the writing columns of spec 8.5 the same way: every existing row reads as the dictation
-    it was, because the mode defaults to "dictate". A database written by a newer version is
-    left alone: every read names its columns, so the extra ones a future version adds are
-    simply not selected.
+    it was, because the mode defaults to "dictate". Version 4 adds ``uploaded_at`` the same
+    way, 0 on every existing row, so each counts as not uploaded yet. A database written by
+    a newer version is left alone: every read names its columns, so the extra ones a future
+    version adds are simply not selected.
     """
     stored = _stored_version(conn)
     if stored > SCHEMA_VERSION:
@@ -737,7 +899,7 @@ def _migrate(conn: sqlite3.Connection) -> int:
         )
         return stored
     existing = {row[1] for row in conn.execute("PRAGMA table_info(entries)")}
-    for name, ddl in _ADDED_IN_2 + _ADDED_IN_3:
+    for name, ddl in _ADDED_IN_2 + _ADDED_IN_3 + _ADDED_IN_4:
         if name not in existing:
             conn.execute(f"ALTER TABLE entries ADD COLUMN {ddl}")
     if stored != SCHEMA_VERSION:
@@ -760,6 +922,13 @@ def _stored_version(conn: sqlite3.Connection) -> int:
         return int(row[0])
     except (TypeError, ValueError):
         return 1
+
+
+def _to_int(value: object) -> int:
+    try:
+        return int(str(value))
+    except (TypeError, ValueError):
+        return 0
 
 
 def split_cleanup_reason(entry: HistoryEntry) -> tuple[str, str]:
@@ -986,6 +1155,8 @@ __all__ = [
     "RECORDING_SAMPLE_RATE",
     "RETENTIONS",
     "SCHEMA_VERSION",
+    "UPLOAD_HOLD_DAYS",
+    "UPLOAD_SKIPPED",
     "AudioPolicy",
     "HistoryEntry",
     "HistoryStore",

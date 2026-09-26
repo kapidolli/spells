@@ -329,7 +329,7 @@ def test_schema_version_wal_and_columns(tmp_path):
         pass
     with sqlite3.connect(path) as conn:
         version = conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
-        assert version == ("3",)
+        assert version == ("4",)
         assert conn.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         columns = {row[1] for row in conn.execute("PRAGMA table_info(entries)")}
     assert columns == {
@@ -357,6 +357,7 @@ def test_schema_version_wal_and_columns(tmp_path):
         "mode",
         "instruction",
         "selection_chars",
+        "uploaded_at",
     }
 
 
@@ -481,9 +482,11 @@ def test_an_old_database_migrates_in_place_without_losing_rows(tmp_path):
         assert entries[0].timings.press_to_pill_ms == 11.0
         assert entries[0].timings.extra == {"audio_s": 4.0}
     with sqlite3.connect(path) as conn:
-        assert conn.execute(VERSION_QUERY).fetchone() == ("3",)
+        assert conn.execute(VERSION_QUERY).fetchone() == ("4",)
         columns = {row[1] for row in conn.execute("PRAGMA table_info(entries)")}
-    assert {"audio_file", "signals", "quality_label", "check_verdict"} <= columns
+        uploaded = conn.execute("SELECT DISTINCT uploaded_at FROM entries").fetchall()
+    assert {"audio_file", "signals", "quality_label", "check_verdict", "uploaded_at"} <= columns
+    assert uploaded == [(0.0,)]
     assert row_count(path) == 4
 
 
@@ -1042,3 +1045,175 @@ def test_a_version_one_database_reads_every_row_as_a_dictation(tmp_path):
         assert all(entry.wrote is False for entry in entries)
         store.add(compose_entry(8))
         assert store.recent()[0].mode == "compose"
+
+
+# upload bookkeeping (schema version 4)
+
+
+def young_entry(n: int, **overrides) -> HistoryEntry:
+    return make_entry(n, created_at=time.time() - 3600 + n, **overrides)
+
+
+def uploaded_at(path: Path) -> dict[int, float]:
+    with sqlite3.connect(path) as conn:
+        return dict(conn.execute("SELECT id, uploaded_at FROM entries").fetchall())
+
+
+def test_the_install_id_is_made_once_and_survives_a_clear_and_a_restart(tmp_path):
+    path = tmp_path / "history.db"
+    with HistoryStore(path) as store:
+        first = store.install_id()
+        assert len(first) == 36
+        assert store.install_id() == first
+        store.add(make_entry(1))
+        store.clear()
+        assert store.install_id() == first
+    with HistoryStore(path) as store:
+        assert store.install_id() == first
+    with HistoryStore(tmp_path / "other.db") as other:
+        assert other.install_id() != first
+
+
+def test_a_store_without_a_database_has_no_install_id_and_nothing_pending():
+    store = HistoryStore(None)
+    assert store.install_id() == ""
+    assert store.pending_upload_ids() == []
+    assert store.pending_upload_count() == 0
+    assert store.upload_lost() == 0
+
+
+def test_new_rows_are_pending_oldest_first_until_marked(store):
+    store.add(make_entry(3, created_at=BASE + 30))
+    store.add(make_entry(1, created_at=BASE + 10))
+    store.add(make_entry(2, created_at=BASE + 20))
+    assert store.pending_upload_ids() == [2, 3, 1]
+    assert store.pending_upload_count() == 3
+    assert store.mark_uploaded([2, 3], BASE + 100) == 2
+    assert store.pending_upload_ids() == [1]
+    assert uploaded_at(store.path)[2] == BASE + 100
+
+
+def test_a_check_that_finishes_after_the_upload_makes_the_row_pending_again(store):
+    store.add(make_entry(1))
+    store.add(make_entry(2))
+    store.set_check(1, "GOOD", "fine", checked_at=BASE + 50)
+    store.mark_uploaded([1, 2], BASE + 100)
+    assert store.pending_upload_ids() == []
+    store.set_check(2, "POOR", "garbled", checked_at=BASE + 200)
+    assert store.pending_upload_ids() == [2]
+
+
+def test_rows_from_skipped_apps_are_marked_and_never_pending(store):
+    store.add(make_entry(1, app_process="KeePassXC.exe"))
+    store.add(make_entry(2, app_process="notepad.exe"))
+    store.add(make_entry(3, app_process="keepassxc.exe"))
+    assert store.mark_upload_skipped([" keepassxc.EXE ", ""]) == 2
+    assert store.pending_upload_ids() == [2]
+    store.mark_uploaded([1, 2, 3], BASE + 100)
+    marks = uploaded_at(store.path)
+    assert marks[1] == -1.0 and marks[3] == -1.0
+    assert marks[2] == BASE + 100
+    assert store.mark_upload_skipped([]) == 0
+
+
+def test_a_new_address_resets_what_was_sent_but_not_what_was_skipped(store):
+    for n in range(3):
+        store.add(make_entry(n, app_process="secret.exe" if n == 2 else "notepad.exe"))
+    store.mark_upload_skipped(["secret.exe"])
+    store.mark_uploaded([1, 2], BASE + 100)
+    assert store.pending_upload_ids() == []
+    assert store.reset_uploaded() == 2
+    assert store.pending_upload_ids() == [1, 2]
+    assert uploaded_at(store.path)[3] == -1.0
+
+
+def test_entries_by_ids_returns_the_rows_oldest_first(store):
+    for n in range(5):
+        store.add(make_entry(n))
+    got = store.entries_by_ids([5, 2, 3, 99])
+    assert [entry.id for entry in got] == [2, 3, 5]
+    assert got[0].raw_text == "raw text 1"
+
+
+def test_the_hold_keeps_unsent_rows_past_the_count_limit(tmp_path):
+    with HistoryStore(tmp_path / "history.db", upload_hold=True) as store:
+        for n in range(120):
+            store.add(young_entry(n))
+        assert row_count(store.path) == 120
+        assert store.upload_lost() == 0
+        store.mark_uploaded(range(1, 61), time.time())
+        store.prune()
+        assert row_count(store.path) == 100
+        assert store.upload_lost() == 0
+
+
+def test_without_the_hold_the_count_limit_applies_and_nothing_counts_as_lost(tmp_path):
+    with HistoryStore(tmp_path / "history.db") as store:
+        for n in range(120):
+            store.add(young_entry(n))
+        assert row_count(store.path) == 100
+        assert store.upload_lost() == 0
+
+
+def test_the_hold_ends_after_thirty_days_and_counts_the_unsent_rows_it_loses(tmp_path):
+    now = time.time()
+    with HistoryStore(tmp_path / "history.db", upload_hold=True) as store:
+        store.add(make_entry(1, created_at=now - 40 * DAY))
+        store.add(make_entry(2, created_at=now - 35 * DAY))
+        store.add(make_entry(3, created_at=now - 20 * DAY))
+        store.add(make_entry(4, created_at=now - 10 * DAY))
+        store.mark_uploaded([2], now - 34 * DAY)
+        store.set_retention("7d")
+        assert [entry.id for entry in store.recent()] == [4, 3]
+        assert store.upload_lost() == 1
+        store.settle_upload_lost(5)
+        assert store.upload_lost() == 0
+
+
+def test_settling_subtracts_only_what_was_reported(tmp_path):
+    now = time.time()
+    with HistoryStore(tmp_path / "history.db", "7d", upload_hold=True) as store:
+        for n in range(3):
+            store.add(make_entry(n, created_at=now - 60 * DAY))
+        assert row_count(store.path) == 0
+        assert store.upload_lost() == 3
+        store.settle_upload_lost(2)
+        assert store.upload_lost() == 1
+        store.settle_upload_lost(0)
+        assert store.upload_lost() == 1
+
+
+def test_turning_the_hold_off_prunes_right_away(tmp_path):
+    with HistoryStore(tmp_path / "history.db", upload_hold=True) as store:
+        for n in range(110):
+            store.add(young_entry(n))
+        assert store.upload_hold is True
+        store.set_upload_hold(False)
+        assert store.upload_hold is False
+        assert row_count(store.path) == 100
+
+
+def test_the_hold_keeps_the_recordings_of_unsent_rows(tmp_path):
+    policy = AudioPolicy(keep=True, max_files=1, max_mb=1000)
+    with HistoryStore(tmp_path / "history.db", upload_hold=True) as store:
+        for n in range(3):
+            store.add(young_entry(n), pcm16=silence(0.2), audio=policy)
+        assert store.recordings_usage()[0] == 3
+        store.mark_uploaded([1, 2, 3], time.time())
+        store.prune_recordings(policy)
+        assert store.recordings_usage()[0] == 1
+        assert [bool(entry.audio_file) for entry in store.recent()] == [True, False, False]
+
+
+def test_a_version_three_database_gains_uploaded_at_with_every_row_unsent(tmp_path):
+    path = tmp_path / "history.db"
+    write_v1_database(path, rows=2)
+    with HistoryStore(path):
+        pass
+    with sqlite3.connect(path) as conn:
+        conn.execute("UPDATE meta SET value = '3' WHERE key = 'schema_version'")
+        conn.execute("ALTER TABLE entries DROP COLUMN uploaded_at")
+    with HistoryStore(path) as store:
+        assert store.pending_upload_ids() == [1, 2]
+    with sqlite3.connect(path) as conn:
+        assert conn.execute(VERSION_QUERY).fetchone() == ("4",)
