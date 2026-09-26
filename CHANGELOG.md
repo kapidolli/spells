@@ -16,6 +16,14 @@ the two can never say different things.
 - A signed installer, so Windows stops warning about it.
 - Reading the few characters before the cursor, so spacing and capitals follow the text already there.
 
+## [0.6.1] - 2026-09-26
+
+Recordings you decide to include later reach your server too.
+
+### Fixed
+
+- Switching on "Include the recordings" now also sends the recordings of dictations that were uploaded before without them. The server keeps one copy of each dictation and adds the recording to it.
+
 ## [0.6.0] - 2026-09-26
 
 Send your dictations to a server of your own, if you want to.
@@ -159,7 +167,8 @@ and learned to tell you when there is a newer version.
 - A microphone that delivers no sound now says so instead of reporting a failed transcription.
 - Blocks of sound the card drops mid-recording are counted and shown, so a dictation that is missing words says why.
 
-[Unreleased]: https://github.com/kapidolli/spells/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/kapidolli/spells/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/kapidolli/spells/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/kapidolli/spells/compare/v0.5.2...v0.6.0
 [0.5.2]: https://github.com/kapidolli/spells/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/kapidolli/spells/compare/v0.5.0...v0.5.1
