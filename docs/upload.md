@@ -10,7 +10,7 @@ Spells can send your dictation history to a server you run, so you can keep it, 
 | Server address | The `http://` or `https://` address Spells posts to, exactly as you type it. An `http://` address is sent unencrypted, and the page says so |
 | Token | Sent as `Authorization: Bearer <token>`. Kept in `%LOCALAPPDATA%\Spells\upload-token.bin`, encrypted for your Windows account with DPAPI, never in `settings.json` |
 | When to upload | Manual, daily or weekly. Daily and weekly run in the background, never during a dictation |
-| Include the recordings | Also sends the recordings Spells keeps, as WAV files. Spells keeps recordings only with "Keep the recordings" on the History page |
+| Include the recordings | Also sends the recordings Spells keeps, as WAV files. Switching it on also sends again every dictation that was sent without its recording and still has one. Spells keeps recordings only with "Keep the recordings" on the History page |
 | Never upload from these apps | Process names such as `keepassxc.exe`, compared without regard to case. Dictations into them are never sent |
 | Name of this computer | Sent with every request so the server can tell your computers apart. Empty means the name Windows gives the computer |
 
@@ -100,7 +100,7 @@ Read the whole request body before you answer, even when you refuse it. A server
 
 ### Storing idempotently
 
-Store entries by `key`, replacing what you have (an upsert). The same entry can arrive again: after a later quality check, after a failed run, or when the address changes. A re-send without audio should keep audio stored earlier.
+Store entries by `key`, replacing what you have (an upsert). The same entry can arrive again: after a later quality check, after a failed run, when the address changes, or with its recording when "Include the recordings" is switched on. A re-send without audio should keep audio stored earlier.
 
 ## A minimal receiver
 

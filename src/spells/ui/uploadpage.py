@@ -56,8 +56,9 @@ SCHEDULE_LABELS = {
 }
 AUDIO_TITLE = "Include the recordings"
 AUDIO_HINT = (
-    "Also sends the recordings Spells keeps, as WAV files. Spells keeps them only with Keep "
-    "the recordings on the History page."
+    "Also sends the recordings Spells keeps, as WAV files, including those of dictations "
+    "sent before without them. Spells keeps them only with Keep the recordings on the "
+    "History page."
 )
 KEEP_AUDIO_QUESTION = (
     "Spells can only send the recordings it keeps. Turn on Keep the recordings on the "

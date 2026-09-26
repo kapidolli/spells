@@ -42,6 +42,7 @@ class _Job:
     token: str
     cancel: threading.Event = field(default_factory=threading.Event)
     moved: bool = False
+    recordings: bool = False
 
 
 def paused(settings: UploadSettings) -> bool:
@@ -143,6 +144,7 @@ class UploadCoordinator(QtCore.QObject):
         self._relay.done.connect(self._deliver, QtCore.Qt.ConnectionType.QueuedConnection)
         current = config.settings.upload
         self._url = current.url
+        self._include_audio = current.include_audio
         self._held = _hold_of(current)
         self._call("set_upload_hold", *self._held)
         self._view = UploadView(waiting=self._count_waiting(current))
@@ -269,6 +271,8 @@ class UploadCoordinator(QtCore.QObject):
             self._call("reset_uploaded")
             self._set(working="", message="", waiting=self._count_waiting(self.settings))
             return
+        if job.recordings:
+            self._call("reset_uploaded_recordings")
         now = self._clock()
         notes: list[str] = []
         token = job.token
@@ -329,6 +333,12 @@ class UploadCoordinator(QtCore.QObject):
                 )
             )
             self._set(message="")
+        if current.include_audio != self._include_audio:
+            self._include_audio = current.include_audio
+            if current.include_audio:
+                if job is not None:
+                    job.recordings = True
+                self._call("reset_uploaded_recordings")
 
     def _count_waiting(self, current: UploadSettings) -> int:
         if not current.enabled:

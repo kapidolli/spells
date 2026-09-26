@@ -759,6 +759,15 @@ class HistoryStore:
             cursor = self._conn.execute("UPDATE entries SET uploaded_at = 0 WHERE uploaded_at > 0")
             return int(cursor.rowcount or 0)
 
+    def reset_uploaded_recordings(self) -> int:
+        with self._lock:
+            if self._conn is None:
+                return 0
+            cursor = self._conn.execute(
+                "UPDATE entries SET uploaded_at = 0 WHERE uploaded_at > 0 AND audio_file <> ''"
+            )
+            return int(cursor.rowcount or 0)
+
     # Internals (call with the lock held and a connection open)
 
     def _prune_locked(self) -> None:

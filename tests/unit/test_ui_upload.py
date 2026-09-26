@@ -10,7 +10,7 @@ from PySide6 import QtWidgets
 
 from spells import upload
 from spells.config import ConfigStore, UploadSettings
-from spells.history import HistoryStore
+from spells.history import AudioPolicy, HistoryStore
 from spells.ui.uploading import (
     PAUSED_TEXT,
     TEST_OK_TEXT,
@@ -300,6 +300,50 @@ def test_the_history_holds_unsent_rows_only_while_uploading_is_on(world):
     assert world.history.upload_hold is False
     world.change(enabled=True)
     assert world.history.upload_hold is True
+
+
+def add_with_recording(world, n: int = 0) -> None:
+    policy = AudioPolicy(keep=True, max_files=10, max_mb=100)
+    world.history.add(make_entry(n), pcm16=bytes(3200), audio=policy)
+
+
+def test_switching_the_recordings_on_sends_the_kept_ones_again(world):
+    add_with_recording(world)
+    world.add()
+    world.coordinator.tick()
+    assert world.history.pending_upload_ids() == []
+    assert world.transport.sent[-1].payload["entries"][0]["audio"] is None
+    world.change(include_audio=True)
+    assert world.history.pending_upload_ids() == [1]
+    assert world.coordinator.view.waiting == 1
+    world.coordinator.upload_now()
+    assert world.transport.ids(len(world.transport.sent) - 1) == [1]
+    assert world.transport.sent[-1].payload["entries"][0]["audio"]["format"] == "wav"
+    assert world.history.pending_upload_ids() == []
+
+
+def test_switching_the_recordings_on_during_an_upload_sends_them_after_it(tmp_path):
+    runner = ThreadRunner()
+    world = World(tmp_path, runner=runner, enabled=True, url=URL)
+    add_with_recording(world)
+    gate = Gate()
+    world.transport.answers.append(gate)
+    world.coordinator.upload_now()
+    assert gate.entered.wait(10)
+    world.change(include_audio=True)
+    gate.release.set()
+    runner.finish()
+    assert world.history.pending_upload_ids() == [1]
+    world.history.close()
+
+
+def test_switching_the_recordings_off_sends_nothing_again(world):
+    add_with_recording(world)
+    world.change(include_audio=True)
+    world.coordinator.tick()
+    assert world.history.pending_upload_ids() == []
+    world.change(include_audio=False)
+    assert world.history.pending_upload_ids() == []
 
 
 def test_recordings_are_held_only_while_they_are_uploaded(world):

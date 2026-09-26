@@ -1296,3 +1296,15 @@ def test_set_upload_hold_switches_the_recordings_hold_with_it(tmp_path):
         assert (store.upload_hold, store.hold_recordings) == (True, True)
         store.set_upload_hold(True)
         assert (store.upload_hold, store.hold_recordings) == (True, False)
+
+
+def test_reset_uploaded_recordings_marks_only_sent_rows_that_kept_a_recording(tmp_path):
+    policy = AudioPolicy(keep=True, max_files=10, max_mb=100)
+    with HistoryStore(tmp_path / "history.db", upload_hold=True) as store:
+        store.add(young_entry(0), pcm16=silence(0.2), audio=policy)
+        store.add(young_entry(1))
+        store.add(young_entry(2), pcm16=silence(0.2), audio=policy)
+        store.mark_uploaded([1, 2], time.time())
+        assert store.pending_upload_ids() == [3]
+        assert store.reset_uploaded_recordings() == 1
+        assert store.pending_upload_ids() == [1, 3]
