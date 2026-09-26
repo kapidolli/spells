@@ -50,9 +50,15 @@ WEEK_S = 7 * DAY_S
 ALLOWED_SCHEMES = ("https", "http")
 
 TOKEN_REFUSED = "The server refused the token."
+TOKEN_PROBLEM = (
+    "The token can only hold letters, digits and punctuation, with no spaces or line breaks."
+)
+SEND_FAILED = "Spells could not send the upload."
+REDACTED = "[token]"
 AUDIO_TOO_LARGE = "too large"
 
 _CONTROL_RE = re.compile(r"[\x00-\x1f\x7f]+")
+_TOKEN_RE = re.compile(r"[\x21-\x7e]*")
 
 
 def url_problem(url: str) -> str:
@@ -71,6 +77,19 @@ def url_problem(url: str) -> str:
     if not parts.hostname:
         return "The address names no server."
     return ""
+
+
+def token_problem(token: str) -> str:
+    if _TOKEN_RE.fullmatch(token or ""):
+        return ""
+    return TOKEN_PROBLEM
+
+
+def redact(text: str, *secrets: str) -> str:
+    for secret in secrets:
+        if secret:
+            text = text.replace(secret, REDACTED)
+    return text
 
 
 def is_unencrypted(url: str) -> bool:
@@ -277,7 +296,7 @@ class Outcome:
     message: str = ""
 
 
-def server_error(body: bytes) -> str:
+def server_error(body: bytes, secret: str = "") -> str:
     try:
         data = json.loads(body.decode("utf-8", errors="replace"))
     except (ValueError, AttributeError):
@@ -285,10 +304,10 @@ def server_error(body: bytes) -> str:
     error = data.get("error") if isinstance(data, dict) else None
     if not isinstance(error, str):
         return ""
-    return _CONTROL_RE.sub(" ", error).strip()[:MAX_ERROR_CHARS]
+    return _CONTROL_RE.sub(" ", redact(error, secret)).strip()[:MAX_ERROR_CHARS]
 
 
-def classify(status: int, body: bytes = b"") -> Outcome:
+def classify(status: int, body: bytes = b"", secret: str = "") -> Outcome:
     if 200 <= status < 300:
         return Outcome(OK)
     if status == 413:
@@ -296,7 +315,7 @@ def classify(status: int, body: bytes = b"") -> Outcome:
     if status in (401, 403):
         return Outcome(REFUSED, TOKEN_REFUSED)
     if status == 400:
-        error = server_error(body)
+        error = server_error(body, secret)
         if error:
             return Outcome(FAILED, f"The server did not accept the upload: {error}")
         return Outcome(FAILED, "The server did not accept the upload (400).")
@@ -374,17 +393,17 @@ class Uploader:
         self._moved_on = 0
 
     def test(self) -> RunResult:
-        problem = url_problem(self._url)
+        problem = url_problem(self._url) or token_problem(self._token)
         if problem:
             return RunResult(error=problem)
         self._install_id = self._history.install_id()
         outcome = self._post([], record=False)
         if outcome.kind == OK:
             return RunResult()
-        return RunResult(error=outcome.message, refused=outcome.kind == REFUSED)
+        return RunResult(error=self._redact(outcome.message), refused=outcome.kind == REFUSED)
 
     def run(self) -> RunResult:
-        problem = url_problem(self._url)
+        problem = url_problem(self._url) or token_problem(self._token)
         if problem:
             return RunResult(error=problem)
         history = self._history
@@ -416,10 +435,13 @@ class Uploader:
             return RunResult(sent=self._sent, moved_on=self._moved_on, cancelled=cancelled)
         return RunResult(
             sent=self._sent,
-            error=outcome.message,
+            error=self._redact(outcome.message),
             refused=outcome.kind == REFUSED,
             moved_on=self._moved_on,
         )
+
+    def _redact(self, text: str) -> str:
+        return redact(text, self._token)
 
     def _items(self, ids: Sequence[int]) -> Iterator[Item]:
         for start in range(0, len(ids), self._max_entries):
@@ -477,10 +499,15 @@ class Uploader:
             headers["Authorization"] = f"Bearer {self._token}"
         try:
             response = self._transport(self._url, body, headers, self._timeout)
-        except (OSError, ValueError, http.client.HTTPException) as exc:
+        except (OSError, http.client.HTTPException) as exc:
             log.info("the upload did not reach the server: %s", exc.__class__.__name__)
-            return Outcome(FAILED, network_problem(exc))
-        outcome = classify(int(response.status), response.body)
+            return Outcome(FAILED, self._redact(network_problem(exc)))
+        except BaseException as exc:
+            if not isinstance(exc, Exception):
+                raise
+            log.info("the upload could not be sent: %s", exc.__class__.__name__)
+            return Outcome(FAILED, SEND_FAILED)
+        outcome = classify(int(response.status), response.body, self._token)
         if outcome.kind == OK and record:
             if items:
                 history.mark_uploaded([item.id for item in items], self._clock())
@@ -498,11 +525,14 @@ __all__ = [
     "FORMAT",
     "MAX_BATCH_BYTES",
     "MAX_ENTRIES",
+    "REDACTED",
     "SCHEDULES",
     "SCHEDULE_DAILY",
     "SCHEDULE_MANUAL",
     "SCHEDULE_WEEKLY",
+    "SEND_FAILED",
     "TIMEOUT_S",
+    "TOKEN_PROBLEM",
     "TOKEN_REFUSED",
     "Item",
     "Outcome",
@@ -521,7 +551,9 @@ __all__ = [
     "iso_time",
     "network_problem",
     "read_audio",
+    "redact",
     "server_error",
+    "token_problem",
     "upload_due",
     "url_problem",
     "wire_entry",

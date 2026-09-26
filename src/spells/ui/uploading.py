@@ -155,14 +155,18 @@ class UploadCoordinator(QtCore.QObject):
     def has_token(self) -> bool:
         return self._tokens.exists()
 
-    def set_token(self, token: str) -> None:
+    def set_token(self, token: str) -> str:
         value = (token or "").strip()
+        problem = upload.token_problem(value)
+        if problem:
+            return problem
         if value == self._tokens.read():
-            return
+            return ""
         self._tokens.write(value)
         if paused(self.settings):
             self._store(lambda current: replace(current, last_error=""))
         self._set(message="")
+        return ""
 
     def start_timer(self) -> None:
         if self._timer is not None:
@@ -207,23 +211,25 @@ class UploadCoordinator(QtCore.QObject):
     def test_connection(self) -> None:
         if self._view.working:
             return
-        uploader = self._uploader(self.settings)
+        token = self._tokens.read()
+        uploader = self._uploader(self.settings, token)
         self._set(working=WORK_TEST, message="")
-        self._run(uploader.test, self._tested)
+        self._run(uploader.test, lambda result: self._tested(result, token))
 
     def _start_upload(self) -> None:
         current = self.settings
         now = self._clock()
         self._store(lambda settings: replace(settings, last_attempt=now))
-        uploader = self._uploader(current)
+        token = self._tokens.read()
+        uploader = self._uploader(current, token)
         self._set(working=WORK_UPLOAD, message="")
-        self._run(uploader.run, self._uploaded)
+        self._run(uploader.run, lambda result: self._uploaded(result, token))
 
-    def _uploader(self, current: UploadSettings) -> Uploader:
+    def _uploader(self, current: UploadSettings, token: str) -> Uploader:
         return Uploader(
             history=self._history,
             url=current.url,
-            token=self._tokens.read(),
+            token=token,
             include_audio=current.include_audio,
             skip_apps=current.skip_apps,
             device_name=current.device_name,
@@ -233,12 +239,12 @@ class UploadCoordinator(QtCore.QObject):
             cancelled=self._cancel.is_set,
         )
 
-    def _uploaded(self, result: Any) -> None:
+    def _uploaded(self, result: Any, token: str = "") -> None:
         now = self._clock()
         message = ""
         if isinstance(result, BaseException):
             reason = str(result) or result.__class__.__name__
-            error = f"The upload stopped ({reason})."
+            error = self._redact(f"The upload stopped ({reason}).", token)
             self._store(lambda current: replace(current, last_error=error))
         elif result.ok:
             self._store(
@@ -247,7 +253,8 @@ class UploadCoordinator(QtCore.QObject):
                 )
             )
         elif not result.cancelled:
-            self._store(lambda current: replace(current, last_error=result.error))
+            error = self._redact(result.error, token)
+            self._store(lambda current: replace(current, last_error=error))
         if isinstance(result, RunResult) and result.moved_on:
             message = (
                 f"{_plural(result.moved_on, 'dictation')} too large for the server, "
@@ -255,14 +262,17 @@ class UploadCoordinator(QtCore.QObject):
             )
         self._set(working="", message=message, waiting=self._count_waiting(self.settings))
 
-    def _tested(self, result: Any) -> None:
+    def _tested(self, result: Any, token: str = "") -> None:
         if isinstance(result, BaseException):
             message = f"The test stopped ({str(result) or result.__class__.__name__})."
         elif result.ok:
             message = TEST_OK_TEXT
         else:
             message = result.error
-        self._set(working="", message=message)
+        self._set(working="", message=self._redact(message, token))
+
+    def _redact(self, text: str, token: str = "") -> str:
+        return upload.redact(text, token, self._tokens.read())
 
     def _follow(self) -> None:
         current = self.settings

@@ -26,6 +26,7 @@ from spells.ui.uploadpage import (
     UploadPage,
     parse_apps,
 )
+from spells.upload import Response
 from spells.uploadtoken import TOKEN_FILE, TokenStore
 
 from .test_ui_support import Messages, flush, history_entry, qt_app
@@ -263,14 +264,46 @@ def test_the_token_never_lands_in_the_settings_file(world, tmp_path):
     assert world.transport.sent[0].headers["Authorization"] == f"Bearer {TOKEN}"
 
 
-def test_a_crashed_job_becomes_the_last_error(world):
-    def broken(*_args):
-        raise RuntimeError("boom")
+def test_a_crashed_job_becomes_the_last_error_without_the_token(world, tmp_path):
+    world.coordinator.set_token(TOKEN)
 
-    world.coordinator._transport = broken
+    def broken(*_args):
+        raise RuntimeError(f"boom {TOKEN}")
+
+    world.history.install_id = broken
     world.coordinator.upload_now()
     assert "boom" in world.upload.last_error
+    assert TOKEN not in world.upload.last_error
     assert world.coordinator.view.working == ""
+    world.coordinator.test_connection()
+    assert "boom" in world.coordinator.view.message
+    assert TOKEN not in world.coordinator.view.message
+    assert TOKEN not in (tmp_path / "settings.json").read_text(encoding="utf-8")
+
+
+def test_a_token_that_cannot_be_sent_is_refused_and_the_old_one_kept(world):
+    assert world.coordinator.set_token(TOKEN) == ""
+    assert world.coordinator.set_token("part1\npart2") == upload.TOKEN_PROBLEM
+    assert world.tokens.read() == TOKEN
+
+
+def test_errors_never_carry_the_token_into_the_settings_file(world, tmp_path):
+    world.coordinator.set_token(TOKEN)
+    world.add()
+    echoed = Response(400, json.dumps({"error": f"unknown bearer {TOKEN}"}).encode())
+    world.transport.answers = [echoed]
+    world.coordinator.upload_now()
+    assert "unknown bearer" in world.upload.last_error
+    assert TOKEN not in world.upload.last_error
+    world.transport.answers = [ValueError(f"Invalid header value b'Bearer {TOKEN}'")]
+    world.coordinator.upload_now()
+    assert world.upload.last_error == upload.SEND_FAILED
+    world.transport.answers = [echoed]
+    world.coordinator.test_connection()
+    assert "unknown bearer" in world.coordinator.view.message
+    assert TOKEN not in world.coordinator.view.message
+    assert TOKEN not in world.coordinator.status()
+    assert TOKEN not in (tmp_path / "settings.json").read_text(encoding="utf-8")
 
 
 def test_the_real_runner_delivers_on_the_qt_thread(app, tmp_path):
@@ -473,6 +506,18 @@ def test_the_token_field_saves_to_the_token_file_only(app, tmp_path):
     assert not world.tokens.exists()
     page.close()
     second.close()
+    world.history.close()
+
+
+def test_the_page_refuses_a_token_it_cannot_send_and_says_why(app, tmp_path):
+    page, world, messages, _ = make_page(tmp_path, enabled=True, url=URL)
+    finish(page.token, TOKEN)
+    finish(page.token, "part1\npart2")
+    assert messages.texts == [upload.TOKEN_PROBLEM]
+    assert world.tokens.read() == TOKEN
+    assert page.token.text() == TOKEN
+    assert "part2" not in (tmp_path / "settings.json").read_text(encoding="utf-8")
+    page.close()
     world.history.close()
 
 

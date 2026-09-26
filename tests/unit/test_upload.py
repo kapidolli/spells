@@ -524,6 +524,73 @@ def test_the_connection_test_sends_an_empty_batch_and_changes_nothing(tmp_path):
         assert refused.refused and refused.error == upload.TOKEN_REFUSED
 
 
+SECRET ="tok-0123456789abcdef0123456789abcdef"
+
+
+@pytest.mark.parametrize("token", ["", SECRET, "abc-DEF_123.~+/=", "!#$%&'*^`|"])
+def test_bearer_token_characters_are_accepted(token):
+    assert upload.token_problem(token) == ""
+
+
+@pytest.mark.parametrize(
+    "token",
+    ["part1\npart2", "part1\rpart2", "two words", "tab\there", "s3cr€et", "nul\x00", "del\x7f"],
+)
+def test_a_token_with_other_characters_is_refused(token):
+    assert upload.token_problem(token) == upload.TOKEN_PROBLEM
+
+
+def test_a_token_that_cannot_be_sent_never_reaches_the_transport(store):
+    store.add(make_entry(1))
+    transport = FakeTransport()
+    assert uploader(store, transport, token="part1\npart2").run().error == upload.TOKEN_PROBLEM
+    assert uploader(store, transport, token="part1\npart2").test().error == upload.TOKEN_PROBLEM
+    assert transport.sent == []
+    assert store.pending_upload_ids() == [1]
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [
+        ValueError(f"Invalid header value b'Bearer {SECRET}'"),
+        UnicodeEncodeError("latin-1", SECRET, 0, 1, "ordinal not in range(256)"),
+        RuntimeError(f"unexpected {SECRET}"),
+    ],
+)
+def test_an_unexpected_transport_failure_shows_a_fixed_message(store, exc):
+    store.add(make_entry(1))
+    result = uploader(store, FakeTransport(exc), token=SECRET).run()
+    assert result.error == upload.SEND_FAILED
+    assert store.pending_upload_ids() == [1]
+    tested = uploader(store, FakeTransport(exc), token=SECRET).test()
+    assert tested.error == upload.SEND_FAILED
+
+
+def test_the_token_is_removed_from_the_servers_words(store):
+    store.add(make_entry(1))
+    body = json.dumps({"error": f"no such bearer {SECRET}, not {SECRET}"}).encode()
+    result = uploader(store, FakeTransport(Response(400, body)), token=SECRET).run()
+    assert SECRET not in result.error
+    assert "no such bearer" in result.error
+    tested = uploader(store, FakeTransport(Response(400, body)), token=SECRET).test()
+    assert SECRET not in tested.error
+
+
+def test_a_token_cut_by_the_error_limit_is_removed_before_the_cut(store):
+    store.add(make_entry(1))
+    body = json.dumps({"error": "x" * 180 + SECRET}).encode()
+    result = uploader(store, FakeTransport(Response(400, body)), token=SECRET).run()
+    assert SECRET[:20] not in result.error
+
+
+def test_the_token_is_removed_from_a_network_failure(store):
+    store.add(make_entry(1))
+    exc = urllib.error.URLError(f"no route for {SECRET}")
+    result = uploader(store, FakeTransport(exc), token=SECRET).run()
+    assert "could not reach" in result.error
+    assert SECRET not in result.error
+
+
 def test_the_device_name_defaults_to_the_computer_name(store, monkeypatch):
     monkeypatch.setenv("COMPUTERNAME", "STUDY-PC")
     transport = FakeTransport()

@@ -297,10 +297,16 @@ class UploadPage(ScrollPage):
         if coordinator is None:
             return
         try:
-            coordinator.set_token(self.token.text())
+            problem = coordinator.set_token(self.token.text())
         except OSError as exc:
             log.warning("the upload token could not be saved: %s", exc.__class__.__name__)
             self._notify("warning", TITLE, "The token could not be saved on this computer.")
+            return
+        if problem:
+            with _blocked(self.token):
+                self.token.setText(coordinator.token())
+                self.token.setCursorPosition(0)
+            self._notify("warning", TITLE, problem)
 
     def _on_schedule(self, index: int) -> None:
         code = self.schedule.itemData(index)
