@@ -30,7 +30,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
-from spells import __version__, autostart, calibrate, paths, platform, updates
+from spells import __version__, calibrate, paths, platform, updates
 from spells.config import (
     FIRST_RUN_FILE,
     ConfigStore,
@@ -53,13 +53,7 @@ from spells.modelcatalog import (
 from spells.models import CpuPlan, Engine
 from spells.paths import Layout
 from spells.pipeline import Pipeline
-from spells.win32.instance import (
-    acquire_single_instance,
-    find_message_window,
-    release_single_instance,
-    signal_running_instance,
-)
-from spells.win32.msgwindow import MessageHandlers, MessageWindow
+from spells.platform.base import MessageHandlers
 
 log = logging.getLogger(__name__)
 
@@ -228,10 +222,18 @@ class Deps:
     """Every collaborator the entry point builds; the unit tests replace them with fakes."""
 
     layout: Callable[[], Layout] = paths.resolve
-    acquire_single_instance: Callable[[str], bool] = acquire_single_instance
-    release_single_instance: Callable[[str], None] = release_single_instance
-    signal_running_instance: Callable[[str, str], bool] = signal_running_instance
-    find_message_window: Callable[[str], int] = find_message_window
+    acquire_single_instance: Callable[[str], bool] = field(
+        default_factory=lambda: platform.current().instance.acquire
+    )
+    release_single_instance: Callable[[str], None] = field(
+        default_factory=lambda: platform.current().instance.release
+    )
+    signal_running_instance: Callable[[str, str], bool] = field(
+        default_factory=lambda: platform.current().instance.signal_running
+    )
+    find_message_window: Callable[[str], int] = field(
+        default_factory=lambda: platform.current().instance.find_running
+    )
     config_store: Callable[[Path], ConfigStore] = ConfigStore
     select_device: Callable[..., GpuSelection] = select_device
     model_catalog: Callable[[], Sequence[CatalogModel]] = load_catalog
@@ -246,9 +248,15 @@ class Deps:
     placeholder_tray: Callable[[], Any] = _default_placeholder_tray
     bridge: Callable[[], Any] = _default_bridge
     create_ui: Callable[..., Any] = _default_create_ui
-    message_window: Callable[[str, MessageHandlers], Any] = MessageWindow
-    autostart_apply: Callable[[bool, str], bool] = autostart.apply
-    autostart_command: Callable[[], str] = autostart.current_command
+    message_window: Callable[[str, MessageHandlers], Any] = field(
+        default_factory=lambda: platform.current().instance.message_window
+    )
+    autostart_apply: Callable[[bool, str], bool] = field(
+        default_factory=lambda: platform.current().autostart.apply
+    )
+    autostart_command: Callable[[], str] = field(
+        default_factory=lambda: platform.current().autostart.current_command
+    )
     setup_logging: Callable[..., Any] = setup_logging
     set_debug_logging: Callable[[bool], None] = set_debug_logging
     calibrator: Callable[..., Any] = calibrate.Calibrator

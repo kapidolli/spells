@@ -22,8 +22,9 @@ from pathlib import Path
 
 import pytest
 
-from spells import autostart, paths
+from spells import paths
 from spells.config import default_settings, save
+from spells.win32 import autostart
 from spells.win32.instance import find_message_window
 
 pytestmark = pytest.mark.integration

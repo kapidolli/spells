@@ -25,7 +25,7 @@ from typing import Any
 
 from PySide6 import QtCore
 
-from spells import __version__, updates
+from spells import __version__, platform, updates
 from spells.config import ConfigStore, Settings, UpdateSettings
 from spells.updates import Release, UpdateCancelled, UpdateError
 
@@ -35,6 +35,10 @@ TICK_MS = 60 * 60 * 1000
 FIRST_TICK_MS = 90 * 1000
 
 DOWNLOAD_DIR_PREFIX = "spells-update-"
+RELEASES_URL = "https://github.com/kapidolli/spells/releases/latest"
+MANUAL_UPDATE_TEXT = (
+    f"Updates are installed from the download page on this system: {RELEASES_URL}"
+)
 
 
 class Phase(Enum):
@@ -118,7 +122,7 @@ class UpdateCoordinator(QtCore.QObject):
         on_quit: Callable[[], None] | None = None,
         fetch: Callable[..., Release] = updates.fetch_release,
         download: Callable[..., Path] = updates.download_installer,
-        launch: Callable[..., None] = updates.launch_installer,
+        launch: Callable[..., None] | None = None,
         runner: Callable[[Callable[[], Any], Callable[[Any], None]], None] | None = None,
         clock: Callable[[], float] = time.time,
         temp_dir: Path | None = None,
@@ -132,7 +136,7 @@ class UpdateCoordinator(QtCore.QObject):
         self._on_quit = on_quit
         self._fetch = fetch
         self._download = download
-        self._launch = launch
+        self._launch = launch if launch is not None else _apply_installer
         self._runner = runner or self._thread_runner
         self._clock = clock
         self._temp_dir = temp_dir
@@ -233,7 +237,11 @@ class UpdateCoordinator(QtCore.QObject):
         release = decision.release
         assert release is not None
         phase = Phase.BLOCKED if decision.blocked else Phase.AVAILABLE
-        self._set(phase=phase, release=release, message=decision.reason, last_check=now)
+        message = decision.reason
+        if not decision.blocked and not platform.current().capabilities.self_update:
+            phase = Phase.BLOCKED
+            message = MANUAL_UPDATE_TEXT
+        self._set(phase=phase, release=release, message=message, last_check=now)
         if not decision.blocked and not manual:
             self._offer(release, now)
 
@@ -382,6 +390,10 @@ UNCONFIGURED_TEXT = (
 _WORKING = (Phase.CHECKING, Phase.DOWNLOADING, Phase.INSTALLING)
 
 
+def _apply_installer(path: Path) -> None:
+    platform.current().updater.apply(Path(path))
+
+
 def _download_dir() -> Path:
     return Path(tempfile.mkdtemp(prefix=DOWNLOAD_DIR_PREFIX))
 
@@ -402,6 +414,7 @@ def _when(stamp: float, now: float) -> str:
 
 __all__ = [
     "FIRST_TICK_MS",
+    "RELEASES_URL",
     "TICK_MS",
     "UNCONFIGURED_TEXT",
     "Phase",

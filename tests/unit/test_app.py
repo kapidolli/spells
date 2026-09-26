@@ -24,7 +24,7 @@ from spells.gpu import GpuDevice, GpuSelection
 from spells.modelcatalog import CatalogError, load_catalog, parse_catalog
 from spells.models import CpuPlan, Engine, EngineId, EngineState
 from spells.pipeline import PillState, PipelineEvent, TrayState
-from spells.win32.msgwindow import MessageHandlers
+from spells.platform.base import MessageHandlers
 
 RTX = "NVIDIA GeForce RTX 5060 Laptop GPU"
 SELECTION = GpuSelection(

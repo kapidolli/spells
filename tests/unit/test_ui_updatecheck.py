@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from spells import updates
+from spells import platform, updates
 from spells.config import ConfigStore
 from spells.ui.updatecheck import Phase, UpdateCoordinator, direct_runner
 
@@ -26,6 +26,12 @@ INSTALLER_URL = "https://spells.example.com/Spells-Online-Setup-0.3.0.exe"
 @pytest.fixture(scope="module")
 def app():
     return qt_app()
+
+
+@pytest.fixture(autouse=True)
+def self_updating(use_platform):
+    current = platform.current()
+    use_platform(replace(current, capabilities=replace(current.capabilities, self_update=True)))
 
 
 def release(version: str = "0.3.0", **overrides) -> updates.Release:

@@ -5,15 +5,19 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from spells import updates
 from spells.hotkey import HotkeyThread
 from spells.models import CpuPlan
 from spells.platform import stub
-from spells.platform.base import Capabilities, Platform
+from spells.platform.base import Capabilities, MessageHandlers, Platform
 from spells.platform.keys_windows import WindowsKeys
+from spells.win32 import autostart as win32_autostart
 from spells.win32 import clipboard as win32_clipboard
 from spells.win32 import cpu as win32_cpu
 from spells.win32 import hook as win32_hook
 from spells.win32 import input as win32_input
+from spells.win32 import instance as win32_instance
+from spells.win32 import msgwindow as win32_msgwindow
 from spells.win32 import process as win32_process
 from spells.win32 import window as win32_window
 
@@ -99,6 +103,40 @@ class WindowsProcesses:
         return {"creationflags": 0x08000000}
 
 
+class WindowsInstance:
+    def acquire(self, name: str) -> bool:
+        return win32_instance.acquire_single_instance(name)
+
+    def release(self, name: str) -> None:
+        win32_instance.release_single_instance(name)
+
+    def signal_running(self, name: str, command: str) -> bool:
+        return win32_instance.signal_running_instance(name, command)
+
+    def find_running(self, name: str) -> int:
+        return win32_instance.find_message_window(name)
+
+    def message_window(self, name: str, handlers: MessageHandlers) -> Any:
+        return win32_msgwindow.MessageWindow(name, handlers)
+
+
+class WindowsAutostart:
+    def apply(self, enabled: bool, command: str) -> bool:
+        return win32_autostart.apply(enabled, command)
+
+    def current_command(self) -> str:
+        return win32_autostart.current_command()
+
+
+class WindowsUpdater:
+    @property
+    def can_apply(self) -> bool:
+        return True
+
+    def apply(self, installer_path: Path) -> None:
+        updates.launch_installer(installer_path)
+
+
 def build() -> Platform:
     return replace(
         stub.build("windows"),
@@ -110,4 +148,7 @@ def build() -> Platform:
         clipboard=win32_clipboard,
         keys=WindowsKeys(),
         processes=WindowsProcesses(),
+        instance=WindowsInstance(),
+        autostart=WindowsAutostart(),
+        updater=WindowsUpdater(),
     )

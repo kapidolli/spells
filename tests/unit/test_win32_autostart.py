@@ -7,12 +7,15 @@ the key path in. The fixture deletes the test tree afterwards.
 from __future__ import annotations
 
 import sys
-import winreg
 from pathlib import Path
 
 import pytest
 
-from spells import autostart
+winreg = pytest.importorskip("winreg")
+
+from spells.win32 import autostart
+
+pytestmark = pytest.mark.windows
 
 TEST_ROOT = r"Software\SpellsTest"
 TEST_KEY = TEST_ROOT + r"\Run"
@@ -85,7 +88,7 @@ def test_a_registry_error_is_logged_and_never_raised(key_path, monkeypatch, capl
 
     monkeypatch.setattr(autostart.winreg, "CreateKeyEx", boom)
     monkeypatch.setattr(autostart.winreg, "OpenKey", boom)
-    with caplog.at_level("WARNING", logger="spells.autostart"):
+    with caplog.at_level("WARNING", logger="spells.win32.autostart"):
         assert autostart.apply(True, COMMAND, key_path=key_path) is False
         assert autostart.apply(False, COMMAND, key_path=key_path) is False
         assert autostart.current_value(key_path=key_path) is None
