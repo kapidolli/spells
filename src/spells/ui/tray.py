@@ -25,6 +25,7 @@ from spells.models import Chord, Engine, EngineState
 from spells.pipeline import Notice, PillState, PipelineEvent, TrayState
 from spells.platform.base import SETTINGS_MICROPHONE_PRIVACY, SETTINGS_SOUND
 from spells.ui import style, theme
+from spells.ui.capabilities import note_for
 from spells.ui.icons import TrayIconState, tray_icon
 
 log = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ class TrayInputs:
     mic_error: str | None = None
     paused: bool = False
     extra_lines: tuple[str, ...] = field(default_factory=tuple)
+    notes: tuple[str, ...] = field(default_factory=tuple)
 
 
 def _missing_cleanup_model(engine: Engine, state: EngineState, reason: str) -> bool:
@@ -131,6 +133,7 @@ def compose_tray_state(inputs: TrayInputs) -> tuple[TrayIconState, str]:
     if inputs.mic_error:
         lines.append(f"Microphone: {inputs.mic_error}")
     lines.extend(inputs.extra_lines)
+    lines.extend(inputs.notes)
 
     if EngineState.FAILED in states.values() or inputs.mic_error:
         state = TrayIconState.ERROR
@@ -314,6 +317,7 @@ class Tray(QtCore.QObject):
             mic_error=self._mic_error,
             paused=self._paused,
             extra_lines=(self._extra_warning,) if self._extra_warning else (),
+            notes=() if platform.current().capabilities.hold_to_talk else (note_for("hold_to_talk"),),
         )
 
     def busy(self) -> bool:

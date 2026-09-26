@@ -22,9 +22,11 @@ from typing import Any
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from spells import platform
 from spells.audio import MicError, names_match
 from spells.config import ConfigStore, Settings, SettingsError
 from spells.ui import brand, style, theme
+from spells.ui.capabilities import note_for
 from spells.ui.languages import LanguageAdder, LanguageList, set_language_enabled
 from spells.ui.pill import meter_level
 from spells.ui.recordings import RECORDINGS_NOTE
@@ -519,6 +521,11 @@ class WelcomePage(QtWidgets.QDialog):
         hotkey_row.add_control(self.change_button)
         hotkey_card.add_row(hotkey_row)
         intro.add_widget(hotkey_card, spacing_before=16)
+        capabilities = platform.current().capabilities
+        self.hotkey_note: InfoBar | None = None
+        if not capabilities.hold_to_talk:
+            self.hotkey_note = InfoBar(note_for("hold_to_talk"), "caution", parent=intro.body)
+            intro.add_widget(self.hotkey_note, spacing_before=12)
         writing = QtWidgets.QWidget(intro.body)
         writing_layout = QtWidgets.QHBoxLayout(writing)
         writing_layout.setContentsMargins(4, 0, 4, 0)
@@ -589,7 +596,10 @@ class WelcomePage(QtWidgets.QDialog):
         self.autostart.setAccessibleName("Start with Windows")
         self.autostart.toggled.connect(self._on_autostart)
         startup.add_row(SettingRow("Start with Windows", "Spells waits in the tray, ready for your hotkey.", self.autostart))
-        microphone.add_widget(startup, spacing_before=12)
+        if capabilities.autostart:
+            microphone.add_widget(startup, spacing_before=12)
+        else:
+            startup.hide()
         self.note = InfoBar(ELEVATED_NOTE, "info", parent=microphone.body)
         microphone.add_widget(self.note, spacing_before=12)
         microphone.finish()

@@ -19,6 +19,7 @@ from spells import platform, vk
 from spells.config import ConfigStore, Settings, SettingsError
 from spells.models import Chord
 from spells.ui import style, theme
+from spells.ui.capabilities import apply_capability
 from spells.ui.tray import chords_of
 from spells.ui.widgets import KeycapRow, make_button, make_label
 
@@ -237,6 +238,7 @@ class HotkeyRecorder(QtWidgets.QWidget):
         layout.addWidget(self.label, 0, QtCore.Qt.AlignmentFlag.AlignVCenter)
         self.change_button = make_button("Change", parent=self)
         self.change_button.clicked.connect(self.start_capture)
+        apply_capability(self.change_button, platform.current().capabilities.app_records_chords, "app_records_chords")
         layout.addWidget(self.change_button)
         self.apply_settings(config.settings)
 

@@ -50,6 +50,7 @@ from spells.profiles import BUILTIN_PROFILES
 from spells.quality import CheckResult, check_label, summarize
 from spells.ui import brand, style, theme
 from spells.ui.about import AboutPage
+from spells.ui.capabilities import apply_capability, note_for
 from spells.ui.checks import CheckJob, CheckRunner
 from spells.ui.diagnostics import DiagnosticsTab
 from spells.ui.hotkeys import ChordCaptureDialog, HotkeyRecorder, fold_keys, probe_arguments
@@ -305,6 +306,8 @@ class GeneralTab(ScrollPage):
         self._hotkey = hotkey
         self._notify = notify
         self._loading = False
+        capabilities = platform.current().capabilities
+        self._live_typing = capabilities.live_typing
 
         if config.notice:
             self.notice = InfoBar(config.notice, "caution", parent=self.body)
@@ -366,14 +369,17 @@ class GeneralTab(ScrollPage):
             ),
             parent=writing,
         )
-        writing.add_row(
-            SettingRow(
-                "Edit hotkey",
-                "Select some text, hold it and say what to change, such as make this shorter. The selection is replaced. With nothing selected it writes instead.",
-                self.edit_recorder,
-                glyph=style.Glyph.KEYBOARD,
+        if capabilities.edit_hotkey:
+            writing.add_row(
+                SettingRow(
+                    "Edit hotkey",
+                    "Select some text, hold it and say what to change, such as make this shorter. The selection is replaced. With nothing selected it writes instead.",
+                    self.edit_recorder,
+                    glyph=style.Glyph.KEYBOARD,
+                )
             )
-        )
+        else:
+            self.edit_recorder.hide()
         self.add_section(
             "Writing",
             writing,
@@ -398,7 +404,10 @@ class GeneralTab(ScrollPage):
         self.autostart = ToggleSwitch(behaviour)
         self.autostart.setAccessibleName("Start with Windows")
         self.autostart.toggled.connect(lambda v: self._set_general(autostart=bool(v)))
-        behaviour.add_row(SettingRow("Start with Windows", "Spells starts in the background when you sign in.", self.autostart))
+        if capabilities.autostart:
+            behaviour.add_row(SettingRow("Start with Windows", "Spells starts in the background when you sign in.", self.autostart))
+        else:
+            self.autostart.hide()
         self.keep_mic_warm = ToggleSwitch(behaviour)
         self.keep_mic_warm.setAccessibleName("Keep the microphone warm")
         self.keep_mic_warm.toggled.connect(lambda v: self._set_general(keep_mic_warm=bool(v)))
@@ -434,6 +443,8 @@ class GeneralTab(ScrollPage):
                 self.live_text_everywhere,
             )
         )
+        apply_capability(self.live_text, self._live_typing, "live_typing")
+        apply_capability(self.live_text_everywhere, self._live_typing, "live_typing")
         self.idle_unload = SpinBox(behaviour)
         self.idle_unload.setRange(0, 24 * 60)
         self.idle_unload.setSuffix(" min")
@@ -474,7 +485,7 @@ class GeneralTab(ScrollPage):
                 self.sounds.setChecked(settings.general.sounds)
                 self.live_text.setChecked(settings.general.live_text)
                 self.live_text_everywhere.setChecked(settings.general.live_text_everywhere)
-                self.live_text_everywhere.setEnabled(settings.general.live_text)
+                self.live_text_everywhere.setEnabled(settings.general.live_text and self._live_typing)
                 self.idle_unload.setValue(settings.general.idle_unload_minutes)
         finally:
             self._loading = False
@@ -841,6 +852,13 @@ class RuleEditor(QtWidgets.QDialog):
             self.delivery.addItem(DELIVERY_LABELS.get(method, method.value.capitalize()), method)
         form.addRow(make_label("Delivery", parent=self), self.delivery)
         layout.addLayout(form)
+        capabilities = platform.current().capabilities
+        apply_capability(self.title, capabilities.window_titles, "window_titles")
+        self.delivery_note: QtWidgets.QLabel | None = None
+        if not capabilities.clipboard_restore:
+            layout.addSpacing(8)
+            self.delivery_note = make_label(note_for("clipboard_restore"), "caption", "secondary", wrap=True, parent=self)
+            layout.addWidget(self.delivery_note)
         layout.addSpacing(8)
         layout.addWidget(make_label("Separate several names with commas.", "caption", "tertiary", parent=self))
         layout.addSpacing(22)
@@ -898,6 +916,13 @@ class AppsTab(ScrollPage):
         self._config = config
         self._notify = notify
         self.window_picker = window_picker or _default_window_picker
+        app_profiles = platform.current().capabilities.app_profiles
+        self.profile_names = list(BUILTIN_PROFILES) if app_profiles else ["Default"]
+        self.profiles_note: InfoBar | None = None
+        if not app_profiles:
+            self.profiles_note = InfoBar(note_for("app_profiles"), "info", parent=self.body)
+            self.add_widget(self.profiles_note, spacing_before=0)
+            self.body_layout.addSpacing(16)
         card = Card(self.body)
         self.table = _table(["Name", "Process", "Title contains", "Profile", "Delivery"], card)
         self.table.doubleClicked.connect(lambda _index: self._edit_selected())
@@ -921,6 +946,7 @@ class AppsTab(ScrollPage):
         header = self.add_section("Your rules", card)
         self.pick_button = make_button("Add by clicking a window", glyph=style.Glyph.WINDOW, parent=header)
         self.pick_button.clicked.connect(self._start_pick)
+        apply_capability(self.pick_button, app_profiles, "app_profiles")
         header.add_trailing(self.pick_button)
         self.add_button = make_button("Add rule", "primary", glyph=style.Glyph.ADD, parent=header)
         self.add_button.clicked.connect(self._add)
@@ -987,7 +1013,7 @@ class AppsTab(ScrollPage):
             process, title = self.window_picker()
         except Exception:
             log.exception("window pick failed")
-        editor = RuleEditor(profile_names=list(BUILTIN_PROFILES), parent=self)
+        editor = RuleEditor(profile_names=self.profile_names, parent=self)
         editor.process.setText(process)
         editor.title.setText(title)
         editor.name.setText(process.rsplit(".", 1)[0] if process else "")
@@ -1002,7 +1028,7 @@ class AppsTab(ScrollPage):
         self.apply_settings(settings)
 
     def _add(self) -> None:
-        editor = RuleEditor(profile_names=list(BUILTIN_PROFILES), parent=self)
+        editor = RuleEditor(profile_names=self.profile_names, parent=self)
         if editor.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             self.apply_rule(None, editor.rule())
 
@@ -1011,7 +1037,7 @@ class AppsTab(ScrollPage):
         rules = self.rules()
         if not 0 <= row < len(rules):
             return
-        editor = RuleEditor(profile_names=list(BUILTIN_PROFILES), rule=rules[row], parent=self)
+        editor = RuleEditor(profile_names=self.profile_names, rule=rules[row], parent=self)
         if editor.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             self.apply_rule(row, editor.rule())
 

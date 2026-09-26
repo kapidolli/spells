@@ -17,11 +17,12 @@ from typing import Any
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
-from spells import calibrate, modelcatalog
+from spells import calibrate, modelcatalog, platform
 from spells.config import ConfigStore, Settings, SettingsError
 from spells.gpu import GpuSelection
 from spells.models import Chord
 from spells.ui import style, theme
+from spells.ui.capabilities import apply_capability
 from spells.ui.hotkeys import ChordCaptureDialog, chord_is_free, fold_keys
 from spells.ui.tray import chords_of
 from spells.ui.widgets import (
@@ -159,6 +160,7 @@ class LanguageRow(QtWidgets.QWidget):
             self.add_button = make_button("Add hotkey", "subtle", glyph=style.Glyph.ADD, parent=self)
             self.add_button.setToolTip(f"A hotkey that dictates in {name} without changing the language mode")
             self.add_button.clicked.connect(lambda: self.add_hotkey.emit(code))
+            apply_capability(self.add_button, platform.current().capabilities.app_records_chords, "app_records_chords")
             layout.addWidget(self.add_button)
         self.setMinimumHeight(56)
 

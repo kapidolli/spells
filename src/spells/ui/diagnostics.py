@@ -31,6 +31,7 @@ from spells.datafiles import data_dir
 from spells.gpu import GpuDevice, GpuSelection, choose_device
 from spells.models import Engine, EngineState, StageTimings
 from spells.ui import style, theme
+from spells.ui.capabilities import note_for
 from spells.ui.tray import ENGINE_NAMES, REASON_TEXT, STATE_WORDS, reason_text
 from spells.ui.welcome import Notify, default_notify
 from spells.ui.widgets import (
@@ -104,6 +105,7 @@ MANIFEST_NAME = "MANIFEST.json"
 BUNDLE_CLEAN_NOTE = "It holds no transcript text."
 BUNDLE_DEBUG_NOTE = "It includes debug logs, which may contain dictated text."
 BUNDLE_EXCLUDED_SUFFIXES = (".db", ".db-wal", ".db-shm", ".sqlite")
+SYSTEM_NAMES = {"windows": "Windows", "linux": "Linux", "macos": "macOS"}
 
 
 # Pure helpers ---------------------------------------------------------------------------------------
@@ -454,6 +456,14 @@ class DiagnosticsTab(ScrollPage):
             SettingRow("Diagnostics bundle", "A zip of the logs and the settings file, never the history database.", self.bundle_button)
         )
         self.add_section("Logs and support", logs_card)
+
+        current = platform.current()
+        self.system_card = Card(self.body)
+        self.system_row = SettingRow(SYSTEM_NAMES.get(current.name, current.name), glyph=style.Glyph.WINDOW)
+        self.system_card.add_row(self.system_row)
+        for flag in current.capabilities.missing():
+            self.system_card.add_row(SettingRow(note_for(flag), leading=StatusDot("caution")))
+        self.add_section("System", self.system_card)
         self.finish()
 
         self.apply_settings(config.settings)
