@@ -17,6 +17,7 @@ from spells.engines import EnginePaths
 from spells.gpu import NO_GPU, GpuDevice, GpuSelection
 from spells.modelcatalog import Hardware, parse_catalog, select_models
 from spells.models import CpuPlan
+from spells.platform.paths import engine_suffix
 
 ARC = "Intel(R) Arc(TM) Pro Graphics"
 WHISPER = "whisper-turbo"
@@ -410,7 +411,7 @@ def test_llama_asr_uses_the_llama_build_with_all_layers_on_the_gpu(tmp_path):
     rig = Rig(tmp_path, {"vulkan": 0.5, "cpu": 2.3})
     result = rig.calibrator.calibrate(choice_for(QWEN))
     vulkan_args, cpu_args = (item["args"] for item in rig.spawned)
-    assert Path(vulkan_args[0]).name == "llama-server.exe"
+    assert Path(vulkan_args[0]).name == f"llama-server{engine_suffix()}"
     assert vulkan_args[vulkan_args.index("-ngl") + 1] == "99"
     assert cpu_args[cpu_args.index("-ngl") + 1] == "0"
     assert "--mmproj" in vulkan_args
