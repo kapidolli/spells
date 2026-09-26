@@ -244,7 +244,8 @@ def test_enabled_languages_round_trip_and_keep_the_mode_valid(app, tmp_path):
     dialog.close()
 
 
-def test_language_chords_are_added_and_removed(app, tmp_path):
+def test_language_chords_are_added_and_removed(app, tmp_path, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     dialog, config, *_ = make_dialog(tmp_path)
     languages = dialog.languages
     assert languages.add_language_chord("de", (CTRL, ALT, KEY_D))
@@ -276,7 +277,8 @@ def test_welcome_button_asks_for_the_welcome_page(app, tmp_path):
 # Hotkey recorder -------------------------------------------------------------------------------
 
 
-def test_recorder_accepts_a_free_chord_and_folds_side_modifiers(app, tmp_path):
+def test_recorder_accepts_a_free_chord_and_folds_side_modifiers(app, tmp_path, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     dialog, config, _messages, probe, *_ = make_dialog(tmp_path)
     recorder = dialog.general.main_recorder
     assert recorder.accept_chord((LCONTROL, ALT, KEY_D))
@@ -661,7 +663,8 @@ def test_both_writing_hotkeys_start_empty(app, tmp_path):
     dialog.close()
 
 
-def test_recording_a_write_hotkey_stores_it_in_compose_mode(app, tmp_path):
+def test_recording_a_write_hotkey_stores_it_in_compose_mode(app, tmp_path, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     dialog, config, _messages, probe, *_ = make_dialog(tmp_path)
     assert dialog.general.compose_recorder.accept_chord((LCONTROL, ALT, KEY_W))
     assert config.settings.general.compose_chord == Chord(

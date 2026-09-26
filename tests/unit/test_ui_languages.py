@@ -7,10 +7,11 @@ from dataclasses import replace
 import pytest
 from PySide6 import QtCore
 
-from spells import modelcatalog
+from spells import modelcatalog, platform
 from spells.gpu import NO_GPU, GpuDevice, GpuSelection
 from spells.modelcatalog import Hardware, ModelChoice, ModelKind, Selection
 from spells.models import Chord
+from spells.platform.keys_windows import WindowsKeys
 from spells.ui.languages import (
     POPULAR_LANGUAGES,
     LanguageAdder,
@@ -193,7 +194,8 @@ def test_suggestions_offer_only_missing_popular_languages(app, tmp_path, fake_se
 # Per-language hotkeys ---------------------------------------------------------------------------
 
 
-def test_language_hotkeys_sit_beside_their_chip(app, tmp_path, fake_select):
+def test_language_hotkeys_sit_beside_their_chip(app, tmp_path, fake_select, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     page, config, _messages = make_page(tmp_path)
     assert page.add_language_chord("de", (CTRL, ALT, KEY_D))
     row = page.language_list.language_rows["de"]
@@ -213,7 +215,8 @@ def test_a_taken_hotkey_is_refused_before_the_store(app, tmp_path, fake_select):
     page.close()
 
 
-def test_a_hotkey_for_a_removed_language_stays_visible(app, tmp_path, fake_select):
+def test_a_hotkey_for_a_removed_language_stays_visible(app, tmp_path, fake_select, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     page, config, _messages = make_page(tmp_path)
     chord = Chord(keys=(CTRL, ALT, KEY_D), language="de")
     config.update(lambda s: replace(s, general=replace(s.general, language_chords=[chord], enabled_languages=["en"])))
