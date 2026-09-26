@@ -105,3 +105,8 @@ def test_windows_platform_claims_every_capability():
     record = windows.build()
     assert record.name == "windows"
     assert record.capabilities == Capabilities.everything()
+
+
+@pytest.mark.parametrize("system", ["windows", "linux"])
+def test_an_unmarked_test_parametrized_windows_is_not_skipped(system):
+    assert system in ("windows", "linux")

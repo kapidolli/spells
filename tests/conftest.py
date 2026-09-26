@@ -8,5 +8,5 @@ def pytest_collection_modifyitems(config, items):
         return
     skip = pytest.mark.skip(reason="exercises Windows itself")
     for item in items:
-        if "windows" in item.keywords:
+        if item.get_closest_marker("windows") is not None:
             item.add_marker(skip)
