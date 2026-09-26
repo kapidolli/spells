@@ -357,6 +357,10 @@ class _Stop(Exception):
         self.outcome = outcome
 
 
+class _Cancelled(Exception):
+    pass
+
+
 class Uploader:
     def __init__(
         self,
@@ -423,9 +427,9 @@ class Uploader:
                     max_bytes=self._max_bytes,
                     overhead=self._overhead(),
                 ):
-                    if self._cancelled():
-                        return self._result(cancelled=True)
                     self._send(batch)
+        except _Cancelled:
+            return self._result(cancelled=True)
         except _Stop as stop:
             return self._result(stop.outcome)
         return self._result()
@@ -488,6 +492,8 @@ class Uploader:
         log.warning("dictation %d is too large for the server even without audio", item.id)
 
     def _post(self, items: Sequence[Item], *, record: bool = True) -> Outcome:
+        if record and self._cancelled():
+            raise _Cancelled
         history = self._history
         reported = history.upload_lost() if record else 0
         body = encode_body(self._head(reported), items)

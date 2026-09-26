@@ -4,7 +4,7 @@ import logging
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from PySide6 import QtCore
@@ -34,6 +34,14 @@ class UploadView:
     working: str = ""
     message: str = ""
     waiting: int = 0
+
+
+@dataclass
+class _Job:
+    url: str
+    token: str
+    cancel: threading.Event = field(default_factory=threading.Event)
+    moved: bool = False
 
 
 def paused(settings: UploadSettings) -> bool:
@@ -121,6 +129,7 @@ class UploadCoordinator(QtCore.QObject):
         self._clock = clock
         self._version = version
         self._cancel = threading.Event()
+        self._job: _Job | None = None
         self._timer: QtCore.QTimer | None = None
         self._relay = _Relay(self)
         self._relay.done.connect(self._deliver, QtCore.Qt.ConnectionType.QueuedConnection)
@@ -211,37 +220,51 @@ class UploadCoordinator(QtCore.QObject):
     def test_connection(self) -> None:
         if self._view.working:
             return
-        token = self._tokens.read()
-        uploader = self._uploader(self.settings, token)
+        current = self.settings
+        job = _Job(current.url, self._tokens.read())
+        uploader = self._uploader(current, job)
         self._set(working=WORK_TEST, message="")
-        self._run(uploader.test, lambda result: self._tested(result, token))
+        self._run(uploader.test, lambda result: self._tested(job, result))
 
     def _start_upload(self) -> None:
         current = self.settings
         now = self._clock()
         self._store(lambda settings: replace(settings, last_attempt=now))
-        token = self._tokens.read()
-        uploader = self._uploader(current, token)
+        job = _Job(current.url, self._tokens.read())
+        self._job = job
+        uploader = self._uploader(current, job)
         self._set(working=WORK_UPLOAD, message="")
-        self._run(uploader.run, lambda result: self._uploaded(result, token))
+        self._run(uploader.run, lambda result: self._uploaded(job, result))
 
-    def _uploader(self, current: UploadSettings, token: str) -> Uploader:
+    def _uploader(self, current: UploadSettings, job: _Job) -> Uploader:
+        cancel = self._cancel
+
+        def cancelled() -> bool:
+            return cancel.is_set() or job.cancel.is_set()
+
         return Uploader(
             history=self._history,
-            url=current.url,
-            token=token,
+            url=job.url,
+            token=job.token,
             include_audio=current.include_audio,
             skip_apps=current.skip_apps,
             device_name=current.device_name,
             transport=self._transport,
             clock=self._clock,
             version=self._version,
-            cancelled=self._cancel.is_set,
+            cancelled=cancelled,
         )
 
-    def _uploaded(self, result: Any, token: str = "") -> None:
+    def _uploaded(self, job: _Job, result: Any) -> None:
+        if self._job is job:
+            self._job = None
+        if job.moved or job.url != self.settings.url:
+            self._call("reset_uploaded")
+            self._set(working="", message="", waiting=self._count_waiting(self.settings))
+            return
         now = self._clock()
         message = ""
+        token = job.token
         if isinstance(result, BaseException):
             reason = str(result) or result.__class__.__name__
             error = self._redact(f"The upload stopped ({reason}).", token)
@@ -262,26 +285,32 @@ class UploadCoordinator(QtCore.QObject):
             )
         self._set(working="", message=message, waiting=self._count_waiting(self.settings))
 
-    def _tested(self, result: Any, token: str = "") -> None:
+    def _tested(self, job: _Job, result: Any) -> None:
         if isinstance(result, BaseException):
             message = f"The test stopped ({str(result) or result.__class__.__name__})."
         elif result.ok:
             message = TEST_OK_TEXT
         else:
             message = result.error
-        self._set(working="", message=self._redact(message, token))
+        self._set(working="", message=self._redact(message, job.token))
 
     def _redact(self, text: str, token: str = "") -> str:
         return upload.redact(text, token, self._tokens.read())
 
     def _follow(self) -> None:
         current = self.settings
+        job = self._job
+        if job is not None and not current.enabled:
+            job.cancel.set()
         if (current.enabled, current.include_audio) != (self._enabled, self._include_audio):
             self._enabled = current.enabled
             self._include_audio = current.include_audio
             self._hold(current)
         if current.url != self._url:
             self._url = current.url
+            if job is not None:
+                job.moved = True
+                job.cancel.set()
             self._call("reset_uploaded")
             self._store(
                 lambda settings: replace(

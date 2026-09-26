@@ -509,6 +509,20 @@ def test_a_cancelled_run_stops_before_the_next_batch(store):
     assert result.sent == 1
 
 
+def test_a_cancelled_run_sends_no_half_of_a_split_batch(store):
+    for n in range(4):
+        store.add(make_entry(n))
+    transport = FakeTransport(413)
+
+    def stop() -> bool:
+        return len(transport.sent) >= 1
+
+    result = uploader(store, transport, cancelled=stop).run()
+    assert result.cancelled
+    assert len(transport.sent) == 1
+    assert store.pending_upload_ids() == [1, 2, 3, 4]
+
+
 def test_the_connection_test_sends_an_empty_batch_and_changes_nothing(tmp_path):
     with HistoryStore(tmp_path / "history.db", "7d", upload_hold=True) as store:
         store.add(make_entry(1, created_at=time.time() - 60 * DAY_S))

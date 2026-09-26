@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 import time
 from dataclasses import replace
 
@@ -15,6 +16,7 @@ from spells.ui.uploading import (
     TEST_OK_TEXT,
     UploadCoordinator,
     UploadView,
+    capture,
     direct_runner,
     status_text,
 )
@@ -52,8 +54,36 @@ class Clock:
         self.now += seconds
 
 
+class ThreadRunner:
+    def __init__(self) -> None:
+        self.jobs: list[tuple[threading.Thread, object, dict]] = []
+
+    def __call__(self, work, done) -> None:
+        box: dict = {}
+        thread = threading.Thread(target=lambda: box.update(result=capture(work)), daemon=True)
+        thread.start()
+        self.jobs.append((thread, done, box))
+
+    def finish(self) -> None:
+        while self.jobs:
+            thread, done, box = self.jobs.pop(0)
+            thread.join(10)
+            done(box["result"])
+
+
+class Gate:
+    def __init__(self) -> None:
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def __call__(self, _payload):
+        self.entered.set()
+        self.release.wait(10)
+        return 200
+
+
 class World:
-    def __init__(self, tmp_path, **settings) -> None:
+    def __init__(self, tmp_path, runner=direct_runner, **settings) -> None:
         self.config = ConfigStore(tmp_path / "settings.json")
         if settings:
             self.config.update(lambda s: replace(s, upload=replace(s.upload, **settings)))
@@ -68,7 +98,7 @@ class World:
             tokens=self.tokens,
             busy=lambda: self.dictating,
             transport=self.transport,
-            runner=direct_runner,
+            runner=runner,
             clock=self.clock,
             version="0.6.0",
         )
@@ -213,6 +243,55 @@ def test_a_new_address_resends_everything_and_unpauses(world):
     world.coordinator.tick()
     assert world.transport.sent[-1].url == "https://example.org/other"
     assert world.transport.ids(len(world.transport.sent) - 1) == [1, 2]
+
+
+OTHER_URL = "https://example.org/other"
+
+
+def blocked_run(tmp_path, count: int = 250):
+    runner = ThreadRunner()
+    world = World(tmp_path, runner=runner, enabled=True, url=URL)
+    world.add(count)
+    gate = Gate()
+    world.transport.answers = [gate]
+    world.coordinator.upload_now()
+    assert gate.entered.wait(10)
+    return world, runner, gate
+
+
+def test_a_new_address_during_a_run_stops_it_and_leaves_everything_for_the_new_one(
+    app, tmp_path
+):
+    world, runner, gate = blocked_run(tmp_path)
+    world.change(url=OTHER_URL)
+    gate.release.set()
+    runner.finish()
+    assert [sent.url for sent in world.transport.sent] == [URL]
+    assert world.upload.last_success == 0.0
+    assert world.upload.last_sent == 0
+    assert world.upload.last_error == ""
+    assert len(world.history.pending_upload_ids()) == 250
+    assert world.coordinator.view.working == ""
+    assert world.coordinator.view.waiting == 250
+    world.coordinator.tick()
+    runner.finish()
+    later = world.transport.sent[1:]
+    assert {sent.url for sent in later} == {OTHER_URL}
+    assert sum(len(sent.payload["entries"]) for sent in later) == 250
+    assert world.upload.last_sent == 250
+    assert world.history.pending_upload_ids() == []
+    world.history.close()
+
+
+def test_switching_uploading_off_during_a_run_stops_it_before_the_next_batch(app, tmp_path):
+    world, runner, gate = blocked_run(tmp_path)
+    world.change(enabled=False)
+    gate.release.set()
+    runner.finish()
+    assert [sent.url for sent in world.transport.sent] == [URL]
+    assert world.upload.last_success == 0.0
+    assert world.coordinator.view.working == ""
+    world.history.close()
 
 
 def test_the_history_holds_unsent_rows_only_while_uploading_is_on(world):
