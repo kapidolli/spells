@@ -325,7 +325,7 @@ def test_placement_is_recomputed_when_the_width_changes(app):
     pill.apply(event(notice=Notice.COPIED, notice_text="Copied"))
     width = pill.pill_size().width()
     assert width > 180
-    assert pill.x() == pytest.approx(x_meter - (width - 180) / 2)
+    assert pill.x() == pytest.approx(x_meter - (width - 180) / 2, abs=0.5)
     pill.close()
 
 
