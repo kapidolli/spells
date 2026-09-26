@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -314,3 +316,23 @@ def test_a_broken_svg_is_treated_as_missing(app, monkeypatch, tmp_path):
     (tmp_path / brand.LOGO).write_text("not an svg", encoding="utf-8")
     monkeypatch.setattr(brand, "brand_path", lambda name: tmp_path / name)
     assert brand.renderer(brand.LOGO) is None
+
+
+def test_a_brand_file_elsewhere_with_the_same_mtime_is_read_afresh(app, monkeypatch, tmp_path):
+    svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect width="20" height="10"/></svg>'
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    for folder, text in ((first, svg), (second, "not an svg")):
+        folder.mkdir()
+        for name in (brand.LOGO, brand.WORDMARK):
+            (folder / name).write_text(text, encoding="utf-8")
+    for name in (brand.LOGO, brand.WORDMARK):
+        stamp = (first / name).stat().st_mtime_ns
+        os.utime(second / name, ns=(stamp, stamp))
+    white = QtGui.QColor("#FFFFFF")
+    monkeypatch.setattr(brand, "brand_path", lambda name: first / name)
+    assert brand.renderer(brand.LOGO) is not None
+    assert brand.wordmark_renderer(white) is not None
+    monkeypatch.setattr(brand, "brand_path", lambda name: second / name)
+    assert brand.renderer(brand.LOGO) is None
+    assert brand.wordmark_renderer(white) is None

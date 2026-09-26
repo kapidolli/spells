@@ -7,6 +7,8 @@ import dataclasses
 import pytest
 from PySide6 import QtGui, QtWidgets
 
+from spells import platform
+from spells.platform.keys_windows import WindowsKeys
 from spells.ui import style, theme
 from spells.ui.style import BRAND_SHADES, AccentShades, build_palette
 
@@ -127,7 +129,8 @@ def test_mix_blends_two_colours():
     assert style.mix("#FF0000", "#0000FF", 1.0).name() == "#ff0000"
 
 
-def test_chord_keys_orders_modifiers_first():
+def test_chord_keys_orders_modifiers_first(use_platform):
+    use_platform(dataclasses.replace(platform.current(), keys=WindowsKeys()))
     assert theme.chord_keys((0x44, 0x5B, 0x11)) == ["Ctrl", "Win", "D"]
     assert theme.chord_label((0x6B, 0x11)) == "Ctrl+Num +"
     assert theme.chord_keys((0x6B, 0x11)) == ["Ctrl", "Num +"]

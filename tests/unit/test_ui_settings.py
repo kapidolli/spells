@@ -14,9 +14,11 @@ from pathlib import Path
 import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
 
+from spells import platform
 from spells.audio import AudioDevice, MicError
 from spells.config import ProfileRule, Replacement, Snippet
 from spells.models import Chord, ChordMode, DeliveryMethod
+from spells.platform.keys_windows import WindowsKeys
 from spells.platform.stub import StubFocus
 from spells.ui.settings import (
     BUILTIN_PROFILES,
@@ -337,7 +339,8 @@ def key_event(kind, vk, text=""):
     return QtGui.QKeyEvent(kind, 0, QtCore.Qt.KeyboardModifier.NoModifier, 0, vk, 0, text)
 
 
-def test_capture_dialog_reads_the_chord_from_real_key_events(app, tmp_path):
+def test_capture_dialog_reads_the_chord_from_real_key_events(app, tmp_path, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     hotkey = FakeHotkey(chords=(Chord(keys=(CTRL, LWIN)),))
     dialog = ChordCaptureDialog(hotkey=hotkey, active_chords=(Chord(keys=(CTRL, LWIN)),))
     dialog.show()
@@ -355,7 +358,8 @@ def test_capture_dialog_reads_the_chord_from_real_key_events(app, tmp_path):
     assert hotkey.pushed[-1] == (Chord(keys=(CTRL, LWIN)),)
 
 
-def test_capture_dialog_escape_cancels_and_restores_the_chords(app):
+def test_capture_dialog_escape_cancels_and_restores_the_chords(app, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     hotkey = FakeHotkey(chords=(Chord(keys=(CTRL, LWIN)),))
     dialog = ChordCaptureDialog(hotkey=hotkey, active_chords=(Chord(keys=(CTRL, LWIN)),))
     dialog.show()
@@ -598,7 +602,8 @@ def test_every_setting_edit_replaces_the_frozen_snapshot(app, tmp_path):
     dialog.close()
 
 
-def test_capture_dialog_restores_a_paused_hook(app):
+def test_capture_dialog_restores_a_paused_hook(app, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     hotkey = FakeHotkey(chords=())
     dialog = ChordCaptureDialog(hotkey=hotkey, active_chords=(Chord(keys=(CTRL, LWIN)),))
     dialog.show()

@@ -70,6 +70,7 @@ def test_the_modules_spec_19_3_step_5_names_are_all_excluded():
         assert f"PySide6.{name}" in excludes
 
 
+@pytest.mark.windows
 def test_the_installed_pyside6_has_no_extension_module_that_is_neither_kept_nor_dropped():
     """A new PySide6 release must not smuggle a module past the exclusion list unnoticed."""
     pyside6 = pytest.importorskip("PySide6")
@@ -195,6 +196,7 @@ def _plan(cleanup_name: str = "qwen3-4b-q4_k_m.gguf"):
     )
 
 
+@pytest.mark.windows
 def test_every_source_lands_where_spec_19_3_step_6_puts_it():
     where = {item.dest: item for item in _plan()}
 
@@ -207,6 +209,7 @@ def test_every_source_lands_where_spec_19_3_step_6_puts_it():
     assert where["licenses"].source is None
 
 
+@pytest.mark.windows
 def test_the_model_names_are_the_ones_the_frozen_app_looks_for():
     from spells import paths as spells_paths
 
@@ -619,6 +622,7 @@ def test_the_uninstall_entry_is_found_by_the_app_id_never_by_a_name_substring():
 # ----------------------------------------------------------------------------- the setup process
 
 
+@pytest.mark.windows
 def test_the_running_setup_is_watched_by_its_temp_child_not_only_the_exe():
     """Inno's loader extracts the real setup into %TEMP% and runs it as <basename>.tmp."""
     names = package.setup_process_names(Path(r"C:\repo\dist\Spells-Setup-0.1.0-dev.exe"))

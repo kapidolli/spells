@@ -21,8 +21,8 @@ LOGO = "spells-logo.svg"
 MONO_MARK = "spells-mark-mono.svg"
 WORDMARK = "spells-wordmark.svg"
 
-_renderers: dict[str, tuple[float, QtSvg.QSvgRenderer | None]] = {}
-_wordmarks: dict[str, tuple[float, QtSvg.QSvgRenderer | None]] = {}
+_renderers: dict[str, tuple[tuple[str, float], QtSvg.QSvgRenderer | None]] = {}
+_wordmarks: dict[str, tuple[tuple[str, float], QtSvg.QSvgRenderer | None]] = {}
 _ROOT_COLOUR = re.compile(rb'(<svg\b[^>]*?\scolor=")[^"]*(")')
 
 
@@ -34,7 +34,7 @@ def renderer(name: str) -> QtSvg.QSvgRenderer | None:
     """A valid renderer for data/brand/<name>, reloaded when the file changes; None when absent."""
     path = brand_path(name)
     try:
-        stamp = path.stat().st_mtime
+        stamp = (str(path), path.stat().st_mtime)
     except OSError:
         _renderers.pop(name, None)
         return None
@@ -123,7 +123,7 @@ def wordmark_renderer(colour: QtGui.QColor) -> QtSvg.QSvgRenderer | None:
     """The wordmark with its letters (currentColor) in the given colour; None when absent."""
     path = brand_path(WORDMARK)
     try:
-        stamp = path.stat().st_mtime
+        stamp = (str(path), path.stat().st_mtime)
         raw = path.read_bytes()
     except OSError:
         return None

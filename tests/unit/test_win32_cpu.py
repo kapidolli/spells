@@ -4,9 +4,13 @@ import struct
 
 import pytest
 
+pytest.importorskip("winreg")
+
 from spells.models import CpuPlan
 from spells.win32 import cpu
 from spells.win32.cpu import ProcessorCore, parse_cores, plan_for
+
+pytestmark = pytest.mark.windows
 
 RELATION_CACHE = 2
 

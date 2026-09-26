@@ -12,9 +12,13 @@ from types import SimpleNamespace
 
 import pytest
 
+pytest.importorskip("winreg")
+
 from spells import hotkey, vk
 from spells.win32 import clipboard, hook, msgwindow, process, window
 from spells.win32 import input as win_input
+
+pytestmark = pytest.mark.windows
 
 IS_64BIT = ctypes.sizeof(ctypes.c_void_p) == 8
 

@@ -10,6 +10,7 @@ from spells import platform
 from spells.audio import AudioDevice
 from spells.models import Chord
 from spells.platform.base import Capabilities
+from spells.platform.keys_windows import WindowsKeys
 from spells.ui.welcome import (
     STEP_MICROPHONE,
     WRITING_NOTE,
@@ -54,7 +55,8 @@ def make_page(tmp_path):
     return page, config, recorders, asked
 
 
-def test_page_shows_the_hotkey_and_offers_to_change_it(app, tmp_path):
+def test_page_shows_the_hotkey_and_offers_to_change_it(app, tmp_path, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     page, config, _recorders, asked = make_page(tmp_path)
     assert "Ctrl+Win" in page.hotkey_label.text()
     page.change_button.click()
@@ -199,7 +201,8 @@ def test_the_language_step_edits_the_enabled_languages(app, tmp_path):
     page.close()
 
 
-def test_the_hotkey_is_shown_as_keycaps_in_the_tour(app, tmp_path):
+def test_the_hotkey_is_shown_as_keycaps_in_the_tour(app, tmp_path, use_platform):
+    use_platform(replace(platform.current(), keys=WindowsKeys()))
     page, *_ = make_page(tmp_path)
     assert page.hotkey_label.keys() == ["Ctrl", "Win"]
     assert page.hotkey_art.keys() == ["Ctrl", "Win"]
