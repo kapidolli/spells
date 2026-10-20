@@ -40,6 +40,7 @@ MASK_TAG = 0x5554544D
 MASK_VK = 0xE8
 VK_PROBE = 0xE8
 VK_ESCAPE = 0x1B
+VK_RETURN = 0x0D
 LLKHF_INJECTED = 0x10
 
 WIN_VKS = frozenset({VK_LWIN, VK_RWIN})
@@ -71,7 +72,9 @@ class HotkeyCallbacks:
 
     Each is invoked on the hotkey thread inside the hook procedure, so each must
     only enqueue and return (B3-27). The id is assigned when `pressed` fires and
-    identifies that dictation for the rest of its life.
+    identifies that dictation for the rest of its life. `line_ended` fires on an Enter
+    key-down outside a dictation: the user sent or ended what was there, so the next
+    dictation starts fresh rather than continuing it with a leading space.
     """
 
     pressed: Callable[[Chord, int], None]
@@ -79,6 +82,7 @@ class HotkeyCallbacks:
     latched: Callable[[Chord, int], None]
     discarded: Callable[[int], None]
     cancelled: Callable[[int], None]
+    line_ended: Callable[[], None] | None = None
 
 
 @dataclass(frozen=True)
@@ -279,6 +283,8 @@ class ChordStateMachine:
             return Decision(swallow=False)
         chord = self._completed_chord(vk)
         if chord is None:
+            if vk == VK_RETURN and not self.recording and self._callbacks.line_ended is not None:
+                self._emit(self._callbacks.line_ended)
             return Decision(swallow=False)
         self._on_chord_completed(chord)
         inject = self._swallow_chord_keys(chord, vk)

@@ -66,6 +66,7 @@ CODE_TO_VK: dict[int, int] = {
     86: 0xE2,
     87: 0x7A,
     88: 0x7B,
+    96: 0x0D,
     97: vk.VK_RCONTROL,
     98: 0x6F,
     99: 0x2C,
@@ -104,6 +105,7 @@ VK_TO_CODE.update(
         vk.VK_CONTROL: KEY_LEFTCTRL,
         vk.VK_SHIFT: KEY_LEFTSHIFT,
         vk.VK_MENU: 56,
+        0x0D: 28,
     }
 )
 

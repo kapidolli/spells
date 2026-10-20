@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 from dataclasses import dataclass, field
+from types import SimpleNamespace
 
 import pytest
 
@@ -1430,3 +1431,31 @@ def test_the_thread_masks_with_the_backend_mask_keys(rec):
         assert rec.events == [("pressed", WIN_CHORD, 1), ("released", WIN_CHORD, 1)]
     finally:
         thread.stop()
+
+
+def test_enter_outside_a_dictation_ends_the_line():
+    from spells.hotkey import ChordStateMachine, HotkeyCallbacks
+
+    ended = []
+    pressed = []
+    callbacks = HotkeyCallbacks(
+        pressed=lambda chord, i: pressed.append(i),
+        released=lambda chord, i: None,
+        latched=lambda chord, i: None,
+        discarded=lambda i: None,
+        cancelled=lambda i: None,
+        line_ended=lambda: ended.append(True),
+    )
+    machine = ChordStateMachine([Chord(keys=(0x11, 0x5B))], callbacks, now=lambda: 0.0)
+
+    def key(vk, down):
+        return SimpleNamespace(vk=vk, scan=0, flags=0, extra_info=0, keydown=down, time_ms=0)
+
+    machine.on_key(key(0x0D, True))
+    machine.on_key(key(0x0D, False))
+    assert ended == [True]
+    machine.on_key(key(0xA2, True))
+    machine.on_key(key(0x5B, True))
+    machine.on_key(key(0x0D, True))
+    assert pressed == [1]
+    assert ended == [True]

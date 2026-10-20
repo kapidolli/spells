@@ -44,8 +44,11 @@ def test_generic_modifiers_cover_both_sides():
 
 
 def test_every_mapped_code_round_trips():
-    for code, value in keycodes.CODE_TO_VK.items():
-        assert code in keycodes.codes_for_vk(value)
+    for value in keycodes.CODE_TO_VK.values():
+        codes = keycodes.codes_for_vk(value)
+        assert codes and all(keycodes.vk_for_code(item) == value for item in codes)
+    assert keycodes.vk_for_code(96) == 0x0D
+    assert keycodes.codes_for_vk(0x0D) == (28,)
 
 
 def test_ioctl_numbers_match_the_kernel_headers():

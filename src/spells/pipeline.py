@@ -695,7 +695,12 @@ class Pipeline:
             latched=lambda chord, did: self._enqueue("latched", did, chord),
             discarded=lambda did: self._enqueue("discarded", did),
             cancelled=lambda did: self._enqueue("cancelled", did),
+            line_ended=self._forget_last_delivery,
         )
+
+    def _forget_last_delivery(self) -> None:
+        """Enter was pressed, so the next dictation does not continue the last one (spec 10.4)."""
+        self._last_delivery = None
 
     def start(self) -> None:
         """Start both threads; the recorder is created (and warmed) on the controller."""
