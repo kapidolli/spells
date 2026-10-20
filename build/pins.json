@@ -238,6 +238,13 @@
       "sha256": "57e280cee375ab02425b806ad5146b99f6eb9357e3c2b31357c8a6af2e2e44ae",
       "filename": "whisper.cpp-1.9.4.tar.gz",
       "notes": "whisper.cpp source tag used for both whisper-server variants (Vulkan and CPU), built by build/build_whisper.py. GitHub tag archives are generated on demand but stable for a given tag."
+    },
+    "spirv_headers": {
+      "url": "https://github.com/KhronosGroup/SPIRV-Headers/archive/refs/tags/vulkan-sdk-1.4.341.0.tar.gz",
+      "version": "vulkan-sdk-1.4.341.0",
+      "sha256": "cab0a654c4917e16367483296b44cdb1d614e3120c721beafcd37e3a8580486c",
+      "filename": "spirv-headers-vulkan-sdk-1.4.341.0.tar.gz",
+      "notes": "SPIRV-Headers tag matching the Vulkan headers of Fedora 44 (1.4.341). Needed only by the Linux Vulkan build of whisper-server (build/linux_engines.py) when the distribution has no spirv-headers package: it is installed into build/cache/spirv-headers-prefix. Hash computed from the first download."
     }
   },
   "models": {
@@ -322,6 +329,18 @@
       "version": "b10997",
       "sha256": "9670f79600780a9c67c5ae1ba665a00733bef6764f3a2c1e2341e2e2f3475b19",
       "notes": "llama.cpp Windows x64 CPU release archive, the fallback llama-server (spec 4 and 19.1). Same flat layout as the Vulkan zip minus ggml-vulkan.dll; extracted into build/out/engines/cpu/. Hash computed from the download on 2026-09-16."
+    },
+    "llama_cpp_linux_vulkan": {
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b10997/llama-b10997-bin-ubuntu-vulkan-x64.tar.gz",
+      "version": "b10997",
+      "sha256": "0437c9fb6ec3721369481ae358a8be467a2823d0cb25b38a6571964052552f78",
+      "notes": "llama.cpp Linux x64 Vulkan release archive providing llama-server for development checkouts (build/linux_engines.py). Same layout as the Windows zip: a llama-server stub next to libllama-server-impl.so, libllama*.so, libggml*.so (RPATH $ORIGIN) in one wrapping folder. Hash computed from the first download."
+    },
+    "llama_cpp_linux_cpu": {
+      "url": "https://github.com/ggml-org/llama.cpp/releases/download/b10997/llama-b10997-bin-ubuntu-x64.tar.gz",
+      "version": "b10997",
+      "sha256": "1a0b042c434d443f046b3cf2f4add37ad851bccdce3525adf52c0204439eb494",
+      "notes": "llama.cpp Linux x64 CPU release archive, the fallback llama-server for development checkouts (build/linux_engines.py). Same layout as the Vulkan archive minus libggml-vulkan.so. Hash computed from the first download."
     }
   },
   "bench_candidates": [

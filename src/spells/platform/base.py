@@ -210,6 +210,10 @@ class Shell(Protocol):
 
     def microphone_blocked(self) -> bool | None: ...
 
+    def audio_sources(self) -> tuple[str, tuple[str, ...]] | None:
+        """The sound server's default input and every input by its description, when known."""
+        ...
+
 
 class Appearance(Protocol):
     def apps_dark(self) -> bool | None: ...

@@ -176,6 +176,9 @@ class WindowsShell:
     def microphone_blocked(self) -> bool | None:
         return win32_shell.microphone_privacy_denied()
 
+    def audio_sources(self) -> tuple[str, tuple[str, ...]] | None:
+        return None
+
 
 class WindowsSecrets:
     def protect(self, data: bytes, description: str = "") -> bytes:

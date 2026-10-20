@@ -51,6 +51,8 @@ BLOCKED_SILENCE_MS = 500
 
 WASAPI = "Windows WASAPI"
 MME = "MME"
+JACK = "JACK Audio Connection Kit"
+ALSA_DEFAULT = "default"
 FALLBACK_SAMPLE_RATE = 48000
 
 PA_UNANTICIPATED_HOST_ERROR = -9999
@@ -153,10 +155,15 @@ def _has_inputs(devices: Sequence[Any], api: Any) -> bool:
 
 
 def _capture_api(devices: Sequence[Any], hostapis: Sequence[Any]) -> int:
-    """The host API to list and record from: WASAPI when it has inputs, else the default."""
-    wasapi = _api_index(hostapis, WASAPI)
-    if wasapi is not None and _has_inputs(devices, hostapis[wasapi]):
-        return wasapi
+    """The host API to list and record from: WASAPI or JACK when it has inputs, else the default.
+
+    JACK is PipeWire's JACK interface on Linux. It names every input as the desktop does and
+    shares each one, where PortAudio's ALSA entries open the raw device that PipeWire holds.
+    """
+    for preferred in (WASAPI, JACK):
+        index = _api_index(hostapis, preferred)
+        if index is not None and _has_inputs(devices, hostapis[index]):
+            return index
     try:
         fallback = int(getattr(sd.default, "hostapi", 0))
     except (TypeError, ValueError):
@@ -182,6 +189,7 @@ def _api_inputs(devices: Sequence[Any], hostapis: Sequence[Any], api_index: int)
         default_index = int(api["default_input_device"])
     except (TypeError, ValueError, KeyError):
         default_index = -1
+    sources = _sound_server_sources() if api_name == JACK else None
     result: list[AudioDevice] = []
     seen: set[str] = set()
     for index in api["devices"]:
@@ -192,18 +200,29 @@ def _api_inputs(devices: Sequence[Any], hostapis: Sequence[Any], api_index: int)
         key = name.strip().casefold()
         if key in seen:
             continue
+        if sources is not None and name not in sources[1]:
+            continue
         seen.add(key)
+        is_default = name == sources[0] if sources is not None else index == default_index
         result.append(
             AudioDevice(
                 index=index,
                 name=name,
-                is_default=index == default_index,
+                is_default=is_default,
                 host_api=api_name,
                 sample_rate=_rate_of(info),
                 channels=int(info["max_input_channels"]),
             )
         )
     return result
+
+
+def _sound_server_sources() -> tuple[str, tuple[str, ...]] | None:
+    try:
+        return platform.current().shell.audio_sources()
+    except Exception:
+        logger.warning("Could not ask the sound server for its inputs", exc_info=True)
+        return None
 
 
 def list_input_devices() -> list[AudioDevice]:
@@ -298,6 +317,10 @@ def capture_plans(
     mme = _mme_twin(devices, hostapis, chosen)
     if mme is not None and mme.index != chosen.index:
         plans.append(_plan(mme, sample_rate))
+    elif chosen.host_api == JACK:
+        fallback = _alsa_default(devices, hostapis)
+        if fallback is not None:
+            plans.append(_plan(fallback, sample_rate))
     return plans, chosen, match
 
 
@@ -329,6 +352,17 @@ def _device_by_index(
         sample_rate=_rate_of(info),
         channels=int(info["max_input_channels"]),
     )
+
+
+def _alsa_default(devices: Sequence[Any], hostapis: Sequence[Any]) -> AudioDevice | None:
+    """ALSA's "default" device, which PipeWire serves at any rate from the default input."""
+    alsa = _api_index(hostapis, "ALSA")
+    if alsa is None:
+        return None
+    for candidate in _api_inputs(devices, hostapis, alsa):
+        if candidate.name == ALSA_DEFAULT:
+            return candidate
+    return None
 
 
 def _mme_twin(

@@ -1,6 +1,9 @@
+import os
 import sys
 
 import pytest
+
+os.environ.setdefault("SPELLS_PLATFORM", "stub")
 
 
 def pytest_collection_modifyitems(config, items):

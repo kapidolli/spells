@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import os
 import sys
 
 from spells.platform.base import Capabilities, Platform, PlatformUnavailable
 from spells.platform.paths import system_name
+
+PLATFORM_ENV = "SPELLS_PLATFORM"
 
 _current: Platform | None = None
 
@@ -14,6 +17,10 @@ def _build() -> Platform:
         from spells.platform import windows
 
         return windows.build()
+    if name == "linux" and os.environ.get(PLATFORM_ENV) != "stub":
+        from spells.platform import linux
+
+        return linux.build()
     from spells.platform import stub
 
     return stub.build(name)

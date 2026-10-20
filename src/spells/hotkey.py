@@ -614,8 +614,8 @@ class HotkeyThread(threading.Thread):
             self._handle = None
             self.stats.install_failures += 1
             message = f"keyboard hook install failed: {exc}"
-            log.exception("keyboard hook install failed")
             if message != self.stats.last_error:
+                log.exception("keyboard hook install failed")
                 self._report_error(message)
             self.stats.last_error = message
             return False

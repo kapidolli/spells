@@ -247,8 +247,19 @@ def _with_backend_info(device: GpuDevice, info: BackendDevice | None) -> GpuDevi
     return replace(device, uma=info.uma, vendor=info.vendor)
 
 
+SOFTWARE_RENDERERS = ("llvmpipe", "lavapipe", "swiftshader")
+
+
+def is_software(device: GpuDevice) -> bool:
+    """Mesa's llvmpipe and its kin run Vulkan on the processor and report system RAM as memory."""
+    name = device.name.casefold()
+    return any(marker in name for marker in SOFTWARE_RENDERERS)
+
+
 def _class_rank(device: GpuDevice) -> int:
-    """Discrete first, then unknown, then integrated (decision B3-59)."""
+    """Discrete first, then unknown, then integrated (decision B3-59), software renderers last."""
+    if is_software(device):
+        return 3
     if device.uma is False:
         return 0
     if device.uma is None:

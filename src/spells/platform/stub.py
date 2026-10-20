@@ -204,6 +204,9 @@ class StubShell:
     def microphone_blocked(self) -> bool | None:
         return None
 
+    def audio_sources(self) -> tuple[str, tuple[str, ...]] | None:
+        return None
+
 
 class StubAppearance:
     def apps_dark(self) -> bool | None:

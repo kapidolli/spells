@@ -41,19 +41,23 @@ def test_builtin_rules_cover_the_spec_table():
     by_name = {rule.name: rule for rule in profiles.BUILTIN_RULES}
 
     assert list(by_name) == ["Chat", "Email and docs", "Code", "Terminal"]
-    assert by_name["Chat"].match_process == ["ms-teams.exe", "slack.exe", "WhatsApp.exe"]
+    assert by_name["Chat"].match_process[:3] == ["ms-teams.exe", "slack.exe", "WhatsApp.exe"]
     assert by_name["Chat"].match_title == ["Slack", "WhatsApp"]
-    assert by_name["Email and docs"].match_process == ["OUTLOOK.EXE", "olk.exe", "WINWORD.EXE"]
+    assert by_name["Email and docs"].match_process[:3] == ["OUTLOOK.EXE", "olk.exe", "WINWORD.EXE"]
     assert by_name["Email and docs"].match_title == ["Gmail", "Outlook"]
-    assert by_name["Code"].match_process == ["Code.exe", "idea64.exe", "devenv.exe"]
+    assert by_name["Code"].match_process[:3] == ["Code.exe", "idea64.exe", "devenv.exe"]
     assert by_name["Code"].match_title == []
-    assert by_name["Terminal"].match_process == [
+    assert by_name["Terminal"].match_process[:4] == [
         "WindowsTerminal.exe",
         "powershell.exe",
         "pwsh.exe",
         "cmd.exe",
     ]
     assert by_name["Terminal"].match_title == []
+    assert "slack" in by_name["Chat"].match_process
+    assert "thunderbird" in by_name["Email and docs"].match_process
+    assert "code" in by_name["Code"].match_process
+    assert "org.kde.konsole" in by_name["Terminal"].match_process
     for rule in profiles.BUILTIN_RULES:
         assert rule.profile.name == rule.name
         assert rule.profile is profiles.BUILTIN_PROFILES[rule.name]

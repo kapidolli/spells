@@ -1,0 +1,4 @@
+# Spells: let the signed-in user read keyboards (for the hold-to-talk hotkey) and send keys
+# through uinput (for the paste shortcut). uaccess grants it only to the active local session.
+SUBSYSTEM=="input", KERNEL=="event*", ENV{ID_INPUT_KEYBOARD}=="1", TAG+="uaccess"
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"

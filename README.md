@@ -39,6 +39,8 @@ Windows 11, 64-bit, a processor with AVX2 and about 5 GB of disk. A graphics car
 
 The installer is not code-signed yet, so Windows SmartScreen may say "Windows protected your PC": click **More info**, then **Run anyway**. [Install options, requirements and speed](docs/install.md).
 
+Linux (KDE Plasma on Wayland first) runs from a checkout for now, with no installer yet: `build/linux/install.sh` sets up Python, the engines, the models and a menu entry. It installs one udev rule with sudo, which lets your session read the keyboard for the hotkey and send the paste shortcut.
+
 ## Learn more
 
 - [Guide](docs/guide.md): everything Spells can do

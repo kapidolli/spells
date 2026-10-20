@@ -10,6 +10,10 @@ the two can never say different things.
 
 ## [Unreleased]
 
+### Added
+
+- Spells runs on Linux from a checkout, KDE Plasma on Wayland first. Hold Ctrl+Super to dictate, tap twice to keep it on, Esc to cancel. The text is pasted, with Ctrl+Shift+V in terminals, and app profiles follow the focused window through KWin. Live typing is not available on Linux yet.
+
 ### Planned
 
 - Albanian on the fast speech model, once the gated model is available.

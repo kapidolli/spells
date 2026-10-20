@@ -17,7 +17,17 @@ from spells.config import DEFAULT_TONES, ProfileRule, Settings
 from spells.models import DeliveryMethod, Profile, TargetContext
 
 TITLE_MATCH_PROCESSES = frozenset(
-    {"chrome.exe", "msedge.exe", "firefox.exe", "applicationframehost.exe"}
+    {
+        "chrome.exe",
+        "msedge.exe",
+        "firefox.exe",
+        "applicationframehost.exe",
+        "firefox",
+        "google-chrome",
+        "chromium",
+        "brave-browser",
+        "microsoft-edge",
+    }
 )
 
 CHAT_PROFILE = Profile(
@@ -61,25 +71,63 @@ BUILTIN_PROFILES: dict[str, Profile] = {
 BUILTIN_RULES: list[ProfileRule] = [
     ProfileRule(
         name="Chat",
-        match_process=["ms-teams.exe", "slack.exe", "WhatsApp.exe"],
+        match_process=[
+            "ms-teams.exe",
+            "slack.exe",
+            "WhatsApp.exe",
+            "slack",
+            "discord",
+            "signal",
+            "org.telegram.desktop",
+            "teams-for-linux",
+        ],
         match_title=["Slack", "WhatsApp"],
         profile=CHAT_PROFILE,
     ),
     ProfileRule(
         name="Email and docs",
-        match_process=["OUTLOOK.EXE", "olk.exe", "WINWORD.EXE"],
+        match_process=[
+            "OUTLOOK.EXE",
+            "olk.exe",
+            "WINWORD.EXE",
+            "thunderbird",
+            "org.kde.kmail2",
+            "libreoffice-writer",
+        ],
         match_title=["Gmail", "Outlook"],
         profile=EMAIL_PROFILE,
     ),
     ProfileRule(
         name="Code",
-        match_process=["Code.exe", "idea64.exe", "devenv.exe"],
+        match_process=[
+            "Code.exe",
+            "idea64.exe",
+            "devenv.exe",
+            "code",
+            "jetbrains-idea",
+            "jetbrains-pycharm",
+            "dev.zed.Zed",
+            "org.kde.kate",
+        ],
         match_title=[],
         profile=CODE_PROFILE,
     ),
     ProfileRule(
         name="Terminal",
-        match_process=["WindowsTerminal.exe", "powershell.exe", "pwsh.exe", "cmd.exe"],
+        match_process=[
+            "WindowsTerminal.exe",
+            "powershell.exe",
+            "pwsh.exe",
+            "cmd.exe",
+            "org.kde.konsole",
+            "kitty",
+            "Alacritty",
+            "org.wezfurlong.wezterm",
+            "foot",
+            "com.mitchellh.ghostty",
+            "org.gnome.Terminal",
+            "org.gnome.Ptyxis",
+        ],
         match_title=[],
         profile=TERMINAL_PROFILE,
     ),
