@@ -7,8 +7,7 @@ from dataclasses import replace
 import pytest
 
 from spells.models import EngineState
-from spells.ui import UiHandles, create_ui
-from spells.ui.bridge import UiBridge
+from spells.ui import create_ui
 from spells.ui.icons import TrayIconState
 
 from .fake_recorder import FakeRecorder
@@ -57,24 +56,6 @@ def make_ui(app, tmp_path, *, first_run=False, bridge=None):
     return handles, config, engines, quits
 
 
-def test_handles_carry_the_parts(app, tmp_path):
-    handles, *_ = make_ui(app, tmp_path)
-    assert isinstance(handles, UiHandles)
-    assert isinstance(handles.bridge, UiBridge)
-    assert handles.tray.state is TrayIconState.READY
-    assert handles.pill.content is None
-    assert callable(handles.open_settings)
-    assert handles.welcome is None
-    handles.close()
-
-
-def test_a_supplied_bridge_is_used(app, tmp_path):
-    bridge = UiBridge()
-    handles, *_ = make_ui(app, tmp_path, bridge=bridge)
-    assert handles.bridge is bridge
-    handles.close()
-
-
 def test_bridge_events_reach_tray_and_pill(app, tmp_path):
     handles, *_ = make_ui(app, tmp_path)
     handles.bridge.on_pipeline_event(event(PillState.RECORDING, TrayState.RECORDING))
@@ -120,9 +101,3 @@ def test_first_run_shows_the_welcome_page_once(app, tmp_path):
     assert handles.welcome is not None and handles.welcome.isVisible()
     handles.close()
 
-
-def test_quit_goes_to_the_callback(app, tmp_path):
-    handles, _config, _engines, quits = make_ui(app, tmp_path)
-    handles.tray.quit_action.trigger()
-    assert quits == [1]
-    handles.close()

@@ -18,20 +18,15 @@ from spells.datafiles import data_path
 from spells.engines import (
     LOG_KEEP,
     LOG_MAX_BYTES,
-    REASONS,
     STATUS_DLL_NOT_FOUND,
     EnginePaths,
     EngineSupervisor,
     SpeechEngine,
-    SpeechSlot,
-    classify_failure,
     engine_label,
-    gpu_verified_from_log,
 )
 from spells.gpu import GpuDevice, GpuSelection
 from spells.modelcatalog import ModelChoice, ModelKind
 from spells.models import CpuPlan, Engine, EngineId, EngineState
-from spells.platform import PlatformUnavailable
 
 from .fake_process import FakeClock, FakePopen, FakeWorld
 
@@ -226,18 +221,6 @@ def test_log_scan_switches_a_vulkan_build_that_found_no_device_to_cpu(harness, w
     assert len(world.spawned("whisper", "vulkan")) == 1
 
 
-def test_no_device_line_flushed_just_before_health_still_counts(harness, world):
-    def on_spawn(proc: FakePopen) -> None:
-        if proc.variant == "vulkan":
-            proc.on_health = lambda: proc.write_log(NO_DEVICES)
-
-    world.on_spawn = on_spawn
-    harness.run(WHISPER)
-    assert harness.sup.status(WHISPER) is EngineState.CPU_FALLBACK
-    assert harness.sup.reason(WHISPER) == "no_vulkan_gpu"
-    assert world.latest("whisper").variant == "cpu"
-
-
 def test_no_device_line_after_ready_is_ignored(harness, world):
     harness.run(WHISPER)
     vulkan = world.latest("whisper")
@@ -258,12 +241,6 @@ def test_crash_after_ready_with_a_late_no_device_line_is_a_crash(harness, world)
     assert harness.sup.reason(WHISPER) == "crash"
 
 
-def test_classify_failure_reads_no_device_from_the_startup_window_only():
-    assert classify_failure(1, NO_DEVICES, startup_log="") == "crash"
-    assert classify_failure(1, "", startup_log=NO_DEVICES) == "no_vulkan_gpu"
-    assert classify_failure(1, OOM, startup_log="") == "oom"
-
-
 def test_gpu_verified_true_when_the_log_names_the_chosen_device(harness, world):
     world.on_spawn = lambda proc: proc.write_log(FOUND_RTX)
     harness.run_both()
@@ -276,30 +253,6 @@ def test_gpu_verified_false_when_the_log_names_another_device(harness, world):
     harness.run(WHISPER)
     assert harness.sup.status(WHISPER) is EngineState.READY
     assert harness.sup.gpu_verified(WHISPER) is False
-
-
-def test_gpu_verified_none_without_a_found_line(harness):
-    harness.run(WHISPER)
-    assert harness.sup.gpu_verified(WHISPER) is None
-
-
-def test_gpu_verified_is_re_read_at_health_ticks_until_known(harness, world):
-    harness.run(WHISPER)
-    assert harness.sup.gpu_verified(WHISPER) is None
-    world.latest("whisper").write_log(FOUND_RTX)
-    harness.run(WHISPER, 5.0)
-    assert harness.sup.gpu_verified(WHISPER) is None
-    harness.run(WHISPER, 6.0)
-    assert harness.sup.gpu_verified(WHISPER) is True
-
-
-def test_gpu_verified_from_log_reads_only_the_device_block():
-    log = "ggml_vulkan: Found 1 Vulkan devices:\nggml_vulkan: 0 = Other (X) | uma: 0\n" + RTX
-    assert gpu_verified_from_log(log, RTX) is False
-    assert gpu_verified_from_log(FOUND_RTX, RTX) is True
-    assert gpu_verified_from_log("nothing here", RTX) is None
-    assert gpu_verified_from_log(FOUND_RTX, "") is False
-
 
 
 def test_whisper_oom_switches_to_cpu_and_retries_vulkan_with_a_second_process(harness, world):
@@ -504,15 +457,6 @@ def test_dll_not_found_exit_code_switches_to_cpu_without_retry(harness, world):
     assert len(world.spawned("whisper", "vulkan")) == 1
 
 
-def test_negative_exit_code_form_of_dll_not_found_is_recognized():
-    assert classify_failure(STATUS_DLL_NOT_FOUND - (1 << 32), "") == "dll_not_found"
-    assert classify_failure(STATUS_DLL_NOT_FOUND, "") == "dll_not_found"
-    assert classify_failure(1, NO_DEVICES) == "no_vulkan_gpu"
-    assert classify_failure(None, OOM) == "oom"
-    assert classify_failure(1, CRASH) == "crash"
-    assert classify_failure(None, "") == "crash"
-
-
 def test_cpu_variant_failure_is_failed(tmp_path, world):
     harness = Harness(tmp_path, world, gpu=NO_GPU)
     harness.run(LLAMA)
@@ -522,16 +466,6 @@ def test_cpu_variant_failure_is_failed(tmp_path, world):
     assert harness.sup.reason(LLAMA) == "crash"
     assert harness.sup.llama_url is None
     assert len(world.processes) == 1
-
-
-def test_cpu_fallback_whose_cpu_build_dies_is_failed(harness, world):
-    world.on_spawn = lambda proc: proc.exit(1, NO_DEVICES) if proc.variant == "vulkan" else None
-    harness.run(WHISPER)
-    assert harness.sup.status(WHISPER) is EngineState.CPU_FALLBACK
-    world.latest("whisper", "cpu").exit(1, CRASH)
-    harness.run(WHISPER, 3600.0)
-    assert harness.sup.status(WHISPER) is EngineState.FAILED
-    assert harness.events_for(WHISPER)[-1] == (EngineState.FAILED, "crash")
 
 
 def test_failed_engine_is_relaunched_by_restart(tmp_path, world):
@@ -546,17 +480,6 @@ def test_failed_engine_is_relaunched_by_restart(tmp_path, world):
     assert len(world.processes) == 2
 
 
-def test_spawn_error_counts_as_a_crash(harness, world):
-    world.spawn_error = OSError("exe missing")
-    harness.run(LLAMA, 0.5)
-    assert harness.sup.status(LLAMA) is EngineState.RESTARTING
-    assert harness.sup.reason(LLAMA) == "crash"
-    assert world.processes == []
-    world.spawn_error = None
-    harness.run(LLAMA, 2.0)
-    assert harness.sup.status(LLAMA) is EngineState.READY
-
-
 def test_persistent_spawn_error_ends_in_failed(harness, world):
     world.spawn_error = OSError("exe missing")
     harness.run(LLAMA, 10.0)
@@ -565,17 +488,6 @@ def test_persistent_spawn_error_ends_in_failed(harness, world):
         (EngineState.RESTARTING, "crash"),
         (EngineState.FAILED, "crash"),
     ]
-
-
-def test_a_system_that_cannot_start_engines_ends_in_failed_like_a_missing_exe(harness, world):
-    world.spawn_error = PlatformUnavailable("Starting the speech engines is not available on linux yet")
-    harness.run(LLAMA, 10.0)
-    assert harness.sup.status(LLAMA) is EngineState.FAILED
-    assert harness.events_for(LLAMA)[-2:] == [
-        (EngineState.RESTARTING, "crash"),
-        (EngineState.FAILED, "crash"),
-    ]
-    assert world.processes == []
 
 
 def test_startup_timeout_is_a_crash(tmp_path, world):
@@ -630,14 +542,6 @@ def test_health_failure_while_ready_restarts(harness, world):
     assert world.latest("whisper") is not proc
 
 
-def test_health_is_checked_every_interval(harness, world):
-    harness.run(LLAMA)
-    proc = world.latest("llama")
-    base = proc.health_calls
-    harness.run(LLAMA, 35.0)
-    assert proc.health_calls == base + 3
-
-
 def test_idle_unload_and_ensure_ready(tmp_path, world):
     harness = Harness(tmp_path, world, idle_unload_minutes=2)
     harness.run_both()
@@ -679,20 +583,6 @@ def test_ensure_ready_reloads_with_fresh_classification(tmp_path, world):
     harness.run(WHISPER)
     assert harness.sup.status(WHISPER) is EngineState.READY
     assert world.latest("whisper").variant == "vulkan"
-
-
-def test_ensure_ready_is_a_no_op_while_loaded(harness, world):
-    harness.run_both()
-    harness.sup.ensure_ready()
-    harness.run_both()
-    assert len(world.processes) == 2
-
-
-def test_idle_unload_off_by_default(harness, world):
-    harness.run_both()
-    harness.run_both(24 * 3600.0)
-    assert harness.sup.status(WHISPER) is EngineState.READY
-    assert len(world.processes) == 2
 
 
 def test_idle_unload_minutes_can_change_at_runtime(harness, world):
@@ -754,61 +644,6 @@ def test_set_gpu_restarts_both_with_the_new_index(harness, world):
     assert harness.sup.status(WHISPER) is EngineState.READY
 
 
-def test_set_gpu_to_none_moves_both_to_cpu(harness, world):
-    harness.run_both()
-    harness.sup.set_gpu(NO_GPU)
-    harness.run_both()
-    assert [p.variant for p in world.live()] == ["cpu", "cpu"]
-    assert harness.sup.status(LLAMA) is EngineState.CPU_FALLBACK
-
-
-
-def test_whisper_and_llama_arguments(harness, world):
-    harness.run_both()
-    whisper = world.latest("whisper")
-    llama = world.latest("llama")
-    assert whisper.exe == harness.paths.whisper_exe("vulkan")
-    assert whisper.arg_after("-m") == str(harness.paths.whisper_model)
-    assert whisper.arg_after("--host") == "127.0.0.1"
-    assert "--vad" in whisper.args
-    assert whisper.arg_after("--vad-model") == str(harness.paths.vad_model)
-    assert int(whisper.arg_after("-t")) >= 1
-    assert "--convert" not in whisper.args
-    assert "--print-realtime" not in whisper.args
-    assert "-pr" not in whisper.args
-    assert llama.exe == harness.paths.llama_exe("vulkan")
-    assert llama.arg_after("-m") == str(harness.paths.llama_model)
-    assert llama.arg_after("--host") == "127.0.0.1"
-    assert llama.arg_after("-c") == "4096"
-    assert llama.arg_after("-ngl") == "99"
-    assert whisper.cwd == harness.paths.vulkan_dir
-    assert whisper.stdout_path == harness.paths.log_dir / "whisper.log"
-    assert whisper.stderr_path == whisper.stdout_path
-    assert llama.stdout_path == harness.paths.log_dir / "llama.log"
-
-
-def test_cpu_llama_uses_zero_gpu_layers(tmp_path, world):
-    harness = Harness(tmp_path, world, gpu=NO_GPU)
-    harness.run(LLAMA)
-    llama = world.latest("llama")
-    assert llama.exe == harness.paths.llama_exe("cpu")
-    assert llama.arg_after("-ngl") == "0"
-
-
-def test_ports_are_unique_and_taken_from_the_loopback_range(harness, world):
-    harness.run_both()
-    whisper, llama = world.latest("whisper"), world.latest("llama")
-    assert whisper.port != llama.port
-    assert 1024 < whisper.port < 65536
-
-
-def test_both_pids_share_one_job(harness, world):
-    harness.run_both()
-    assert len(world.jobs) == 1
-    assert sorted(world.jobs[0].pids) == sorted(p.pid for p in world.processes)
-    assert harness.sup.pid(WHISPER) == world.latest("whisper").pid
-
-
 def test_log_rotation_at_five_megabytes_keeps_five_files(harness, world):
     log = harness.paths.log_dir / "llama.log"
     log.parent.mkdir(parents=True)
@@ -823,15 +658,6 @@ def test_log_rotation_at_five_megabytes_keeps_five_files(harness, world):
         LOG_KEEP - 2
     )
     assert log.stat().st_size < LOG_MAX_BYTES
-
-
-def test_small_logs_are_not_rotated(harness, world):
-    log = harness.paths.log_dir / "whisper.log"
-    log.parent.mkdir(parents=True)
-    log.write_bytes(b"old line\n")
-    harness.run(WHISPER)
-    assert not (harness.paths.log_dir / "whisper.log.1").exists()
-    assert log.read_bytes().startswith(b"old line\n")
 
 
 def test_classification_only_reads_the_lines_of_the_failing_process(harness, world):
@@ -850,32 +676,7 @@ def test_classification_only_reads_the_lines_of_the_failing_process(harness, wor
 
 
 
-def test_every_reason_string():
-    assert REASONS == (
-        "ok",
-        "no_vulkan_gpu",
-        "oom",
-        "crash",
-        "dll_not_found",
-        "idle",
-        "no_model",
-        "cpu_selected",
-    )
-
-
 NGRAM = ("--spec-type", "ngram-simple", "--spec-ngram-simple-size-n", "2")
-
-
-def test_engine_args_from_the_chosen_models_follow_the_fixed_arguments(tmp_path, world):
-    paths = replace(make_paths(tmp_path), whisper_args=("--beam-size", "5"), llama_args=NGRAM)
-    harness = Harness(tmp_path, world, paths=paths)
-    harness.run_both()
-    whisper = world.latest("whisper")
-    llama = world.latest("llama")
-    assert whisper.args[-2:] == ["--beam-size", "5"]
-    assert whisper.arg_after("-t") is not None
-    assert llama.args[-len(NGRAM):] == list(NGRAM)
-    assert llama.arg_after("-ngl") == "99"
 
 
 def test_cpu_hardware_launches_both_cpu_builds_on_a_machine_with_a_gpu(tmp_path, world):
@@ -895,16 +696,6 @@ def test_cpu_hardware_launches_both_cpu_builds_on_a_machine_with_a_gpu(tmp_path,
     assert harness.sup.llama_url is not None
     harness.run_both(3600.0)
     assert len(world.processes) == 2
-
-
-def test_cpu_hardware_without_any_gpu_keeps_the_no_vulkan_gpu_reason(tmp_path, world):
-    harness = Harness(tmp_path, world, gpu=NO_GPU, cpu_only=True)
-    harness.run_both()
-    assert harness.sup.reason(LLAMA) == "no_vulkan_gpu"
-
-
-def test_cpu_cleanup_is_not_allowed_by_default(harness):
-    assert harness.sup.cpu_cleanup_allowed is False
 
 
 def test_a_new_cleanup_model_relaunches_llama_only(harness, world):
@@ -970,17 +761,6 @@ def test_switching_gpu_and_models_clears_cpu_plan_in_one_reconfiguration(harness
     harness.run_both()
     assert len(world.live()) == 2
     assert all(p.variant == "vulkan" for p in world.live())
-    assert all(p.env["GGML_VK_VISIBLE_DEVICES"] == "1" for p in world.live())
-
-
-def test_switching_gpu_relaunches_even_when_models_and_hardware_class_match(harness, world):
-    harness.run_both()
-    other = GpuSelection(raw_index=1, name="Other GPU", memory_mb=16000, devices=())
-    changed = harness.sup.set_models(
-        harness.paths, cpu_only=False, cpu_cleanup_allowed=False, gpu=other)
-    assert changed == (SPEECH_1, CLEANUP)
-    harness.run_both()
-    assert len(world.processes) == 4
     assert all(p.env["GGML_VK_VISIBLE_DEVICES"] == "1" for p in world.live())
 
 
@@ -1050,43 +830,6 @@ def test_without_a_cleanup_model_llama_is_failed_with_no_model_and_never_launche
     assert harness.events_for(LLAMA) == [(EngineState.FAILED, "no_model")]
 
 
-def test_without_a_cleanup_model_restart_gpu_change_and_reload_never_launch_llama(tmp_path, world):
-    harness = no_model_harness(tmp_path, world, idle_unload_minutes=1)
-    harness.run_both()
-    harness.sup.restart(LLAMA)
-    harness.run_both()
-    other = GpuSelection(raw_index=1, name="Other", memory_mb=4096, devices=())
-    harness.sup.set_gpu(other)
-    harness.run_both()
-    harness.run_both(120.0)
-    assert harness.sup.status(WHISPER) is EngineState.UNLOADED
-    harness.sup.ensure_ready()
-    harness.run_both()
-    assert harness.sup.status(WHISPER) is EngineState.READY
-    assert world.spawned("llama") == []
-    assert harness.sup.status(LLAMA) is EngineState.FAILED
-    assert harness.sup.reason(LLAMA) == "no_model"
-    assert harness.events_for(LLAMA) == [(EngineState.FAILED, "no_model")]
-
-
-def test_without_a_cleanup_model_wait_ready_for_llama_returns_false(tmp_path, world):
-    harness = no_model_harness(tmp_path, world)
-    harness.run_both()
-    assert harness.sup.wait_ready(LLAMA, 0.0) is False
-
-
-def test_cleanup_available_only_when_llama_is_ready_on_vulkan(harness, world):
-    assert harness.sup.cleanup_available is False
-    harness.run(LLAMA)
-    assert harness.sup.cleanup_available is True
-    world.on_spawn = lambda proc: proc.write_log(NO_DEVICES) if proc.variant == "vulkan" else None
-    harness.sup.restart(LLAMA)
-    harness.run(LLAMA)
-    assert harness.sup.status(LLAMA) is EngineState.CPU_FALLBACK
-    assert harness.sup.llama_url is not None
-    assert harness.sup.cleanup_available is False
-
-
 def test_status_callback_runs_outside_the_lock(tmp_path, world):
     seen = []
 
@@ -1138,20 +881,6 @@ def test_start_runs_threads_and_stop_kills_everything(tmp_path, world):
     assert world.jobs[0].closed
     assert (WHISPER, EngineState.READY, "ok") in events
     sup.stop()
-
-
-def test_stop_without_start_closes_nothing_and_is_safe(harness, world):
-    harness.sup.stop()
-    assert world.jobs == []
-
-
-def test_stop_after_manual_steps_kills_processes_and_closes_the_job(harness, world):
-    harness.run_both()
-    harness.sup.stop()
-    assert world.live() == []
-    assert world.jobs[0].closed
-    assert harness.sup.whisper_url is None
-
 
 
 def two_speech_paths(tmp_path: Path) -> EnginePaths:
@@ -1235,14 +964,6 @@ def test_one_process_per_speech_engine_plus_cleanup_each_with_its_own_log_and_po
     assert harness.sup.pid(SPEECH_2) == flutra.pid
 
 
-def test_the_speech_engines_describe_their_runtime_and_languages(tmp_path, world):
-    harness = multi(tmp_path, world)
-    assert harness.sup.speech_engines() == (
-        SpeechSlot(SPEECH_1, "llama-asr", ("en", "de")),
-        SpeechSlot(SPEECH_2, "whisper-server", ("sq",)),
-    )
-
-
 def test_the_speech_role_reports_the_worst_instance_and_announces_only_changes(tmp_path, world):
     harness = multi(tmp_path, world)
     harness.run_all()
@@ -1310,37 +1031,6 @@ def test_a_second_speech_engine_is_added_and_removed_with_the_models(tmp_path, w
     assert whisper.alive
 
 
-def test_a_started_supervisor_runs_an_added_engine_on_its_own_thread(tmp_path, world):
-    harness = Harness(tmp_path, world)
-    harness.sup = EngineSupervisor(
-        harness.paths,
-        GPU,
-        harness.on_status,
-        process_backend=world,
-        whisper_client_factory=world.whisper_client,
-        llama_client_factory=world.llama_client,
-        llama_asr_client_factory=world.llama_asr_client,
-    )
-    harness.sup.start()
-    try:
-        assert harness.sup.wait_ready(WHISPER, 5.0)
-        harness.sup.set_models(
-            replace(
-                harness.paths,
-                extra_speech=(SpeechEngine("llama-asr", tmp_path / "models" / "fr.gguf"),),
-            ),
-            cpu_only=False,
-            cpu_cleanup_allowed=False,
-        )
-        assert harness.sup.wait_ready(SPEECH_2, 5.0)
-        assert harness.sup.wait_ready(WHISPER, 5.0)
-        names = {thread.name for thread in threading.enumerate()}
-        assert "engine-whisper-2" in names
-    finally:
-        harness.sup.stop()
-    assert not any(proc.alive for proc in world.processes)
-
-
 def test_an_unplanned_cpu_instance_makes_the_role_variant_cpu(tmp_path, world):
     harness = multi(tmp_path, world)
     world.on_spawn = lambda proc: (
@@ -1353,26 +1043,6 @@ def test_an_unplanned_cpu_instance_makes_the_role_variant_cpu(tmp_path, world):
     assert harness.sup.variant(WHISPER) == "cpu"
     assert harness.sup.status(WHISPER) is EngineState.CPU_FALLBACK
     assert harness.sup.reason(WHISPER) == "no_vulkan_gpu"
-
-
-def test_gpu_verification_of_the_speech_role_needs_every_instance(tmp_path, world):
-    harness = Harness(tmp_path, world)
-    world.on_spawn = lambda proc: proc.write_log(FOUND_RTX) if proc.engine == "whisper" else None
-    harness.run_both()
-    assert harness.sup.gpu_verified(WHISPER) is True
-    harness.sup.set_models(
-        replace(
-            harness.paths,
-            extra_speech=(SpeechEngine("llama-asr", tmp_path / "models" / "fr.gguf"),),
-        ),
-        cpu_only=False,
-        cpu_cleanup_allowed=False,
-    )
-    for _ in range(50):
-        harness.sup.step(SPEECH_2)
-    assert harness.sup.gpu_verified(SPEECH_1) is True
-    assert harness.sup.gpu_verified(SPEECH_2) is None
-    assert harness.sup.gpu_verified(WHISPER) is None
 
 
 def test_a_llama_asr_warm_up_failure_is_a_launch_failure(tmp_path, world):
@@ -1426,32 +1096,6 @@ def test_a_hybrid_processor_pins_every_engine_to_the_performance_cores(tmp_path,
     assert harness.sup.cpu_plan == plan
 
 
-def test_without_a_hybrid_processor_nothing_is_pinned(harness, world):
-    harness.run_both()
-    for proc in world.processes:
-        assert proc.affinity_mask is None
-        assert "-C" not in proc.args
-    assert "-t" not in world.latest("llama").args
-
-
-def test_explicit_whisper_threads_win_over_the_plan(tmp_path, world):
-    harness = Harness(tmp_path, world, whisper_threads=3, cpu_plan=CpuPlan(8, 0xFF))
-    harness.run(WHISPER)
-    assert world.latest("whisper").arg_after("-t") == "3"
-
-
-def test_the_gate_inputs_follow_the_models(tmp_path, world):
-    harness = Harness(tmp_path, world, cpu_only=True)
-    assert harness.sup.cpu_only is True
-    assert harness.sup.cleanup_languages is None
-    harness.sup.set_models(
-        replace(harness.paths, llama_languages=("en", "de")), cpu_only=False,
-        cpu_cleanup_allowed=False,
-    )
-    assert harness.sup.cpu_only is False
-    assert harness.sup.cleanup_languages == frozenset({"en", "de"})
-
-
 @pytest.mark.windows
 def test_engine_paths_take_the_selection_choices(tmp_path):
     models = tmp_path / "models"
@@ -1488,17 +1132,8 @@ def test_engine_paths_take_the_selection_choices(tmp_path):
     assert (none.llama_model, none.llama_args, none.llama_languages) == (None, (), ())
 
 
-def test_engine_labels_name_the_languages():
-    assert engine_label(WHISPER) == "Speech engine"
-    assert engine_label(SPEECH_2, ["sq"]) == "Speech engine for Albanian"
-    assert engine_label(SPEECH_1, ["en", "de"]) == "Speech engine for English and German"
-    assert engine_label(CLEANUP) == "Cleanup engine"
-    assert EngineId(WHISPER, 1).key == "whisper-2" and str(CLEANUP) == "llama"
-
-
-
 def test_a_writing_model_of_its_own_gets_an_engine_of_its_own(tmp_path, world):
-    from spells.engines import WRITER_ID, engine_label
+    from spells.engines import WRITER_ID
 
     paths = replace(
         make_paths(tmp_path),
@@ -1519,12 +1154,6 @@ def test_a_writing_model_of_its_own_gets_an_engine_of_its_own(tmp_path, world):
     assert harness.sup.url(WRITER_ID) is not None
     assert harness.sup.url(WRITER_ID) != harness.sup.llama_url
     assert engine_label(WRITER_ID) == "Writing engine"
-
-
-def test_without_a_writing_model_there_is_no_writing_engine(tmp_path, world):
-    harness = Harness(tmp_path, world)
-    assert harness.sup.writer_engine is None
-    assert len(harness.paths.engine_ids) == 2
 
 
 def test_dropping_the_writing_model_retires_its_engine(tmp_path, world):

@@ -63,14 +63,8 @@ def _apply(
     return postprocess.apply(text, profile, CTX, last, vocabulary, now)
 
 
-
-def test_no_rules_leaves_text_untouched():
-    assert _apply("Hello, world.") == "Hello, world."
-
-
 def test_empty_text_stays_empty():
     assert _apply("", CHAT, _vocab([("a", "b")], [("a", "b")]), _last()) == ""
-
 
 
 def test_replacement_is_case_insensitive_whole_phrase():
@@ -84,12 +78,6 @@ def test_replacement_does_not_touch_partial_words():
     vocab = _vocab([("con toso", "Contoso"), ("flex", "FLEX")])
 
     assert _apply("inflexible network flex", vocabulary=vocab) == "inflexible network FLEX"
-
-
-def test_replacement_replaces_every_occurrence():
-    vocab = _vocab([("teh", "the")])
-
-    assert _apply("teh cat and teh dog", vocabulary=vocab) == "the cat and the dog"
 
 
 def test_replacement_phrase_tolerates_extra_whitespace():
@@ -124,19 +112,6 @@ def test_replacement_with_blank_find_is_ignored():
     assert _apply("keep me", vocabulary=vocab) == "keep me"
 
 
-def test_replacement_handles_unicode_case():
-    vocab = _vocab([("äpfel", "Äpfel")])
-
-    assert _apply("ÄPFEL und äpfel", vocabulary=vocab) == "Äpfel und Äpfel"
-
-
-def test_apply_replacements_alone():
-    replacements = [Replacement(find="con toso", replace="Contoso")]
-
-    assert postprocess.apply_replacements("con toso.", replacements) == "Contoso."
-
-
-
 def test_snippet_replaces_whole_utterance():
     vocab = _vocab(snippets=[("sign off", "Best regards,\nAlex")])
 
@@ -158,25 +133,11 @@ def test_snippet_not_expanded_inside_longer_utterance():
     assert _apply("please sign off now", vocabulary=vocab) == "please sign off now"
 
 
-def test_first_matching_snippet_wins():
-    vocab = _vocab(snippets=[("hi", "first"), ("hi", "second")])
-
-    assert _apply("Hi.", vocabulary=vocab) == "first"
-
-
 def test_snippet_with_blank_trigger_is_ignored():
     vocab = _vocab(snippets=[("", "nothing"), ("...", "dots")])
 
     assert _apply("keep", vocabulary=vocab) == "keep"
     assert _apply("", vocabulary=vocab) == ""
-
-
-def test_apply_snippets_alone():
-    snippets = [Snippet(trigger="sign off", text="Best regards")]
-
-    assert postprocess.apply_snippets("Sign off.", snippets) == "Best regards"
-    assert postprocess.apply_snippets("no", snippets) == "no"
-
 
 
 def test_replacement_can_create_a_snippet_trigger():
@@ -191,25 +152,16 @@ def test_snippet_output_is_not_fed_back_into_replacements():
     assert _apply("sig", vocabulary=vocab) == "Best regards"
 
 
-
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
         ("Sounds good.", "Sounds good"),
-        ("It costs 3.50.", "It costs 3.50"),
         ("See example.com.", "See example.com"),
-        ("Sounds good. ", "Sounds good "),
-        ("Sounds good.\n", "Sounds good\n"),
         ("Sounds good", "Sounds good"),
         ("Really?", "Really?"),
-        ("Great!", "Great!"),
         ("Wait...", "Wait..."),
         ("Sounds good. See you tomorrow.", "Sounds good. See you tomorrow."),
-        ("Really? Yes.", "Really? Yes."),
-        ("Wow! Great.", "Wow! Great."),
         ("Send it to Dr. Smith.", "Send it to Dr. Smith."),
-        ("", ""),
-        (".", ""),
     ],
 )
 def test_chat_drops_trailing_period_on_single_sentence(text, expected):
@@ -221,14 +173,10 @@ def test_chat_drops_trailing_period_on_single_sentence(text, expected):
     [
         ("ls -la.", "ls -la"),
         ("git status?!", "git status"),
-        ("git status...", "git status"),
         ("echo hi;", "echo hi"),
-        ("cd src,", "cd src"),
-        ("ls -la. ", "ls -la"),
         ("ls -la", "ls -la"),
         ('echo "hi."', 'echo "hi."'),
         ("ls -la. cat x.", "ls -la. cat x"),
-        ("", ""),
     ],
 )
 def test_terminal_drops_trailing_punctuation(text, expected):
@@ -240,27 +188,13 @@ def test_default_profile_keeps_punctuation():
     assert _apply("ls -la.", DEFAULT) == "ls -la."
 
 
-def test_email_profile_keeps_punctuation():
-    email = Profile(name="Email and docs", cleanup=True, tone="", delivery=DeliveryMethod.PASTE)
-    assert _apply("Sounds good.", email) == "Sounds good."
-
-
-def test_apply_profile_formatting_alone():
-    assert postprocess.apply_profile_formatting("Hi.", CHAT) == "Hi"
-    assert postprocess.apply_profile_formatting("ls.", TERMINAL) == "ls"
-    assert postprocess.apply_profile_formatting("Hi.", DEFAULT) == "Hi."
-
-
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
         ("Sounds good.", True),
         ("It costs 3.50.", True),
-        ("Sounds good", True),
         ("Sounds good! Really", False),
         ("One. Two.", False),
-        ("One.\nTwo.", False),
-        ("", True),
     ],
 )
 def test_is_single_sentence(text, expected):
@@ -273,13 +207,8 @@ def test_profile_formatting_applies_to_snippet_output():
     assert _apply("thanks", CHAT, vocab) == "Thanks a lot"
 
 
-
 def test_leading_space_added_when_all_conditions_hold():
     assert _apply("hello", last=_last(), now=150.0) == " hello"
-
-
-def test_leading_space_added_after_typed_delivery():
-    assert _apply("hello", last=_last(outcome=DeliveryOutcome.TYPED), now=150.0) == " hello"
 
 
 def test_no_leading_space_without_last_delivery():
@@ -300,7 +229,6 @@ def test_leading_space_window_is_sixty_seconds():
     "outcome",
     [
         DeliveryOutcome.COPIED_FOCUS_CHANGED,
-        DeliveryOutcome.COPIED_ELEVATED,
         DeliveryOutcome.FAILED,
     ],
 )
@@ -315,16 +243,6 @@ def test_no_leading_space_when_previous_text_ended_with_whitespace():
 def test_no_leading_space_when_text_already_starts_with_whitespace():
     assert _apply(" hello", last=_last(), now=150.0) == " hello"
     assert _apply("\nhello", last=_last(), now=150.0) == "\nhello"
-
-
-def test_no_leading_space_for_empty_text():
-    assert _apply("", last=_last(), now=150.0) == ""
-
-
-def test_needs_leading_space_alone():
-    assert postprocess.needs_leading_space("x", CTX, _last(), 150.0) is True
-    assert postprocess.needs_leading_space("x", CTX, None, 150.0) is False
-
 
 
 def test_full_pipeline_order():

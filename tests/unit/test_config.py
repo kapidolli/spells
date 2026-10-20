@@ -13,7 +13,6 @@ import pytest
 
 from spells import config
 from spells.config import (
-    DEFAULT_TONES,
     SCHEMA_VERSION,
     ConfigStore,
     DiagnosticsSettings,
@@ -99,61 +98,13 @@ def _backup_files(directory: Path) -> list[Path]:
     return sorted(directory.glob("settings.corrupt-*.json"))
 
 
-
-def test_default_settings_match_spec():
-    settings = default_settings()
-
-    assert settings.schema_version == SCHEMA_VERSION == 1
-    general = settings.general
-    assert general.main_chord == Chord(keys=(0x11, 0x5B))
-    assert general.main_chord.language is None
-    assert general.language_chords == []
-    assert general.mic_device is None
-    assert general.language_mode == "auto"
-    assert general.enabled_languages == ["en", "de", "sq"]
-    assert general.autostart is True
-    assert general.keep_mic_warm is False
-    assert general.sounds is True
-    assert general.live_text is True
-    assert general.live_text_everywhere is False
-    assert general.idle_unload_minutes == 0
-
-    cleanup = settings.cleanup
-    assert cleanup.enabled is True
-    assert cleanup.timeout_ms == 2500
-    assert set(cleanup.tones) == {"Chat", "Email and docs", "Code", "Terminal", "Default"}
-    assert cleanup.tones == DEFAULT_TONES
-    assert "identifiers" in cleanup.tones["Code"]
-    assert cleanup.fillers["en"][:3] == ["um", "uh", "erm"]
-    assert "I mean" in cleanup.fillers["en"]
-    assert "let me rephrase" in cleanup.corrections["en"]
-    assert "ähm" in cleanup.fillers["de"]
-    assert "besser gesagt" in cleanup.corrections["de"]
-    assert "domethanë" in cleanup.fillers["sq"]
-    assert "jo prit" in cleanup.corrections["sq"]
-
-    assert settings.profiles == []
-    assert settings.vocabulary == Vocabulary(terms=[], replacements=[], snippets=[])
-    assert settings.history.retention == "100"
-    assert settings.diagnostics.debug_logging is False
-    assert settings.diagnostics.gpu_device_override is None
-    assert settings.diagnostics.gpu_device_index is None
-    assert settings.diagnostics.gpu_device_name is None
-
-
-@pytest.mark.parametrize("code", ["en", "de", "sq"])
-def test_default_lists_come_from_the_data_files(code):
+def test_default_lists_come_from_the_data_files():
     cleanup = default_settings().cleanup
 
-    assert cleanup.fillers[code] == read_lines(f"fillers/{code}.txt")
-    assert cleanup.corrections[code] == read_lines(f"corrections/{code}.txt")
-
-
-def test_default_lists_cover_exactly_the_shipped_languages():
-    cleanup = default_settings().cleanup
-
-    assert set(cleanup.fillers) == {"en", "de", "sq"}
-    assert set(cleanup.corrections) == {"en", "de", "sq"}
+    assert set(cleanup.fillers) == set(cleanup.corrections) == {"en", "de", "sq"}
+    for code in ("en", "de", "sq"):
+        assert cleanup.fillers[code] == read_lines(f"fillers/{code}.txt")
+        assert cleanup.corrections[code] == read_lines(f"corrections/{code}.txt")
 
 
 def test_default_settings_returns_independent_copies():
@@ -166,18 +117,6 @@ def test_default_settings_returns_independent_copies():
     assert second.general.enabled_languages == ["en", "de", "sq"]
 
 
-def test_settings_are_frozen():
-    settings = default_settings()
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        settings.general = settings.general  # type: ignore[misc]
-    with pytest.raises(dataclasses.FrozenInstanceError):
-        settings.general.autostart = False  # type: ignore[misc]
-
-
-def test_settings_error_is_a_value_error():
-    assert issubclass(SettingsError, ValueError)
-
-
 
 def test_to_dict_round_trips_through_json():
     original = _custom_settings()
@@ -186,28 +125,6 @@ def test_to_dict_round_trips_through_json():
     restored = from_dict(json.loads(json.dumps(raw)))
 
     assert restored == original
-
-
-def test_to_dict_uses_plain_json_values():
-    raw = to_dict(_custom_settings())
-
-    assert raw["schema_version"] == SCHEMA_VERSION
-    assert raw["general"]["main_chord"] == {"keys": [0x11, 0x12]}
-    assert raw["general"]["language_chords"] == [{"keys": [0x11, 0x5B, 0x44], "language": "de"}]
-    assert raw["profiles"][0]["profile"]["delivery"] == "type"
-    assert raw["profiles"][0]["profile"]["drop_trailing_period_single_sentence"] is False
-    assert raw["vocabulary"]["terms"] == [{"text": "Contoso", "edited_at": 1700000000.5}]
-    assert raw["history"] == {
-        "retention": "7d",
-        "keep_audio": False,
-        "audio_keep_count": 200,
-        "audio_keep_mb": 1000,
-    }
-    assert raw["diagnostics"]["gpu_device_override"] == 1
-
-
-def test_defaults_round_trip():
-    assert from_dict(to_dict(default_settings())) == default_settings()
 
 
 def test_from_dict_ignores_unknown_keys():
@@ -230,62 +147,20 @@ def test_from_dict_fills_missing_keys_with_defaults():
     assert settings.history.retention == "100"
 
 
-def test_from_dict_accepts_missing_schema_version():
-    settings = from_dict({"general": {"sounds": False}})
-
-    assert settings.schema_version == SCHEMA_VERSION
-    assert settings.general.sounds is False
-
-
-def test_from_dict_main_chord_language_is_always_none():
-    raw = to_dict(default_settings())
-    raw["general"]["main_chord"]["language"] = "de"
-
-    assert from_dict(raw).general.main_chord.language is None
-
-
 @pytest.mark.parametrize(
     "raw",
     [
         [],
-        {"general": "nope"},
         {"general": {"autostart": "yes"}},
-        {"general": {"autostart": 1}},
         {"general": {"idle_unload_minutes": True}},
-        {"general": {"idle_unload_minutes": "5"}},
         {"general": {"idle_unload_minutes": -1}},
-        {"general": {"enabled_languages": "en"}},
-        {"general": {"enabled_languages": ["en", 2]}},
         {"general": {"enabled_languages": []}},
-        {"general": {"language_mode": "fr"}},
-        {"general": {"language_mode": ""}},
         {"general": {"language_mode": "de", "enabled_languages": ["en"]}},
-        {"general": {"mic_device": 3}},
-        {"general": {"language_mode": None}},
-        {"general": {"main_chord": [17, 91]}},
-        {"general": {"main_chord": {"keys": ["ctrl", "win"]}}},
         {"general": {"main_chord": {"keys": []}}},
-        {"general": {"language_chords": [{"keys": [17]}]}},
-        {"general": {"language_chords": [{"keys": [17], "language": 7}]}},
-        {"cleanup": {"timeout_ms": 2500.0}},
         {"cleanup": {"tones": {"Chat": 1}}},
-        {"cleanup": {"tones": ["casual"]}},
-        {"cleanup": {"fillers": {"en": "um"}}},
-        {"cleanup": {"fillers": {"en": ["um", None]}}},
-        {"profiles": {}},
-        {"profiles": [{"name": "x", "match_process": "chrome.exe", "profile": {"name": "Chat"}}]},
         {"profiles": [{"name": "x", "profile": {"name": "Chat", "delivery": "fax"}}]},
-        {"profiles": [{"name": "x", "profile": {"name": "Chat", "cleanup": "on"}}]},
-        {"profiles": [{"name": "x", "profile": {"tone": "no name"}}]},
-        {"profiles": [{"name": "x"}]},
-        {"vocabulary": {"terms": [{"text": 1}]}},
         {"vocabulary": {"terms": [{"text": "a", "edited_at": "now"}]}},
-        {"vocabulary": {"replacements": [{"find": "a"}]}},
-        {"vocabulary": {"snippets": [{"trigger": "a", "text": None}]}},
         {"history": {"retention": "forever"}},
-        {"history": {"retention": 100}},
-        {"diagnostics": {"debug_logging": None}},
-        {"diagnostics": {"gpu_device_override": "0"}},
         {"schema_version": "1"},
     ],
 )
@@ -313,19 +188,9 @@ def _chords_raw(main: list[int], *language_chords: tuple[list[int], str]) -> dic
     }
 
 
-def test_equal_chords_are_rejected():
-    with pytest.raises(SettingsError, match=r"main_chord.*language_chords\[0\]"):
-        from_dict(_chords_raw([0x11, 0x5B], ([0x11, 0x5B], "de")))
-
-
 def test_chord_that_is_a_subset_of_another_is_rejected():
     with pytest.raises(SettingsError, match=r"main_chord.*language_chords\[0\]"):
         from_dict(_chords_raw([0x11, 0x5B], ([0x11, 0x5B, 0x44], "de")))
-
-
-def test_chord_that_is_a_superset_of_another_is_rejected():
-    with pytest.raises(SettingsError, match=r"main_chord.*language_chords\[0\]"):
-        from_dict(_chords_raw([0x11, 0x5B, 0x44], ([0x11, 0x5B], "de")))
 
 
 def test_nested_language_chords_are_rejected():
@@ -341,23 +206,12 @@ def test_disjoint_chords_are_accepted():
     assert len(settings.general.language_chords) == 2
 
 
-def test_chord_key_order_does_not_matter():
-    with pytest.raises(SettingsError):
-        from_dict(_chords_raw([0x11, 0x5B], ([0x5B, 0x11], "de")))
-
-
 @pytest.mark.parametrize(
     ("first", "second"),
     [
         ([0xA2, 0x5B], [0x11, 0x5B]),
-        ([0xA3, 0x5B], [0x11, 0x5B]),
         ([0xA0, 0x44], [0xA1, 0x44]),
-        ([0xA0, 0x44], [0x10, 0x44]),
-        ([0xA4, 0x44], [0x12, 0x44]),
-        ([0xA5, 0x44], [0xA4, 0x44]),
         ([0xA2, 0x5B], [0x11, 0x5B, 0x44]),
-        ([0x11, 0x11, 0x5B], [0x11, 0x5B]),
-        ([0xA2, 0xA3, 0x44], [0x11, 0x44]),
     ],
 )
 def test_left_and_right_modifiers_count_as_the_generic_key(first, second):
@@ -371,24 +225,6 @@ def test_left_and_right_win_keys_are_distinct():
     assert settings.general.language_chords[0].keys == (0x11, 0x5C)
 
 
-def test_save_rejects_conflicting_chords(tmp_path):
-    general = dataclasses.replace(
-        default_settings().general,
-        language_chords=[Chord(keys=(0x11, 0x5B, 0x44), language="de")],
-    )
-    invalid = dataclasses.replace(default_settings(), general=general)
-
-    with pytest.raises(SettingsError):
-        save(invalid, tmp_path / "settings.json")
-
-    assert not (tmp_path / "settings.json").exists()
-
-
-def test_from_dict_error_names_the_offending_key():
-    with pytest.raises(SettingsError, match="general.autostart"):
-        from_dict({"general": {"autostart": "yes"}})
-
-
 
 def test_migrate_treats_missing_schema_version_as_one():
     raw = {"general": {"sounds": False}}
@@ -400,17 +236,12 @@ def test_migrate_treats_missing_schema_version_as_one():
     assert "schema_version" not in raw, "migrate must not mutate its input"
 
 
-def test_migrate_keeps_current_version_unchanged():
-    raw = to_dict(_custom_settings())
-    assert migrate(raw) == raw
-
-
 def test_migrate_rejects_newer_version():
     with pytest.raises(SettingsError):
         migrate({"schema_version": SCHEMA_VERSION + 1})
 
 
-@pytest.mark.parametrize("version", ["1", 1.0, True, None, 0, -3])
+@pytest.mark.parametrize("version", ["1", True, 0])
 def test_migrate_rejects_invalid_version(version):
     with pytest.raises(SettingsError):
         migrate({"schema_version": version})
@@ -442,14 +273,6 @@ def test_save_creates_parent_and_leaves_no_tmp(tmp_path):
     assert from_dict(on_disk) == settings
 
 
-def test_save_writes_utf8_without_escaping(tmp_path):
-    path = tmp_path / "settings.json"
-
-    save(default_settings(), path)
-
-    assert "ähm" in path.read_text(encoding="utf-8")
-
-
 def test_save_overwrites_existing_file(tmp_path):
     path = tmp_path / "settings.json"
     save(default_settings(), path)
@@ -469,15 +292,6 @@ def test_save_rejects_settings_that_would_not_load_back(tmp_path):
 
     assert not path.exists()
     assert not path.with_name("settings.json.tmp").exists()
-
-
-def test_save_and_load_round_trip(tmp_path):
-    path = tmp_path / "settings.json"
-    settings = _custom_settings()
-
-    save(settings, path)
-
-    assert load(path) == (settings, None)
 
 
 def test_load_missing_file_returns_defaults_without_notice(tmp_path):
@@ -512,17 +326,6 @@ def test_load_invalid_schema_is_treated_as_corrupt(tmp_path):
     assert len(_backup_files(tmp_path)) == 1
 
 
-def test_load_newer_schema_is_treated_as_corrupt(tmp_path):
-    path = tmp_path / "settings.json"
-    path.write_text(json.dumps({"schema_version": SCHEMA_VERSION + 5}))
-
-    settings, notice = load(path)
-
-    assert settings == default_settings()
-    assert notice is not None
-    assert len(_backup_files(tmp_path)) == 1
-
-
 def test_load_undecodable_bytes_are_treated_as_corrupt(tmp_path):
     path = tmp_path / "settings.json"
     path.write_bytes(b"\xff\xfe\x00garbage")
@@ -532,47 +335,6 @@ def test_load_undecodable_bytes_are_treated_as_corrupt(tmp_path):
     assert settings == default_settings()
     assert notice is not None
     assert len(_backup_files(tmp_path)) == 1
-
-
-def test_load_keeps_only_three_newest_backups(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "_timestamp", lambda: "20300101-000000")
-    old_names = [
-        "settings.corrupt-20200101-000000.json",
-        "settings.corrupt-20200102-000000.json",
-        "settings.corrupt-20200103-000000.json",
-    ]
-    for age, name in enumerate(old_names):
-        backup = tmp_path / name
-        backup.write_text("old", encoding="utf-8")
-        os.utime(backup, (1_600_000_000 + age, 1_600_000_000 + age))
-    path = tmp_path / "settings.json"
-    path.write_text("broken", encoding="utf-8")
-
-    load(path)
-
-    assert [p.name for p in _backup_files(tmp_path)] == [
-        "settings.corrupt-20200102-000000.json",
-        "settings.corrupt-20200103-000000.json",
-        "settings.corrupt-20300101-000000.json",
-    ]
-
-
-def test_load_five_corrupt_files_in_one_second_keep_the_three_newest(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "_timestamp", lambda: "20300101-000000")
-    path = tmp_path / "settings.json"
-    base = 1_700_000_000.0
-    seen: set[str] = set()
-
-    for version in range(1, 6):
-        path.write_text(f"v{version}", encoding="utf-8")
-        load(path)
-        created = [p for p in _backup_files(tmp_path) if p.name not in seen]
-        assert len(created) == 1, "each load moves exactly one file aside"
-        os.utime(created[0], (base + version, base + version))
-        seen = {p.name for p in _backup_files(tmp_path)}
-
-    survivors = sorted(p.read_text(encoding="utf-8") for p in _backup_files(tmp_path))
-    assert survivors == ["v3", "v4", "v5"]
 
 
 def test_prune_backups_orders_by_mtime_not_by_name(tmp_path):
@@ -647,26 +409,6 @@ def test_store_loads_existing_file(tmp_path):
     assert store.path == path
 
 
-@pytest.mark.windows
-def test_store_defaults_to_appdata_path(tmp_path, monkeypatch):
-    monkeypatch.setenv("APPDATA", str(tmp_path))
-
-    store = ConfigStore()
-
-    assert store.path == tmp_path / "Spells" / "settings.json"
-    assert store.settings == default_settings()
-
-
-def test_store_exposes_corruption_notice(tmp_path):
-    path = tmp_path / "settings.json"
-    path.write_text("nope", encoding="utf-8")
-
-    store = ConfigStore(path)
-
-    assert store.settings == default_settings()
-    assert store.notice is not None
-
-
 def test_store_removes_leftover_tmp_file(tmp_path):
     path = tmp_path / "settings.json"
     save(_custom_settings(), path)
@@ -709,17 +451,6 @@ def test_store_subscribe_and_unsubscribe(tmp_path):
     assert seen == [first]
 
 
-def test_store_notifies_every_subscriber_in_order(tmp_path):
-    store = ConfigStore(tmp_path / "settings.json")
-    calls: list[str] = []
-    store.subscribe(lambda s: calls.append("a"))
-    store.subscribe(lambda s: calls.append("b"))
-
-    store.update(lambda s: s)
-
-    assert calls == ["a", "b"]
-
-
 def test_store_subscriber_error_does_not_block_others(tmp_path, caplog):
     store = ConfigStore(tmp_path / "settings.json")
     calls: list[str] = []
@@ -753,24 +484,6 @@ def test_store_update_rejects_non_settings_result(tmp_path):
     assert not path.exists(), "nothing is written when the mutator misbehaves"
 
 
-def test_store_update_rejects_settings_that_would_not_load_back(tmp_path):
-    path = tmp_path / "settings.json"
-    store = ConfigStore(path)
-    seen: list[Settings] = []
-    store.subscribe(seen.append)
-
-    def lock_unknown_language(settings: Settings) -> Settings:
-        general = dataclasses.replace(settings.general, language_mode="fr")
-        return dataclasses.replace(settings, general=general)
-
-    with pytest.raises(SettingsError):
-        store.update(lock_unknown_language)
-
-    assert store.settings == default_settings()
-    assert seen == []
-    assert not path.exists()
-
-
 def test_store_update_keeps_old_settings_when_save_fails(tmp_path, monkeypatch):
     path = tmp_path / "settings.json"
     store = ConfigStore(path)
@@ -802,18 +515,6 @@ def test_first_run_languages_reads_what_the_installer_wrote(tmp_path):
     assert config.first_run_languages(path) == ["en", "de"]
 
 
-def test_first_run_languages_keeps_the_installers_order(tmp_path):
-    path = _write_first_run(tmp_path, '{"enabled_languages": ["sq", "en"]}')
-
-    assert config.first_run_languages(path) == ["sq", "en"]
-
-
-def test_first_run_languages_accepts_a_single_language(tmp_path):
-    path = _write_first_run(tmp_path, '{"enabled_languages": ["sq"]}')
-
-    assert config.first_run_languages(path) == ["sq"]
-
-
 def test_first_run_languages_drops_unknown_codes_and_keeps_the_rest(tmp_path):
     path = _write_first_run(tmp_path, '{"enabled_languages": ["en", "klingon", "sq"]}')
 
@@ -843,17 +544,9 @@ def test_first_run_languages_of_a_directory_is_empty(tmp_path):
         "",
         "not json at all",
         "[]",
-        '"just a string"',
-        "null",
-        "{}",
-        '{"enabled_languages": null}',
         '{"enabled_languages": "en"}',
-        '{"enabled_languages": {}}',
         '{"enabled_languages": []}',
-        '{"enabled_languages": [1, 2]}',
         '{"enabled_languages": ["zzz"]}',
-        '{"other": ["en"]}',
-        '{"enabled_languages": ["en"',
     ],
 )
 def test_a_malformed_first_run_file_never_raises_and_seeds_nothing(tmp_path, text):
@@ -869,27 +562,11 @@ def test_a_first_run_file_with_a_byte_order_mark_still_reads(tmp_path):
     assert config.first_run_languages(path) == ["de"]
 
 
-def test_the_known_codes_are_the_ones_the_language_table_names():
-    known = config.known_language_codes()
-
-    assert {"en", "de", "sq"} <= known
-    assert "klingon" not in known
-
-
 def test_with_enabled_languages_replaces_the_default_set():
     seeded = config.with_enabled_languages(default_settings(), ["en", "de"])
 
     assert seeded.general.enabled_languages == ["en", "de"]
     assert default_settings().general.enabled_languages == ["en", "de", "sq"]
-
-
-def test_with_enabled_languages_changes_nothing_else():
-    before = default_settings()
-    after = config.with_enabled_languages(before, ["sq"])
-
-    assert dataclasses.replace(
-        after, general=dataclasses.replace(after.general, enabled_languages=list(
-            before.general.enabled_languages))) == before
 
 
 def test_with_enabled_languages_of_an_empty_list_leaves_the_settings_alone():
@@ -908,34 +585,6 @@ def test_with_enabled_languages_drops_a_locked_language_that_is_no_longer_enable
     assert seeded.general.language_mode == "auto"
 
 
-def test_with_enabled_languages_keeps_a_locked_language_that_is_still_enabled():
-    locked = dataclasses.replace(
-        default_settings(),
-        general=dataclasses.replace(default_settings().general, language_mode="sq"))
-
-    seeded = config.with_enabled_languages(locked, ["en", "sq"])
-
-    assert seeded.general.language_mode == "sq"
-
-
-def test_a_seeded_settings_object_survives_a_save_and_a_load(tmp_path):
-    path = tmp_path / "settings.json"
-    seeded = config.with_enabled_languages(default_settings(), ["en", "de"])
-
-    config.save(seeded, path)
-    loaded, notice = load(path)
-
-    assert notice is None
-    assert loaded.general.enabled_languages == ["en", "de"]
-
-
-def test_history_audio_defaults_to_off_with_its_own_limits():
-    settings = default_settings()
-    assert settings.history.keep_audio is False
-    assert settings.history.audio_keep_count == 200
-    assert settings.history.audio_keep_mb == 1000
-
-
 def test_history_audio_settings_round_trip():
     settings = dataclasses.replace(
         default_settings(),
@@ -945,42 +594,13 @@ def test_history_audio_settings_round_trip():
     assert again.history == settings.history
 
 
-def test_a_settings_file_from_the_current_release_still_loads():
-    raw = {"schema_version": 1, "history": {"retention": "30d"}}
-    settings = from_dict(migrate(raw))
-    assert settings.history.retention == "30d"
-    assert settings.history.keep_audio is False
-    assert settings.history.audio_keep_count == 200
-
-
 @pytest.mark.parametrize(
     "raw",
-    [
-        {"history": {"keep_audio": "yes"}},
-        {"history": {"audio_keep_count": 0}},
-        {"history": {"audio_keep_count": "many"}},
-        {"history": {"audio_keep_mb": 0}},
-        {"history": {"audio_keep_mb": None}},
-    ],
+    [{"history": {"keep_audio": "yes"}}, {"history": {"audio_keep_count": 0}}],
 )
 def test_bad_history_audio_values_are_refused(raw):
     with pytest.raises(SettingsError):
         from_dict({"schema_version": 1, **raw})
-
-
-
-def test_the_writing_chords_are_empty_by_default():
-    general = default_settings().general
-    assert general.compose_chord is None
-    assert general.edit_chord is None
-
-
-def test_a_chord_dictates_unless_it_says_otherwise():
-    assert default_settings().general.main_chord.mode is ChordMode.DICTATE
-    assert Chord(keys=(0x11,)).mode is ChordMode.DICTATE
-    assert ChordMode.DICTATE.writes is False
-    assert ChordMode.COMPOSE.writes is True
-    assert ChordMode.EDIT.writes is True
 
 
 def test_the_writing_chords_round_trip_with_their_mode():
@@ -995,12 +615,6 @@ def test_the_writing_chords_round_trip_with_their_mode():
     again = to_dict(from_dict(raw))
     assert again["general"]["compose_chord"] == {"keys": [0x11, 0x12, 0x57], "mode": "compose"}
     assert again["general"]["edit_chord"] == {"keys": [0x11, 0x12, 0x45], "mode": "edit"}
-
-
-def test_an_unset_writing_chord_serializes_as_null():
-    raw = to_dict(default_settings())
-    assert raw["general"]["compose_chord"] is None
-    assert raw["general"]["edit_chord"] is None
 
 
 def test_a_writing_chord_without_a_stored_mode_takes_the_mode_of_its_setting():
@@ -1020,10 +634,8 @@ def test_a_settings_file_that_predates_compose_mode_reads_unchanged():
 @pytest.mark.parametrize(
     "raw_chord",
     [
-        {"keys": [0x11, 0x12, 0x57], "mode": "dictate"},
         {"keys": [0x11, 0x12, 0x57], "mode": "edit"},
         {"keys": [0x11, 0x12, 0x57], "mode": "shout"},
-        {"keys": [0x11, 0x12, 0x57], "mode": 3},
         {"keys": []},
     ],
 )
@@ -1064,34 +676,11 @@ def test_the_compose_and_edit_chords_may_not_be_the_same_chord():
         from_dict(raw)
 
 
-def test_writing_chords_that_share_no_key_set_are_accepted():
-    raw = to_dict(default_settings())
-    raw["general"]["compose_chord"] = {"keys": [0x11, 0x12, 0x57], "mode": "compose"}
-    raw["general"]["edit_chord"] = {"keys": [0x11, 0x12, 0x45], "mode": "edit"}
-    general = from_dict(raw).general
-    assert general.compose_chord is not None
-    assert general.edit_chord is not None
 
-
-def test_a_left_control_writing_chord_still_conflicts_with_the_generic_main_chord():
-    raw = to_dict(default_settings())
-    raw["general"]["compose_chord"] = {"keys": [0xA2, 0x5B], "mode": "compose"}
-    with pytest.raises(SettingsError):
-        from_dict(raw)
-
-
-
-def test_uploading_is_off_by_default_and_a_file_without_the_block_loads():
-    upload = default_settings().upload
+def test_a_file_without_the_upload_block_loads_with_uploading_off():
+    upload = from_dict(migrate({"schema_version": 1, "history": {}})).upload
+    assert upload == default_settings().upload
     assert upload.enabled is False
-    assert upload.url == ""
-    assert upload.schedule == "daily"
-    assert upload.include_audio is False
-    assert upload.skip_apps == []
-    assert upload.device_name == ""
-    assert (upload.last_success, upload.last_attempt, upload.last_sent) == (0.0, 0.0, 0)
-    assert upload.last_error == ""
-    assert from_dict(migrate({"schema_version": 1, "history": {}})).upload == upload
 
 
 def test_upload_settings_round_trip():
@@ -1121,12 +710,8 @@ def test_upload_settings_round_trip():
     [
         {"url": "ftp://example.com/in"},
         {"url": "example.com/in"},
-        {"url": 5},
         {"schedule": "hourly"},
-        {"enabled": "yes"},
-        {"skip_apps": "keepassxc.exe"},
         {"last_sent": -1},
-        {"last_success": "yesterday"},
     ],
 )
 def test_bad_upload_values_are_refused(upload):

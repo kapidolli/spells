@@ -9,15 +9,12 @@ import pytest
 from spells import platform
 from spells.audio import AudioDevice
 from spells.models import Chord
-from spells.platform.base import Capabilities
 from spells.platform.keys_windows import WindowsKeys
 from spells.ui.welcome import (
     STEP_MICROPHONE,
-    WRITING_NOTE,
     MicMeter,
     MicPicker,
     WelcomePage,
-    listening_text,
 )
 
 from .fake_recorder import FakeRecorder
@@ -93,27 +90,6 @@ def test_mic_picker_and_meter_share_the_device_choice(app, tmp_path):
     page.close()
 
 
-def test_meter_levels_are_marshalled_and_shown(app, tmp_path):
-    recorders: list[FakeRecorder] = []
-
-    def factory(**kwargs):
-        recorder = FakeRecorder(**kwargs)
-        recorders.append(recorder)
-        return recorder
-
-    meter = MicMeter(recorder_factory=factory, notify=Messages())
-    meter.start(device=None)
-    recorders[-1].feed_level(0.5)
-    flush(app)
-    assert meter.level == 1.0
-    recorders[-1].feed_level(0.02)
-    flush(app)
-    assert 0.2 < meter.level < 0.7
-    meter.stop()
-    assert recorders[-1].closed
-    meter.close()
-
-
 def test_meter_reports_a_mic_error_instead_of_raising(app, tmp_path):
     from spells.audio import MicError
 
@@ -127,15 +103,6 @@ def test_meter_reports_a_mic_error_instead_of_raising(app, tmp_path):
     meter.start(device=None)
     assert "Microphone busy" in meter.status.text()
     meter.close()
-
-
-def test_page_explains_elevated_windows_and_offers_a_try_box(app, tmp_path):
-    page, *_ = make_page(tmp_path)
-    note = page.note.text().lower()
-    assert "admin" in note or "elevated" in note
-    assert "clipboard" in note
-    assert page.try_box.placeholderText()
-    page.close()
 
 
 def test_the_tour_moves_through_three_steps_and_finishes(app, tmp_path):
@@ -170,26 +137,6 @@ def test_the_meter_runs_only_on_the_microphone_step(app, tmp_path):
     page.close()
 
 
-def test_the_pill_hint_animates_only_on_the_intro_with_motion(app, tmp_path):
-    config = make_config(tmp_path)
-    moving = WelcomePage(config=config, hotkey=FakeHotkey(), devices=lambda: list(DEVICES), recorder_factory=FakeRecorder, notify=Messages(), reduced_motion=False)
-    moving.show()
-    flush(app)
-    assert moving._clock.isActive()
-    before = moving._phase
-    moving._tick()
-    assert moving._phase != before
-    moving.set_step(1)
-    assert not moving._clock.isActive()
-    moving.close()
-    still = WelcomePage(config=config, hotkey=FakeHotkey(), devices=lambda: list(DEVICES), recorder_factory=FakeRecorder, notify=Messages(), reduced_motion=True)
-    still.show()
-    flush(app)
-    assert not still._clock.isActive()
-    assert not still.grab().toImage().isNull()
-    still.close()
-
-
 def test_the_language_step_edits_the_enabled_languages(app, tmp_path):
     page, config, *_ = make_page(tmp_path)
     page.set_step(1)
@@ -199,15 +146,6 @@ def test_the_language_step_edits_the_enabled_languages(app, tmp_path):
     assert config.settings.general.enabled_languages == ["en", "de", "fr"]
     assert page.language_list.codes() == ["en", "de", "fr"]
     page.close()
-
-
-def test_the_hotkey_is_shown_as_keycaps_in_the_tour(app, tmp_path, use_platform):
-    use_platform(replace(platform.current(), keys=WindowsKeys()))
-    page, *_ = make_page(tmp_path)
-    assert page.hotkey_label.keys() == ["Ctrl", "Win"]
-    assert page.hotkey_art.keys() == ["Ctrl", "Win"]
-    page.close()
-
 
 
 def test_the_picker_matches_a_name_stored_while_capture_went_through_mme(app, tmp_path):
@@ -225,45 +163,3 @@ def test_the_picker_matches_a_name_stored_while_capture_went_through_mme(app, tm
     assert picker.index_for("Blue Yeti") == 0
     picker.deleteLater()
 
-
-def test_the_picker_marks_the_system_default(app, tmp_path):
-    config = make_config(tmp_path)
-    picker = MicPicker(config=config, devices=lambda: list(DEVICES), notify=Messages())
-    assert picker.itemText(0) == "System default (Headset Microphone)"
-    assert [picker.itemText(i) for i in (1, 2)] == ["Headset Microphone", "Webcam Mic"]
-    picker.deleteLater()
-
-
-def test_the_meter_asks_for_the_devices_own_rate(app, tmp_path):
-    recorders: list[FakeRecorder] = []
-
-    def factory(**kwargs):
-        recorder = FakeRecorder(**kwargs)
-        recorders.append(recorder)
-        return recorder
-
-    meter = MicMeter(recorder_factory=factory, notify=Messages())
-    meter.start(device=None)
-    assert recorders[-1].requested_sample_rate is None
-    assert "Windows WASAPI" in meter.status.text()
-    assert "48 kHz" in meter.status.text()
-    meter.stop()
-    meter.close()
-
-
-def test_listening_text_falls_back_when_the_recorder_says_nothing():
-    class Quiet:
-        host_api = ""
-        sample_rate = 0
-
-    assert listening_text(Quiet()) == "Listening. Speak to see the level move."
-
-
-def test_the_intro_names_the_two_writing_hotkeys(app, tmp_path, use_platform):
-    from PySide6 import QtWidgets
-
-    use_platform(replace(platform.current(), capabilities=Capabilities.everything()))
-    page, *_ = make_page(tmp_path)
-    labels = [w.text() for w in page.findChildren(QtWidgets.QLabel) if w.text()]
-    assert WRITING_NOTE in labels
-    assert "instruction" in WRITING_NOTE

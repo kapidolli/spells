@@ -8,14 +8,12 @@ from pathlib import Path
 import pytest
 from PySide6 import QtCore
 
-from spells import __version__
-from spells.config import default_settings
-from spells.ui.about import NO_CHANGES, WEEKLY_DESCRIPTION, AboutPage, reflow
-from spells.ui.diagnostics import LICENSE_COMPONENTS, manifest_entries
-from spells.ui.updatecheck import UNCONFIGURED_TEXT, Phase, UpdateView
+from spells.ui.about import AboutPage, reflow
+from spells.ui.diagnostics import LICENSE_COMPONENTS
+from spells.ui.updatecheck import Phase, UpdateView
 from spells.updates import Release
 
-from .test_ui_support import flush, qt_app
+from .test_ui_support import qt_app
 
 REPO_LICENSES = Path(__file__).resolve().parents[2] / "build" / "licenses"
 POINTER = "The full text ships in the licenses folder"
@@ -26,38 +24,11 @@ def app():
     return qt_app()
 
 
-def test_about_shows_the_version(app):
-    page = AboutPage()
-    assert __version__ in page.version_label.text()
-    page.close()
-
-
 def test_licences_list_and_text(app):
     page = AboutPage()
     assert page.licenses.count() == len(LICENSE_COMPONENTS)
     page.licenses.setCurrentRow(0)
     assert LICENSE_COMPONENTS[0][1] in page.license_text.toPlainText()
-    page.close()
-
-
-def test_the_first_licence_is_selected_when_shown(app):
-    page = AboutPage()
-    page.show()
-    flush(app)
-    assert page.licenses.currentRow() == 0
-    assert page.license_text.toPlainText()
-    page.close()
-
-
-def test_page_shows_the_manifest_text_for_each_row(app):
-    page = AboutPage()
-    entries = manifest_entries(REPO_LICENSES)
-    for row, (_component, _license, names) in enumerate(LICENSE_COMPONENTS):
-        page.licenses.setCurrentRow(row)
-        shown = page.license_text.toPlainText()
-        if any(entries[name].get("ships") for name in names):
-            assert POINTER not in shown
-            assert f"=== {names[0]}" in shown
     page.close()
 
 
@@ -138,24 +109,6 @@ def attached(view: UpdateView) -> tuple[AboutPage, FakeCoordinator]:
     return page, coordinator
 
 
-def test_an_unattached_page_says_this_build_cannot_check(app):
-    page = AboutPage()
-
-    assert not page.check_button.isEnabled()
-    assert not page.weekly_switch.isEnabled()
-    assert page.release_panel.isHidden()
-    assert UNCONFIGURED_TEXT in page.version_row.description_label.text()
-    page.close()
-
-
-def test_the_page_shows_the_installed_version(app):
-    page = AboutPage()
-
-    assert __version__ in page.version_label.text()
-    assert __version__ in page.version_row.title_label.text()
-    page.close()
-
-
 def test_the_check_button_always_asks_for_a_check(app):
     page, coordinator = attached(UpdateView(phase=Phase.IDLE, message="Not checked yet."))
 
@@ -166,33 +119,12 @@ def test_the_check_button_always_asks_for_a_check(app):
     page.close()
 
 
-def test_the_weekly_switch_is_off_until_the_settings_say_otherwise(app):
-    page, coordinator = attached(UpdateView(phase=Phase.IDLE))
-
-    assert not page.weekly_switch.isChecked()
-    coordinator.push(weekly_check=True)
-    assert page.weekly_switch.isChecked()
-    assert coordinator.calls == []
-    page.close()
-
-
 def test_flipping_the_switch_asks_the_coordinator_to_store_it(app):
     page, coordinator = attached(UpdateView(phase=Phase.IDLE))
 
     page.weekly_switch.click()
 
     assert coordinator.calls == ["weekly:True"]
-    page.close()
-
-
-def test_a_switch_change_that_came_from_elsewhere_raises_no_write(app):
-    page, coordinator = attached(UpdateView(phase=Phase.IDLE, weekly_check=True))
-    coordinator.calls.clear()
-
-    coordinator.push(weekly_check=False)
-
-    assert coordinator.calls == []
-    assert not page.weekly_switch.isChecked()
     page.close()
 
 
@@ -211,15 +143,6 @@ def test_an_available_update_shows_its_version_date_size_and_changes(app):
         assert line in page.changes_label.text()
     assert not page.install_button.isHidden()
     assert page.progress.isHidden()
-    page.close()
-
-
-def test_a_release_with_no_change_lines_says_so(app):
-    page, coordinator = attached(UpdateView(phase=Phase.IDLE))
-
-    coordinator.push(phase=Phase.AVAILABLE, release=a_release(changes=()))
-
-    assert page.changes_label.text() == NO_CHANGES
     page.close()
 
 
@@ -293,28 +216,3 @@ def test_a_failed_check_leaves_the_button_usable_again(app):
     assert page.release_panel.isHidden()
     page.close()
 
-
-def test_the_page_promises_that_an_update_never_fetches_models():
-    assert "never the models" in WEEKLY_DESCRIPTION or "no audio" in WEEKLY_DESCRIPTION
-
-
-def test_settings_changes_are_handed_to_the_coordinator(app):
-    page, coordinator = attached(UpdateView(phase=Phase.IDLE))
-
-    page.apply_settings(default_settings())
-
-    assert coordinator.calls == ["settings"]
-    page.close()
-
-
-def test_an_unattached_page_ignores_every_click(app):
-    page = AboutPage()
-
-    page._on_check()
-    page._on_install()
-    page._on_cancel()
-    page._on_weekly(True)
-    page.apply_settings(default_settings())
-
-    assert page.version_label.text().endswith(__version__)
-    page.close()

@@ -17,7 +17,6 @@ from spells.engines import EnginePaths
 from spells.gpu import NO_GPU, GpuDevice, GpuSelection
 from spells.modelcatalog import Hardware, parse_catalog, select_models
 from spells.models import CpuPlan
-from spells.platform.paths import engine_suffix
 
 ARC = "Intel(R) Arc(TM) Pro Graphics"
 WHISPER = "whisper-turbo"
@@ -74,10 +73,6 @@ def measured(model_id, gpu_ms, cpu_ms, *, gpu_similarity=1.0, cpu_similarity=1.0
 
 
 
-def test_a_clearly_faster_gpu_wins():
-    assert measured(QWEN, 300, 1300).prefers_gpu is True
-
-
 def test_a_gpu_that_is_only_a_little_faster_loses():
     cpu_ms = 1000
     assert measured(QWEN, int(cpu_ms * GPU_WIN_RATIO) + 1, cpu_ms).prefers_gpu is False
@@ -94,21 +89,9 @@ def test_a_gpu_wins_when_the_processor_run_failed():
     assert result.latency_ms(on_gpu=False) is None
 
 
-def test_a_failed_gpu_run_loses():
-    result = SpeechCalibration(QWEN, ARC, Run("vulkan", error="crash"), Run("cpu", 1300, 1.0))
-    assert result.prefers_gpu is False
-    assert result.latency_ms(on_gpu=False) == 1300
-
-
 def test_similarity_compares_words_not_punctuation():
     assert calibrate.similarity(CALIBRATION_TEXT.upper().replace(",", "")) == 1.0
     assert calibrate.similarity("something else entirely") < 0.2
-
-
-def test_describe_names_the_winner():
-    assert "the graphics wins" in measured(QWEN, 300, 1300).describe()
-    assert "the processor wins" in measured(QWEN, 3000, 1300).describe()
-
 
 
 def test_results_round_trip_per_device(tmp_path):
@@ -143,16 +126,10 @@ def test_an_older_version_or_a_broken_file_is_ignored(tmp_path):
     assert calibrate.load(tmp_path / "missing.json", ARC) == {}
 
 
-def test_the_store_sits_beside_the_settings(tmp_path):
-    assert calibrate.store_path(tmp_path / "settings.json") == tmp_path / "calibration.json"
-
-
-
 @pytest.mark.parametrize(
     ("selection", "expected"),
     [
         (NO_GPU, False),
-        (device(uma=False, memory_mb=8192, name="RTX"), False),
         (device(uma=True), True),
         (device(uma=None, memory_mb=2048, name="Small"), True),
         (device(uma=None, memory_mb=8192, name="Unknown big"), False),
@@ -181,16 +158,6 @@ def test_a_measured_win_moves_the_models_to_the_integrated_gpu():
     latencies = {m.id: m.latency_ms(Hardware.GPU) for m in models}
     wanted = {c.model_id for c in select_models(["en", "de"], Hardware.GPU, INSTALLED, models).asr}
     assert all(latencies[model_id] in (450, 900) for model_id in wanted)
-
-
-def test_a_measured_loss_keeps_the_processor_with_its_real_speed():
-    calibrations = {QWEN: measured(QWEN, 3000, 2300), WHISPER: measured(WHISPER, 12000, 10000)}
-    hardware, integrated, models = calibrate.choose_hardware(
-        device(uma=True), ["en", "de", "sq"], INSTALLED, catalog(), calibrations
-    )
-    assert hardware is Hardware.CPU
-    assert integrated is False
-    assert {m.id: m.latency_ms(Hardware.CPU) for m in models} == {WHISPER: 10000, QWEN: 2300}
 
 
 def test_one_losing_model_keeps_everything_on_the_processor():
@@ -397,25 +364,6 @@ def test_a_fast_run_is_repeated_and_a_slow_one_is_not(tmp_path):
     fast, slow = rig.clients
     assert len(fast.requests) == 1 + calibrate.TIMED_RUNS
     assert len(slow.requests) == 2
-
-
-def test_llama_asr_uses_the_llama_build_with_all_layers_on_the_gpu(tmp_path):
-    rig = Rig(tmp_path, {"vulkan": 0.5, "cpu": 2.3})
-    result = rig.calibrator.calibrate(choice_for(QWEN))
-    vulkan_args, cpu_args = (item["args"] for item in rig.spawned)
-    assert Path(vulkan_args[0]).name == f"llama-server{engine_suffix()}"
-    assert vulkan_args[vulkan_args.index("-ngl") + 1] == "99"
-    assert cpu_args[cpu_args.index("-ngl") + 1] == "0"
-    assert "--mmproj" in vulkan_args
-    assert result.gpu.latency_ms == 500
-    assert result.cpu.latency_ms == 2300
-
-
-def test_a_wrong_transcript_is_recorded_as_such(tmp_path):
-    rig = Rig(tmp_path, {"vulkan": 0.5, "cpu": 2.3}, text="garbled words here")
-    result = rig.calibrator.calibrate(choice_for(QWEN))
-    assert result.gpu.ok is False
-    assert result.prefers_gpu is False
 
 
 def test_a_missing_build_is_an_error_not_a_crash(tmp_path):

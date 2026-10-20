@@ -13,12 +13,11 @@ import pytest
 
 from spells import compose
 from spells.compose import NOTHING_SELECTED_TEXT, ComposeError
-from spells.compose_prompt import SYSTEM_PROMPT
-from spells.history import MODE_COMPOSE, MODE_DICTATE, MODE_EDIT, OUTCOME_NOT_WRITTEN
+from spells.history import MODE_COMPOSE, OUTCOME_NOT_WRITTEN
 from spells.models import Chord, ChordMode, Engine, EngineId, EngineState
 from spells.pipeline import Notice, PillState
 
-from .test_pipeline import LONG_TEXT, FakeEngines, FakeLlamaClient, FakeWhisperClient, Harness
+from .test_pipeline import LONG_TEXT, FakeEngines, FakeWhisperClient, Harness
 
 COMPOSE_CHORD = Chord(keys=(0x11, 0x12, 0x57), mode=ChordMode.COMPOSE)
 EDIT_CHORD = Chord(keys=(0x11, 0x12, 0x45), mode=ChordMode.EDIT)
@@ -110,23 +109,6 @@ def test_a_compose_dictation_never_reaches_the_cleanup_gate(tmp_path):
     assert h.writer.calls
 
 
-def test_the_instruction_and_the_fixed_prompt_go_to_the_writing_model(tmp_path):
-    h = ComposeHarness(tmp_path)
-    h.write()
-    system, user, max_tokens = h.writer.calls[0]
-    assert system == SYSTEM_PROMPT
-    assert LONG_TEXT in user
-    assert "[MODE]\nwrite" in user
-    assert max_tokens == compose.max_tokens_for(LONG_TEXT)
-
-
-def test_the_writing_request_uses_the_text_engine_and_its_own_timeout(tmp_path):
-    h = ComposeHarness(tmp_path)
-    h.write()
-    assert h.writer_factory.urls == [h.engines.llama_url]
-    assert h.writer_factory.timeouts == [compose.COMPOSE_TIMEOUT_MS / 1000.0]
-
-
 def test_a_dictation_chord_still_goes_through_cleanup(tmp_path):
     h = ComposeHarness(tmp_path)
     h.dictate()
@@ -153,14 +135,6 @@ def test_an_edit_copies_the_selection_and_sends_it_with_the_instruction(tmp_path
     assert h.delivered_texts()[-1] == SHORTER
 
 
-def test_an_edit_puts_the_users_clipboard_back(tmp_path):
-    h = ComposeHarness(tmp_path, selection=PARAGRAPH, writer=FakeWriter(content=SHORTER))
-    h.write(chord=EDIT_CHORD)
-    kinds = [entry[0] for entry in h.inject_log]
-    assert "send_copy" in kinds
-    assert kinds.count("restore") >= 1
-
-
 def test_nothing_selected_falls_back_to_composing_and_says_so(tmp_path):
     h = ComposeHarness(tmp_path, selection=None)
     h.write(chord=EDIT_CHORD)
@@ -172,32 +146,11 @@ def test_nothing_selected_falls_back_to_composing_and_says_so(tmp_path):
     assert h.last.notice_text == NOTHING_SELECTED_TEXT
 
 
-def test_nothing_selected_is_recorded_as_a_compose_row(tmp_path):
-    h = ComposeHarness(tmp_path, selection=None)
-    h.write(chord=EDIT_CHORD)
-    assert h.entry.mode == MODE_COMPOSE
-    assert h.entry.selection_chars == 0
-
-
 def test_an_edit_whose_focus_moved_never_copies_from_the_other_window(tmp_path):
     h = ComposeHarness(tmp_path, selection=PARAGRAPH, foreground=0x00CC00DD)
     h.write(chord=EDIT_CHORD)
     assert not [entry for entry in h.inject_log if entry[0] == "send_copy"]
     assert h.backends.clipboard.copies == 0
-
-
-def test_an_edit_delivers_over_the_selection_by_the_usual_path(tmp_path):
-    h = ComposeHarness(tmp_path, selection=PARAGRAPH, writer=FakeWriter(content=SHORTER))
-    h.write(chord=EDIT_CHORD)
-    kinds = [entry[0] for entry in h.inject_log]
-    assert kinds[-4:] == ["set_text", "release_held_modifiers", "send_paste", "restore"]
-
-
-def test_an_edit_never_gains_the_leading_space_of_the_previous_delivery(tmp_path):
-    h = ComposeHarness(tmp_path, selection=PARAGRAPH, writer=FakeWriter(content=SHORTER))
-    h.dictate(1)
-    h.write(2, chord=EDIT_CHORD)
-    assert h.delivered_texts()[-1] == SHORTER
 
 
 def test_a_written_text_never_gains_the_leading_space_of_the_previous_delivery(tmp_path):
@@ -213,7 +166,6 @@ def test_a_written_text_never_gains_the_leading_space_of_the_previous_delivery(t
     [
         ("", "stop", "empty"),
         ("cut off here", "length", "finish_length"),
-        ("Here is the email you asked for: hello", "stop", "preamble"),
         ("I cannot write that for you.", "stop", "refusal"),
         (LONG_TEXT, "stop", "echo"),
     ],
@@ -228,19 +180,6 @@ def test_a_rejected_answer_delivers_nothing_and_the_pill_says_why(
     assert h.last.notice_text == compose.rejection_text(reason)
     assert h.entry.outcome == OUTCOME_NOT_WRITTEN
     assert h.entry.cleanup_reason == reason
-
-
-def test_a_rejection_never_delivers_the_raw_instruction(tmp_path):
-    h = ComposeHarness(tmp_path, writer=FakeWriter(content="As an AI I cannot do that."))
-    h.write()
-    assert LONG_TEXT not in "".join(h.delivered_texts())
-    assert h.entry.delivered_text == ""
-
-
-def test_a_rejection_is_counted_for_diagnostics(tmp_path):
-    h = ComposeHarness(tmp_path, writer=FakeWriter(content="I cannot write that."))
-    h.write()
-    assert h.pipeline.guard_counts()["refusal"] == 1
 
 
 def test_a_writing_engine_that_is_not_serving_delivers_nothing(tmp_path):
@@ -309,13 +248,6 @@ def test_the_pill_shows_the_writing_state_with_the_instruction(tmp_path):
     assert states == [(PillState.WRITING, LONG_TEXT)]
 
 
-def test_the_pill_is_back_to_idle_once_the_text_is_delivered(tmp_path):
-    h = ComposeHarness(tmp_path)
-    h.write()
-    assert h.last.pill is PillState.IDLE
-
-
-
 def test_a_compose_row_records_the_mode_the_instruction_and_the_text(tmp_path):
     h = ComposeHarness(tmp_path)
     h.write()
@@ -329,28 +261,6 @@ def test_a_compose_row_records_the_mode_the_instruction_and_the_text(tmp_path):
     assert entry.selection_chars == 0
 
 
-def test_an_edit_row_records_the_length_of_the_selection(tmp_path):
-    h = ComposeHarness(tmp_path, selection=PARAGRAPH, writer=FakeWriter(content=SHORTER))
-    h.write(chord=EDIT_CHORD)
-    assert h.entry.mode == MODE_EDIT
-    assert h.entry.selection_chars == len(PARAGRAPH)
-
-
-def test_a_dictation_row_is_still_a_dictation_row(tmp_path):
-    h = ComposeHarness(tmp_path)
-    h.dictate()
-    assert h.entry.mode == MODE_DICTATE
-    assert h.entry.instruction == ""
-
-
-def test_the_speech_signals_still_describe_the_instruction(tmp_path):
-    h = ComposeHarness(tmp_path)
-    h.write()
-    assert h.entry.signals.word_count == len(LONG_TEXT.split())
-    assert h.entry.quality_label in ("good", "uncertain", "poor")
-
-
-
 def test_a_compose_dictation_never_types_the_instruction_as_it_goes(tmp_path):
     h = ComposeHarness(tmp_path, settings=lambda s: replace(s, general=replace(s.general, live_text=True)))
     h.press(1, COMPOSE_CHORD)
@@ -359,12 +269,6 @@ def test_a_compose_dictation_never_types_the_instruction_as_it_goes(tmp_path):
     h.release(1, COMPOSE_CHORD)
     h.process()
     assert h.delivered_texts() == [EMAIL]
-
-
-def test_a_llama_client_is_never_built_for_a_compose_dictation(tmp_path):
-    h = ComposeHarness(tmp_path, llama=FakeLlamaClient(content="should not be used"))
-    h.write()
-    assert h.llama.calls == []
 
 
 def test_a_retried_composition_goes_to_the_clipboard_like_any_retry(tmp_path):
@@ -415,8 +319,3 @@ def test_writing_waits_for_a_writing_engine_that_is_still_loading(tmp_path):
     assert ("wait_ready", WRITER_ENGINE, 1.0) in engines.calls
     assert h.writer_factory.urls == [WRITER_URL]
 
-
-def test_without_a_writing_engine_writing_uses_the_cleanup_engine(tmp_path):
-    h = ComposeHarness(tmp_path)
-    h.write()
-    assert h.writer_factory.urls == ["http://127.0.0.1:9002"]

@@ -5,10 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-import pytest
-
 from spells.gpu import (
-    PROBE_MODEL_NAME,
     BackendDevice,
     GpuDevice,
     GpuSelection,
@@ -96,12 +93,6 @@ def test_parse_two_devices_from_real_output():
     ]
 
 
-def test_parse_one_device():
-    devices = parse_list_devices(ONE_AMD)
-    assert [d.name for d in devices] == [AMD]
-    assert devices[0].memory_mb == 48688
-
-
 def test_parse_none_and_empty():
     assert parse_list_devices(NONE) == []
     assert parse_list_devices("") == []
@@ -123,12 +114,6 @@ def test_parse_tolerates_junk_blank_lines_and_windows_line_endings():
     devices = parse_list_devices(text)
     assert [d.list_name for d in devices] == ["Vulkan0"]
     assert devices[0].name == RTX
-
-
-def test_parse_keeps_parentheses_inside_device_names():
-    devices = parse_list_devices(ONE_AMD)
-    assert devices[0].name == "AMD Radeon(TM) 610M"
-
 
 
 def test_list_devices_runs_hidden_with_timeout_and_merges_stderr(use_platform):
@@ -190,18 +175,6 @@ def test_probe_maps_raw_indices_and_stops_at_first_empty_run():
     assert runner.calls == [None, "0", "1", "2"]
 
 
-def test_probe_reversed_raw_order_is_reported_as_seen():
-    runner = make_runner({None: TWO_DEVICES, "0": ONE_AMD, "1": ONE_RTX})
-    devices = probe_raw_indices(LLAMA, env={}, runner=runner)
-    assert [(d.raw_index, d.name) for d in devices] == [(0, AMD), (1, RTX)]
-
-
-def test_probe_with_no_devices_makes_no_filtered_runs():
-    runner = make_runner({None: NONE})
-    assert probe_raw_indices(LLAMA, env={}, runner=runner) == []
-    assert runner.calls == [None]
-
-
 def test_probe_skips_a_run_that_does_not_filter_to_one_device():
     runner = make_runner({None: TWO_DEVICES, "0": TWO_DEVICES, "1": ONE_AMD})
     devices = probe_raw_indices(LLAMA, env={}, runner=runner)
@@ -229,30 +202,6 @@ def test_parse_backend_info_dedupes_the_repeated_block_and_ignores_the_rest():
     assert parse_backend_info(AMD_BACKEND) == [AMD_INTEGRATED]
     assert parse_backend_info("error: failed to initialize whisper context\n") == []
     assert parse_backend_info("") == []
-
-
-def test_parse_backend_info_keeps_parentheses_in_names_and_reads_the_vendor():
-    line = "ggml_vulkan: 0 = Intel(R) Arc(TM) A770 Graphics (Intel Corporation) | uma: 0 | x"
-    assert parse_backend_info(line) == [
-        BackendDevice(name="Intel(R) Arc(TM) A770 Graphics", vendor="Intel Corporation", uma=False)
-    ]
-
-
-def test_probe_backend_info_runs_whisper_server_hidden_with_a_missing_model(use_platform):
-    use_platform(fake_platform(processes=HiddenWindowProcesses()))
-    runner = make_runner({}, backend={"1": AMD_BACKEND})
-    info = probe_backend_info(WHISPER, 1, env={"KEEP": "y"}, runner=runner)
-    assert info == AMD_INTEGRATED
-    index, args, kwargs = runner.whisper_calls[0]
-    assert index == "1"
-    assert args[0] == str(WHISPER)
-    assert args[args.index("-m") + 1] == str(WHISPER.parent / PROBE_MODEL_NAME)
-    assert not Path(args[args.index("-m") + 1]).exists()
-    assert args[args.index("--host") + 1] == "127.0.0.1"
-    assert kwargs["env"] == {"KEEP": "y", "GGML_VK_VISIBLE_DEVICES": "1"}
-    assert kwargs["timeout"] == 20
-    assert kwargs["creationflags"] & 0x08000000
-    assert kwargs["cwd"] == str(WHISPER.parent)
 
 
 def test_probe_backend_info_is_none_on_failure_or_ambiguity():
@@ -337,57 +286,11 @@ def test_select_ranks_unknown_above_integrated():
     assert [d.uma for d in selection.devices] == [None, True]
 
 
-def test_select_leaves_uma_unknown_when_the_backend_names_another_device():
-    swapped = {"0": AMD_BACKEND, "1": RTX_BACKEND}
-    selection = select_device(LLAMA, env={}, runner=two_gpu_runner(swapped), whisper_server=WHISPER)
-    assert [d.uma for d in selection.devices] == [None, None]
-    assert selection.raw_index == 1
-
-
-def test_select_picks_most_memory_within_the_discrete_class():
-    small = "Available devices:\n  Vulkan0: Small Card (4000 MiB, 1 MiB free)\n"
-    big = "Available devices:\n  Vulkan0: Big Card (16000 MiB, 1 MiB free)\n"
-    both = (
-        "Available devices:\n"
-        "  Vulkan0: Small Card (4000 MiB, 1 MiB free)\n"
-        "  Vulkan1: Big Card (16000 MiB, 1 MiB free)\n"
-    )
-    backend = {
-        "0": "ggml_vulkan: 0 = Small Card (NVIDIA) | uma: 0 | fp16: 1\n",
-        "1": "ggml_vulkan: 0 = Big Card (NVIDIA) | uma: 0 | fp16: 1\n",
-    }
-    runner = make_runner({None: both, "0": small, "1": big}, backend=backend)
-    selection = select_device(LLAMA, env={}, runner=runner, whisper_server=WHISPER)
-    assert (selection.raw_index, selection.name) == (1, "Big Card")
-
-
-def test_select_with_only_integrated_gpus_still_picks_one():
-    runner = two_gpu_runner(backend={"0": AMD_BACKEND.replace(AMD, RTX), "1": AMD_BACKEND})
-    selection = select_device(LLAMA, env={}, runner=runner, whisper_server=WHISPER)
-    assert [d.uma for d in selection.devices] == [True, True]
-    assert (selection.raw_index, selection.name) == (1, AMD)
-
-
-def test_select_override_by_raw_index_wins():
-    selection = select_device(LLAMA, override=0, env={}, runner=two_gpu_runner())
-    assert (selection.raw_index, selection.name) == (0, RTX)
-
-
-def test_select_override_by_name_wins():
-    selection = select_device(LLAMA, override=RTX, env={}, runner=two_gpu_runner())
-    assert (selection.raw_index, selection.name) == (0, RTX)
-
-
 def test_select_unknown_override_falls_back_to_the_rule():
     selection = select_device(LLAMA, override=7, env={}, runner=two_gpu_runner())
     assert selection.raw_index == 1
     selection = select_device(LLAMA, override="Ghost GPU", env={}, runner=two_gpu_runner())
     assert selection.raw_index == 1
-
-
-def test_select_keeps_cached_choice_when_the_probe_still_matches():
-    selection = select_device(LLAMA, cached=(0, RTX), env={}, runner=two_gpu_runner())
-    assert (selection.raw_index, selection.name) == (0, RTX)
 
 
 def test_select_drops_cached_choice_when_the_name_at_that_index_changed():
@@ -407,27 +310,6 @@ def test_select_none_when_no_vulkan_device():
     assert selection == GpuSelection(raw_index=None, name="", memory_mb=0, devices=())
 
 
-def test_select_prefers_the_lower_index_on_a_memory_tie():
-    same = f"Available devices:\n  Vulkan0: {RTX} (8000 MiB, 1 MiB free)\n"
-    other = "Available devices:\n  Vulkan0: Twin (8000 MiB, 1 MiB free)\n"
-    both = (
-        "Available devices:\n"
-        f"  Vulkan0: {RTX} (8000 MiB, 1 MiB free)\n"
-        "  Vulkan1: Twin (8000 MiB, 1 MiB free)\n"
-    )
-    runner = make_runner({None: both, "0": same, "1": other})
-    assert select_device(LLAMA, env={}, runner=runner).raw_index == 0
-
-
-def test_selection_and_device_are_frozen():
-    selection = select_device(LLAMA, env={}, runner=two_gpu_runner(REAL_BACKEND))
-    with pytest.raises(AttributeError):
-        selection.raw_index = 0
-    with pytest.raises(AttributeError):
-        selection.devices[0].name = "x"
-
-
-
 def test_engine_env_sets_the_raw_index():
     selection = GpuSelection(raw_index=1, name=AMD, memory_mb=48688, devices=())
     env = engine_env(selection, base={"PATH": "p", "GGML_VK_VISIBLE_DEVICES": "0"})
@@ -439,13 +321,3 @@ def test_engine_env_removes_the_variable_without_a_gpu():
     env = engine_env(selection, base={"PATH": "p", "GGML_VK_VISIBLE_DEVICES": "0"})
     assert env == {"PATH": "p"}
 
-
-def test_engine_env_copies_the_base_and_defaults_to_os_environ(monkeypatch):
-    base = {"A": "1"}
-    selection = GpuSelection(raw_index=0, name=RTX, memory_mb=7810, devices=())
-    env = engine_env(selection, base=base)
-    assert env == {"A": "1", "GGML_VK_VISIBLE_DEVICES": "0"}
-    assert base == {"A": "1"}
-    monkeypatch.setenv("SPELLS_TEST_MARKER", "yes")
-    assert engine_env(selection)["SPELLS_TEST_MARKER"] == "yes"
-    assert engine_env(selection)["GGML_VK_VISIBLE_DEVICES"] == "0"

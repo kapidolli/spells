@@ -1,8 +1,6 @@
 import ast
 from pathlib import Path
 
-import pytest
-
 SRC = Path(__file__).resolve().parents[2] / "src" / "spells"
 OS_PACKAGES = ("win32", "linux", "macos", "platform")
 FORBIDDEN = {"ctypes", "winreg", "msvcrt", "_winapi", "spells.win32"}
@@ -37,10 +35,12 @@ def _shared_modules():
         yield path
 
 
-@pytest.mark.parametrize("path", list(_shared_modules()), ids=lambda p: str(p.relative_to(SRC)))
-def test_shared_code_does_not_touch_the_operating_system(path):
-    bad = sorted({name for name in _imports(path) if _forbidden(name)})
-    assert bad == []
+def test_shared_code_does_not_touch_the_operating_system():
+    bad = {
+        str(path.relative_to(SRC)): sorted({name for name in _imports(path) if _forbidden(name)})
+        for path in _shared_modules()
+    }
+    assert {name: found for name, found in bad.items() if found} == {}
 
 
 def test_only_the_windows_assembly_imports_win32():

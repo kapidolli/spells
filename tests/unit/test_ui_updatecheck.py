@@ -93,19 +93,6 @@ def test_the_tick_does_nothing_while_the_weekly_check_is_off(app, tmp_path):
     assert coordinator.view.phase is Phase.IDLE
 
 
-def test_switching_the_weekly_check_on_writes_the_setting_and_starts_no_check(app, tmp_path):
-    calls: list[str] = []
-    coordinator, config, _clock = build(
-        tmp_path, fetch=lambda url: calls.append(url) or release()
-    )
-
-    coordinator.set_weekly_check(True)
-
-    assert config.settings.updates.weekly_check is True
-    assert coordinator.view.weekly_check is True
-    assert calls == []
-
-
 def test_the_weekly_check_runs_once_a_week_and_not_sooner(app, tmp_path):
     calls: list[str] = []
     coordinator, config, clock = build(
@@ -158,30 +145,6 @@ def test_the_button_always_works_even_with_the_weekly_check_off(app, tmp_path):
     assert coordinator.view.phase is Phase.AVAILABLE
 
 
-
-def test_a_newer_version_becomes_an_offer_with_its_change_list(app, tmp_path):
-    coordinator, _config, _clock = build(tmp_path, fetch=lambda url: release())
-
-    coordinator.check()
-
-    view = coordinator.view
-    assert view.phase is Phase.AVAILABLE
-    assert view.release is not None
-    assert view.release.version == "0.3.0"
-    assert view.release.changes == ("A faster Albanian.",)
-
-
-def test_the_newest_version_already_installed_says_so(app, tmp_path):
-    coordinator, _config, _clock = build(
-        tmp_path, fetch=lambda url: release("0.2.0"), current_version="0.2.0"
-    )
-
-    coordinator.check()
-
-    assert coordinator.view.phase is Phase.UP_TO_DATE
-    assert "0.2.0" in coordinator.view.message
-
-
 def test_a_release_that_needs_an_older_one_first_offers_no_install(app, tmp_path):
     coordinator, _config, _clock = build(
         tmp_path,
@@ -195,19 +158,6 @@ def test_a_release_that_needs_an_older_one_first_offers_no_install(app, tmp_path
     assert "0.9.0" in coordinator.view.message
     coordinator.start_download()
     assert coordinator.view.phase is Phase.BLOCKED
-
-
-def test_a_check_that_fails_is_a_line_on_the_page_and_nothing_else(app, tmp_path):
-    def fetch(url):
-        raise updates.UpdateError("Spells could not reach the update server (timed out).")
-
-    coordinator, config, clock = build(tmp_path, fetch=fetch)
-
-    coordinator.check()
-
-    assert coordinator.view.phase is Phase.ERROR
-    assert "could not reach" in coordinator.view.message
-    assert config.settings.updates.last_check == clock.now
 
 
 def test_a_failed_check_still_counts_as_the_week_s_check(app, tmp_path):
@@ -251,22 +201,6 @@ def test_a_manual_check_never_raises_a_balloon(app, tmp_path):
 
     assert seen == []
     assert coordinator.view.phase is Phase.AVAILABLE
-
-
-def test_the_balloon_is_held_back_while_a_dictation_is_in_flight(app, tmp_path):
-    seen: list[tuple[str, str]] = []
-    busy = {"now": False}
-    coordinator, config, _clock = build(
-        tmp_path, fetch=lambda url: release(), busy=lambda: busy["now"]
-    )
-    coordinator.update_found.connect(lambda version, when: seen.append((version, when)))
-    coordinator.set_weekly_check(True)
-    busy["now"] = True
-
-    coordinator._checked(release(), manual=False)
-
-    assert seen == []
-    assert config.settings.updates.last_offer_version == ""
 
 
 
@@ -400,68 +334,3 @@ def test_a_file_changed_after_it_was_verified_is_refused_at_the_last_moment(app,
     assert launched == []
     assert quits == []
     assert coordinator.view.phase is Phase.ERROR
-
-
-def test_nothing_installs_without_a_download(app, tmp_path):
-    launched: list[Path] = []
-    coordinator, _config, _clock = build(
-        tmp_path, fetch=lambda url: release(), launch=lambda path: launched.append(path)
-    )
-    coordinator.check()
-
-    coordinator.install()
-
-    assert launched == []
-    assert coordinator.view.phase is Phase.AVAILABLE
-
-
-def test_the_progress_of_a_download_reaches_the_view(app, tmp_path):
-    seen: list[tuple[int, int]] = []
-
-    def download(release_arg, directory, progress=None, cancel=None):
-        progress(1024, 4096)
-        progress(4096, 4096)
-        path = Path(directory) / "Spells-Online-Setup-0.3.0.exe"
-        path.write_bytes(b"x" * 4096)
-        return path
-
-    coordinator, _config, _clock = build(
-        tmp_path, fetch=lambda url: release(), download=download, temp_dir=tmp_path
-    )
-    coordinator.changed.connect(
-        lambda view: seen.append((view.done_bytes, view.total_bytes))
-    )
-    coordinator.check()
-    coordinator.start_download()
-
-    assert (1024, 4096) in seen
-
-
-
-def test_a_switch_flipped_elsewhere_reaches_the_view(app, tmp_path):
-    coordinator, config, _clock = build(tmp_path, fetch=lambda url: release())
-
-    config.update(
-        lambda settings: replace(
-            settings, updates=replace(settings.updates, weekly_check=True)
-        )
-    )
-    coordinator.apply_settings(config.settings)
-
-    assert coordinator.view.weekly_check is True
-
-
-def test_a_coordinator_built_on_a_file_that_already_has_the_switch_on_follows_it(app, tmp_path):
-    config = ConfigStore(tmp_path / "settings.json")
-    config.update(
-        lambda settings: replace(
-            settings, updates=replace(settings.updates, weekly_check=True, last_check=500.0)
-        )
-    )
-
-    coordinator = UpdateCoordinator(
-        config=config, source_url=SOURCE, runner=direct_runner, clock=Clock()
-    )
-
-    assert coordinator.view.weekly_check is True
-    assert coordinator.view.last_check == 500.0

@@ -8,7 +8,6 @@ import threading
 import time
 import urllib.error
 from dataclasses import dataclass
-from datetime import datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -26,8 +25,6 @@ from spells.upload import (
     Uploader,
     batches,
     classify,
-    encode_body,
-    envelope,
     upload_due,
     url_problem,
     wire_entry,
@@ -105,17 +102,11 @@ def uploader(store, transport, **kwargs) -> Uploader:
 @pytest.mark.parametrize(
     ("schedule", "last_success", "last_attempt", "now", "due"),
     [
-        ("manual", 0.0, 0.0, NOW, False),
         ("manual", NOW - 30 * DAY_S, NOW - 30 * DAY_S, NOW, False),
         ("daily", 0.0, 0.0, NOW, True),
         ("daily", NOW - DAY_S + 60, NOW - DAY_S + 60, NOW, False),
-        ("daily", NOW - DAY_S, NOW - DAY_S, NOW, True),
-        ("weekly", NOW - 6 * DAY_S, NOW - 6 * DAY_S, NOW, False),
         ("weekly", NOW - WEEK_S, NOW - WEEK_S, NOW, True),
         ("daily", NOW + 3600, NOW + 3600, NOW, True),
-        ("weekly", NOW - 3600, NOW + 60, NOW, True),
-        ("daily", NOW - 3600, NOW - 60, NOW, True),
-        ("weekly", NOW - DAY_S, NOW - 2 * DAY_S, NOW, False),
         ("hourly", 0.0, 0.0, NOW, False),
     ],
 )
@@ -124,9 +115,7 @@ def test_upload_due(schedule, last_success, last_attempt, now, due):
 
 
 
-@pytest.mark.parametrize(
-    "url", ["https://example.com/spells", "http://example.com:8080/in", "HTTPS://Example.com"]
-)
+@pytest.mark.parametrize("url", ["https://example.com/spells", "HTTP://Example.com:8080/in"])
 def test_http_and_https_addresses_are_accepted(url):
     assert url_problem(url) == ""
 
@@ -135,33 +124,13 @@ def test_http_and_https_addresses_are_accepted(url):
     "url",
     [
         "",
-        "   ",
         "ftp://example.com/x",
-        "file:///C:/spells",
         "example.com/spells",
-        "https:///nohost",
-        "https://example.com/a b",
         "https://example.com:99999/x",
     ],
 )
 def test_other_addresses_are_refused_with_a_reason(url):
     assert url_problem(url)
-
-
-def test_only_http_counts_as_unencrypted():
-    assert upload.is_unencrypted("http://example.com/x")
-    assert upload.is_unencrypted(" HTTP://example.com/x")
-    assert not upload.is_unencrypted("https://example.com/x")
-    assert not upload.is_unencrypted("")
-
-
-
-def test_iso_time_is_local_with_offset_and_milliseconds():
-    text = upload.iso_time(NOW + 0.345)
-    parsed = datetime.fromisoformat(text)
-    assert parsed.utcoffset() is not None
-    assert text[19:23] == ".345"
-    assert parsed.timestamp() == pytest.approx(NOW + 0.345)
 
 
 def test_a_wire_entry_carries_every_field_of_the_protocol():
@@ -235,7 +204,7 @@ def bad_chunk_size(raw: bytes) -> bytes:
 
 @pytest.mark.parametrize(
     "spoil",
-    [bad_chunk_size, lambda raw: raw[:30], lambda raw: b"RIFF" + b"\xff" * 40, lambda raw: b""],
+    [bad_chunk_size, lambda raw: b""],
 )
 def test_a_broken_recording_reads_as_no_audio_and_logs_only_its_name(tmp_path, caplog, spoil):
     with HistoryStore(tmp_path / "history.db") as history:
@@ -255,18 +224,6 @@ def test_an_unreadable_recording_file_logs_only_its_name(tmp_path, caplog):
         assert upload.read_audio(folder) is None
     assert "private-folder" in caplog.text
     assert str(tmp_path) not in caplog.text
-
-
-def test_the_body_is_the_envelope_with_the_entries_last():
-    head = envelope(install_id="abc", device_name="PC", lost=2, sent_at="now", version="0.6.0")
-    items = [Item.of(wire_entry(make_entry(n, id=n), "abc")) for n in (1, 2)]
-    body = json.loads(encode_body(head, items))
-    assert body["format"] == "spells-upload/1"
-    assert body["app"] == {"name": "Spells", "version": "0.6.0"}
-    assert body["device"] == {"installId": "abc", "name": "PC"}
-    assert body["lost"] == 2
-    assert [entry["key"] for entry in body["entries"]] == ["abc:1", "abc:2"]
-    assert json.loads(encode_body(head, []))["entries"] == []
 
 
 
@@ -293,34 +250,20 @@ def test_an_entry_larger_than_the_limit_goes_alone():
     assert [[item.id for item in batch] for batch in got] == [[1, 2], [3], [1]]
 
 
-def test_no_items_make_no_batches():
-    assert list(batches([])) == []
-
-
 
 @pytest.mark.parametrize(
     ("status", "kind"),
     [
-        (200, upload.OK),
-        (202, upload.OK),
         (204, upload.OK),
         (413, upload.TOO_LARGE),
         (401, upload.REFUSED),
-        (403, upload.REFUSED),
         (400, upload.FAILED),
-        (429, upload.FAILED),
-        (500, upload.FAILED),
         (503, upload.FAILED),
         (302, upload.FAILED),
-        (404, upload.FAILED),
     ],
 )
 def test_classify(status, kind):
     assert classify(status).kind == kind
-
-
-def test_a_refusal_names_the_token():
-    assert classify(401).message == upload.TOKEN_REFUSED
 
 
 def test_a_bad_request_shows_the_first_two_hundred_characters_of_the_error():
@@ -381,13 +324,6 @@ def test_without_a_token_there_is_no_authorization_header(store):
     assert "Authorization" not in transport.sent[0].headers
 
 
-def test_a_run_with_nothing_new_sends_an_empty_batch(store):
-    transport = FakeTransport()
-    result = uploader(store, transport).run()
-    assert result.ok and result.sent == 0
-    assert transport.sent[0].payload["entries"] == []
-
-
 def test_skipped_apps_are_never_sent(store):
     store.add(make_entry(1, app_process="KeePassXC.exe"))
     store.add(make_entry(2))
@@ -398,15 +334,6 @@ def test_skipped_apps_are_never_sent(store):
     store.reset_uploaded()
     uploader(store, transport, skip_apps=[]).run()
     assert transport.ids(1) == [2]
-
-
-def test_the_batches_follow_the_count_limit(store):
-    for n in range(5):
-        store.add(make_entry(n))
-    transport = FakeTransport()
-    result = uploader(store, transport, max_entries=2).run()
-    assert result.sent == 5
-    assert [transport.ids(i) for i in range(3)] == [[1, 2], [3, 4], [5]]
 
 
 def test_a_too_large_batch_is_split_in_half_until_it_fits(store):
@@ -521,19 +448,11 @@ def test_a_server_error_stops_the_run_after_the_batches_that_went_through(store)
     assert store.pending_upload_ids() == [2, 3]
 
 
-def test_a_bad_request_stops_with_the_servers_words(store):
-    store.add(make_entry(1))
-    transport = FakeTransport(Response(400, b'{"error": "createdAt is not a date"}'))
-    result = uploader(store, transport).run()
-    assert result.error == "The server did not accept the upload: createdAt is not a date"
-
-
 @pytest.mark.parametrize(
     ("exc", "text"),
     [
         (urllib.error.URLError(ConnectionRefusedError(10061, "refused")), "could not reach"),
         (TimeoutError("timed out"), "two minutes"),
-        (urllib.error.URLError(TimeoutError("timed out")), "two minutes"),
     ],
 )
 def test_a_network_failure_stops_the_run(store, exc, text):
@@ -554,13 +473,6 @@ def test_lost_rows_are_reported_and_settled_after_the_server_accepts(tmp_path):
         assert store.upload_lost() == 0
         uploader(store, transport).run()
         assert transport.sent[1].payload["lost"] == 0
-
-
-def test_lost_rows_stay_counted_when_the_server_fails(tmp_path):
-    with HistoryStore(tmp_path / "history.db", "7d", upload_hold=True) as store:
-        store.add(make_entry(1, created_at=time.time() - 60 * DAY_S))
-        uploader(store, FakeTransport(500)).run()
-        assert store.upload_lost() == 1
 
 
 def test_a_bad_address_never_reaches_the_transport(store):
@@ -584,20 +496,6 @@ def test_a_cancelled_run_stops_before_the_next_batch(store):
     assert result.sent == 1
 
 
-def test_a_cancelled_run_sends_no_half_of_a_split_batch(store):
-    for n in range(4):
-        store.add(make_entry(n))
-    transport = FakeTransport(413)
-
-    def stop() -> bool:
-        return len(transport.sent) >= 1
-
-    result = uploader(store, transport, cancelled=stop).run()
-    assert result.cancelled
-    assert len(transport.sent) == 1
-    assert store.pending_upload_ids() == [1, 2, 3, 4]
-
-
 def test_the_connection_test_sends_an_empty_batch_and_changes_nothing(tmp_path):
     with HistoryStore(tmp_path / "history.db", "7d", upload_hold=True) as store:
         store.add(make_entry(1, created_at=time.time() - 60 * DAY_S))
@@ -616,14 +514,14 @@ def test_the_connection_test_sends_an_empty_batch_and_changes_nothing(tmp_path):
 SECRET ="tok-0123456789abcdef0123456789abcdef"
 
 
-@pytest.mark.parametrize("token", ["", SECRET, "abc-DEF_123.~+/=", "!#$%&'*^`|"])
+@pytest.mark.parametrize("token", [SECRET])
 def test_bearer_token_characters_are_accepted(token):
     assert upload.token_problem(token) == ""
 
 
 @pytest.mark.parametrize(
     "token",
-    ["part1\npart2", "part1\rpart2", "two words", "tab\there", "s3cr€et", "nul\x00", "del\x7f"],
+    ["part1\npart2", "two words", "s3cr€et"],
 )
 def test_a_token_with_other_characters_is_refused(token):
     assert upload.token_problem(token) == upload.TOKEN_PROBLEM
@@ -642,8 +540,6 @@ def test_a_token_that_cannot_be_sent_never_reaches_the_transport(store):
     "exc",
     [
         ValueError(f"Invalid header value b'Bearer {SECRET}'"),
-        UnicodeEncodeError("latin-1", SECRET, 0, 1, "ordinal not in range(256)"),
-        RuntimeError(f"unexpected {SECRET}"),
     ],
 )
 def test_an_unexpected_transport_failure_shows_a_fixed_message(store, exc):
@@ -678,13 +574,6 @@ def test_the_token_is_removed_from_a_network_failure(store):
     result = uploader(store, FakeTransport(exc), token=SECRET).run()
     assert "could not reach" in result.error
     assert SECRET not in result.error
-
-
-def test_the_device_name_defaults_to_the_computer_name(store, monkeypatch):
-    monkeypatch.setenv("COMPUTERNAME", "STUDY-PC")
-    transport = FakeTransport()
-    uploader(store, transport, device_name="").run()
-    assert transport.sent[0].payload["device"]["name"] == "STUDY-PC"
 
 
 

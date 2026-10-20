@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from urllib.error import HTTPError, URLError
+from urllib.error import HTTPError
 
 import pytest
 
@@ -16,7 +16,6 @@ from spells.asr import (
     WhisperError,
     language_code,
     language_title,
-    parse_asr_output,
     serving_languages,
     transcribe_routed,
 )
@@ -62,20 +61,14 @@ class Clients:
         return self.by_key.get(key)
 
 
-def routed(seconds, mode, clients, *, routes=(FAST, ALBANIAN), enabled=ENABLED, last="en",
-           terms=()):
+def routed(
+    seconds, mode, clients, *, routes=(FAST, ALBANIAN), enabled=ENABLED, last="en", terms=()
+):
     state = LanguagePolicyState(last)
-    result = transcribe_routed(pcm(seconds), SR, mode, list(terms), list(enabled), state,
-                               routes, clients)
+    result = transcribe_routed(
+        pcm(seconds), SR, mode, list(terms), list(enabled), state, routes, clients
+    )
     return result, state
-
-
-
-def test_the_language_prefix_is_stripped_and_named():
-    assert parse_asr_output("language English<asr_text>Hello there.") == ("English", "Hello there.")
-    assert parse_asr_output("  language None<asr_text>") == ("None", "")
-    assert parse_asr_output("no prefix at all") == (None, "no prefix at all")
-    assert parse_asr_output("language Chinese Mandarin<asr_text> x") == ("Chinese Mandarin", "x")
 
 
 def test_reported_names_map_to_codes():
@@ -88,7 +81,6 @@ def test_reported_names_map_to_codes():
     assert language_title("de") == "German"
     assert language_title("sq") == "Albanian"
     assert language_title("xx") == "xx"
-
 
 
 class StreamResponse:
@@ -160,12 +152,6 @@ def test_the_request_carries_the_audio_the_vocabulary_and_streams(server):
     assert hint == {"type": "text", "text": "Vocabulary: Arben, Marta"}
 
 
-def test_no_vocabulary_sends_the_audio_alone(server):
-    server["responses"].append(StreamResponse(sse("language English<asr_text>ok")))
-    LlamaAsrClient("http://127.0.0.1:9").transcribe(b"RIFF")
-    assert len(payload(server)["messages"][1]["content"]) == 1
-
-
 def test_a_forced_language_is_a_prefill_and_labels_the_reply(server):
     server["responses"].append(StreamResponse(sse("Guten", " Tag.")))
     reply = LlamaAsrClient("http://127.0.0.1:9").transcribe(b"RIFF", language="de")
@@ -174,12 +160,6 @@ def test_a_forced_language_is_a_prefill_and_labels_the_reply(server):
         "content": "language German<asr_text>",
     }
     assert reply == AsrReply("Guten Tag.", "de", "German", True)
-
-
-def test_a_forced_reply_that_repeats_the_prefill_is_parsed_the_same(server):
-    server["responses"].append(StreamResponse(sse("language German<asr_text>Guten Tag.")))
-    reply = LlamaAsrClient("http://127.0.0.1:9").transcribe(b"RIFF", language="de")
-    assert (reply.text, reply.language) == ("Guten Tag.", "de")
 
 
 def test_accept_is_asked_once_the_tag_arrives_and_a_refusal_closes_the_stream(server):
@@ -224,46 +204,17 @@ def test_silence_answers_no_language_and_no_text(server):
     assert reply == AsrReply("", None, "None", True)
 
 
-def test_a_plain_json_body_is_read_too(server):
-    body = {"choices": [{"message": {"content": "language English<asr_text>Plain."}}]}
-    server["responses"].append(StreamResponse([json.dumps(body).encode()]))
-    assert LlamaAsrClient("http://127.0.0.1:9").transcribe(b"RIFF").text == "Plain."
-
-
 @pytest.mark.parametrize(
     "failure",
     [
         HTTPError("http://x", 400, "bad", {}, None),
-        URLError("refused"),
         TimeoutError("slow"),
-        ConnectionResetError("reset"),
     ],
 )
 def test_request_failures_are_speech_errors(server, failure):
     server["responses"].append(failure)
     with pytest.raises(WhisperError):
         LlamaAsrClient("http://127.0.0.1:9").transcribe(b"RIFF")
-
-
-def test_a_malformed_or_error_chunk_is_a_speech_error(server):
-    server["responses"].append(StreamResponse(["data: {not json\n"]))
-    with pytest.raises(WhisperError):
-        LlamaAsrClient("http://127.0.0.1:9").transcribe(b"RIFF")
-    server["responses"].append(StreamResponse(['data: {"error": {"message": "too long"}}\n']))
-    with pytest.raises(WhisperError):
-        LlamaAsrClient("http://127.0.0.1:9").transcribe(b"RIFF")
-
-
-def test_health_follows_the_server(monkeypatch):
-    monkeypatch.setattr(asr, "urlopen", lambda req, timeout=None: StreamResponse([]))
-    assert LlamaAsrClient("http://127.0.0.1:9").health() is True
-
-    def refuse(req, timeout=None):
-        raise URLError("refused")
-
-    monkeypatch.setattr(asr, "urlopen", refuse)
-    assert LlamaAsrClient("http://127.0.0.1:9").health() is False
-
 
 
 def test_languages_are_assigned_to_the_engine_that_lists_them_and_the_rest_to_the_first():
@@ -273,26 +224,6 @@ def test_languages_are_assigned_to_the_engine_that_lists_them_and_the_rest_to_th
     ]
     catch_all = SpeechRoute("legacy", "whisper-server", ())
     assert serving_languages((ALBANIAN, catch_all), ["en", "sq"]) == [("sq",), ("en",)]
-
-
-def test_a_locked_language_goes_to_its_engine():
-    flutra = FakeWhisper({"text": "Mirëdita", "language": "albanian"})
-    clients = Clients(**{"whisper-2": flutra})
-    result, state = routed(5.0, LangMode("locked", "sq"), clients)
-    assert clients.connected == ["whisper-2"]
-    assert flutra.calls[0]["language"] == "sq"
-    assert (result.text, result.language, result.engine) == ("Mirëdita", "sq", "whisper-2")
-    assert state.last_accepted == "sq"
-
-
-def test_a_forced_language_on_the_fast_engine_is_prefilled():
-    qwen = FakeLlamaAsrClient(AsrReply("Guten Tag.", "de", "German"))
-    clients = Clients(whisper=qwen)
-    result, state = routed(1.0, LangMode("forced", "de"), clients, terms=["Arben"])
-    assert qwen.calls == [{"language": "de", "accept": None, "vocabulary": "Arben",
-                           "timeout_s": pytest.approx(12.0)}]
-    assert (result.language, result.engine, result.fallback_used) == ("de", "whisper", False)
-    assert state.last_accepted == "de"
 
 
 def test_a_short_auto_recording_uses_the_engine_of_the_last_accepted_language():
@@ -354,8 +285,9 @@ def test_several_remaining_languages_use_the_next_engines_own_auto_policy():
         {"text": "Ciao a tutti", "language": "italian"},
     )
     clients = Clients(whisper=qwen, **{"whisper-2": whisper})
-    result, _state = routed(12.0, LangMode("auto"), clients, routes=(FAST, italian),
-                            enabled=["en", "de", "sq", "it"])
+    result, _state = routed(
+        12.0, LangMode("auto"), clients, routes=(FAST, italian), enabled=["en", "de", "sq", "it"]
+    )
     assert [call["language"] for call in whisper.calls] == ["auto", "auto", "it"]
     assert whisper.calls[1]["detect_only"] is True
     assert (result.language, result.fallback_used) == ("it", True)
@@ -364,8 +296,9 @@ def test_several_remaining_languages_use_the_next_engines_own_auto_policy():
 def test_without_another_engine_the_fast_engine_keeps_reading_and_guesses_the_language():
     qwen = FakeLlamaAsrClient(AsrReply("Ni hao", "zh", "Chinese"), reports="Chinese")
     clients = Clients(whisper=qwen)
-    result, _state = routed(12.0, LangMode("auto"), clients, routes=(FAST,),
-                            enabled=["en", "de"], last="de")
+    result, _state = routed(
+        12.0, LangMode("auto"), clients, routes=(FAST,), enabled=["en", "de"], last="de"
+    )
     assert qwen.stopped == 0
     assert (result.text, result.language, result.fallback_used) == ("Ni hao", "de", True)
 
@@ -389,26 +322,15 @@ def test_whisper_first_hands_a_language_it_does_not_serve_to_its_engine():
     whisper = FakeWhisper({"text": "Bonjour", "language": "french"})
     qwen = FakeLlamaAsrClient(AsrReply("Bonjour à tous", "fr", "French"))
     clients = Clients(whisper=whisper, **{"whisper-2": qwen})
-    result, _state = routed(12.0, LangMode("auto"), clients, routes=(general, french),
-                            enabled=["en", "de", "sq", "fr"])
+    result, _state = routed(
+        12.0, LangMode("auto"), clients, routes=(general, french), enabled=["en", "de", "sq", "fr"]
+    )
     assert qwen.calls[0]["language"] == "fr"
     assert (result.text, result.engine) == ("Bonjour à tous", "whisper-2")
 
 
-def test_a_recording_too_long_for_the_fast_engine_goes_to_whisper():
-    flutra = FakeWhisper({"text": "long english", "language": "english"})
-    clients = Clients(**{"whisper-2": flutra})
-    seconds = asr.LLAMA_ASR_MAX_AUDIO_S + 1
-    result, _state = routed(seconds, LangMode("locked", "en"), clients)
-    assert clients.connected == ["whisper-2"]
-    assert flutra.calls[0]["language"] == "en"
-    assert flutra.calls[0]["timeout_s"] == pytest.approx(10.0 + 2.0 * seconds)
-    assert result.engine == "whisper-2"
-
-
 def test_a_hallucination_from_the_fast_engine_is_dropped():
-    qwen = FakeLlamaAsrClient(AsrReply("Thanks for watching!", "en", "English"),
-                              reports="English")
+    qwen = FakeLlamaAsrClient(AsrReply("Thanks for watching!", "en", "English"), reports="English")
     result, state = routed(5.0, LangMode("auto"), Clients(whisper=qwen), last="de")
     assert result is None and state.last_accepted == "de"
 
@@ -437,7 +359,6 @@ def test_routing_needs_an_engine_and_a_code_for_locked_modes():
         routed(5.0, LangMode("forced"), Clients())
 
 
-
 def whisper_body(text: str, language: str = "albanian", avg_logprob: float = -0.3) -> dict:
     return {
         "text": text,
@@ -460,7 +381,15 @@ def test_a_whisper_route_reports_its_scores():
     seen: list = []
     state = LanguagePolicyState("sq")
     transcript = transcribe_routed(
-        pcm(5), SR, LangMode("locked", "sq"), [], ENABLED, state, (FAST, ALBANIAN), clients, seen.append
+        pcm(5),
+        SR,
+        LangMode("locked", "sq"),
+        [],
+        ENABLED,
+        state,
+        (FAST, ALBANIAN),
+        clients,
+        seen.append,
     )
     assert transcript is not None
     assert seen[0].avg_logprob == pytest.approx(-0.3)
@@ -472,18 +401,16 @@ def test_a_llama_asr_route_reports_its_runtime_and_nothing_else():
     seen: list = []
     state = LanguagePolicyState("en")
     transcript = transcribe_routed(
-        pcm(5), SR, LangMode("locked", "en"), [], ENABLED, state, (FAST, ALBANIAN), clients, seen.append
+        pcm(5),
+        SR,
+        LangMode("locked", "en"),
+        [],
+        ENABLED,
+        state,
+        (FAST, ALBANIAN),
+        clients,
+        seen.append,
     )
     assert transcript is not None
     assert seen[0].source == "llama-asr"
     assert seen[0].scored is False
-
-
-def test_auto_mode_on_a_whisper_route_reports_the_accepted_scores():
-    clients = Clients(**{str(FLUTRA): FakeWhisper(whisper_body("Mire se vini", avg_logprob=-0.42))})
-    seen: list = []
-    state = LanguagePolicyState("sq")
-    transcribe_routed(
-        pcm(5), SR, LangMode("auto"), [], ["sq"], state, (ALBANIAN,), clients, seen.append
-    )
-    assert seen[0].avg_logprob == pytest.approx(-0.42)

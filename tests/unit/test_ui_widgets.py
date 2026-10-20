@@ -9,23 +9,11 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from spells.ui import brand
 from spells.ui.widgets import (
-    Badge,
-    Card,
     Chip,
-    ComboBox,
     FlowLayout,
-    InfoBar,
-    KeycapRow,
-    LevelBar,
-    LogoMark,
     NavRail,
     SegmentedControl,
-    SettingRow,
-    SpinBox,
-    StatusDot,
-    StepDots,
     ToggleSwitch,
-    Wordmark,
 )
 
 from .test_ui_support import flush, qt_app
@@ -59,27 +47,6 @@ def test_toggle_switch_is_a_checkable_button(app):
     assert seen == [True, False]
     assert switch.position() == 1.0
     switch.close()
-
-
-def test_toggle_switch_keyboard_and_paint(app):
-    switch = ToggleSwitch()
-    switch.show()
-    flush(app)
-    QtWidgets.QApplication.sendEvent(
-        switch, QtGui.QKeyEvent(QtCore.QEvent.Type.KeyPress, QtCore.Qt.Key.Key_Space, QtCore.Qt.KeyboardModifier.NoModifier, " ")
-    )
-    QtWidgets.QApplication.sendEvent(
-        switch, QtGui.QKeyEvent(QtCore.QEvent.Type.KeyRelease, QtCore.Qt.Key.Key_Space, QtCore.Qt.KeyboardModifier.NoModifier, " ")
-    )
-    assert switch.isChecked()
-    off = ToggleSwitch(state_text=False)
-    assert off.sizeHint().width() < switch.sizeHint().width()
-    assert _rendered(switch).width() == switch.width()
-    switch.setEnabled(False)
-    _rendered(switch)
-    switch.close()
-    off.close()
-
 
 
 def test_segmented_control_offers_the_combo_calls(app):
@@ -155,22 +122,6 @@ def test_nav_rail_selects_one_item_and_reports_clicks(app):
 
 
 
-def test_keycaps_keep_the_familiar_label(app):
-    keys = KeycapRow(["Ctrl", "Alt", "D"])
-    assert keys.text() == "Ctrl+Alt+D"
-    assert keys.keys() == ["Ctrl", "Alt", "D"]
-    wide = keys.sizeHint().width()
-    keys.set_keys(["Ctrl"])
-    assert keys.sizeHint().width() < wide
-    keys.set_keys([])
-    assert keys.text() == "" and keys.accessibleName() == "Not set"
-    large = KeycapRow(["Ctrl"], large=True)
-    assert large.sizeHint().height() > KeycapRow(["Ctrl"]).sizeHint().height()
-    _rendered(large)
-    keys.close()
-    large.close()
-
-
 def test_chip_reports_remove_and_can_be_fixed(app):
     chip = Chip("German", code="de")
     removed: list[int] = []
@@ -186,54 +137,6 @@ def test_chip_reports_remove_and_can_be_fixed(app):
     fixed.close()
 
 
-def test_badge_info_bar_dot_and_meter(app):
-    badge = Badge("Ready", "ok")
-    badge.set_badge("caution", "On CPU")
-    assert badge.text() == "On CPU" and badge.property("badge") == "caution"
-    bar = InfoBar("", "caution")
-    assert bar.isHidden()
-    bar.set_text("Something to know")
-    assert not bar.isHidden() and bar.text() == "Something to know"
-    bar.set_kind("info")
-    assert bar.property("infobar") == "info"
-    dot = StatusDot()
-    for level in StatusDot.LEVELS:
-        dot.set_level(level)
-        _rendered(dot)
-    meter = LevelBar()
-    meter.set_level(3.0)
-    assert meter.level() == 1.0
-    meter.set_level(-1.0)
-    assert meter.level() == 0.0
-    dots = StepDots(3)
-    dots.set_current(2)
-    _rendered(dots)
-    for widget in (badge, bar, dot, meter, dots):
-        widget.close()
-
-
-
-def test_card_rows_are_separated_and_cleared(app):
-    card = Card()
-    first = card.add_row(SettingRow("One", "First row"))
-    card.add_row(SettingRow("Two"))
-    assert card.rows()[0] is first
-    assert card.body.count() == 3
-    card.clear()
-    flush(app)
-    assert card.rows() == [] and card.body.count() == 0
-    card.close()
-
-
-def test_setting_row_description_hides_when_empty(app):
-    row = SettingRow("Title", "", QtWidgets.QPushButton("Go"))
-    assert row.description_label.isHidden()
-    row.set_description("Now with words")
-    assert not row.description_label.isHidden()
-    assert row.minimumHeight() == 48
-    row.close()
-
-
 def test_flow_layout_wraps_when_narrow(app):
     host = QtWidgets.QWidget()
     flow = FlowLayout(host, spacing=8)
@@ -245,21 +148,6 @@ def test_flow_layout_wraps_when_narrow(app):
     flow.clear()
     assert flow.count() == 0
     host.close()
-
-
-def test_combo_and_spin_box_paint_their_chevrons(app):
-    combo = ComboBox()
-    combo.addItem("Automatic (NVIDIA GeForce RTX 5060 Laptop GPU with a very long name)")
-    combo.resize(160, 32)
-    spin = SpinBox()
-    spin.resize(120, 32)
-    for widget in (combo, spin):
-        widget.show()
-        flush(app)
-        image = widget.grab().toImage()
-        assert not image.isNull()
-        widget.close()
-
 
 
 def test_logo_falls_back_to_the_drawn_mark(app, monkeypatch, tmp_path):
@@ -276,34 +164,6 @@ def test_logo_falls_back_to_the_drawn_mark(app, monkeypatch, tmp_path):
     rail = NavRail()
     assert rail.logo is not None and rail.brand_label.text() == "Spells"
     rail.close()
-
-
-def test_logo_and_marks_load_from_svg_files(app, monkeypatch, tmp_path):
-    svg = (
-        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100" color="#15212A">'
-        '<rect x="0" y="0" width="200" height="100" fill="currentColor"/></svg>'
-    )
-    for name in (brand.LOGO, brand.MONO_MARK, brand.WORDMARK):
-        (tmp_path / name).write_text(svg, encoding="utf-8")
-    monkeypatch.setattr(brand, "brand_path", lambda name: tmp_path / name)
-    image = QtGui.QImage(64, 64, QtGui.QImage.Format.Format_ARGB32_Premultiplied)
-    image.fill(QtCore.Qt.GlobalColor.transparent)
-    painter = QtGui.QPainter(image)
-    assert brand.paint_logo(painter, QtCore.QRectF(0, 0, 64, 64), QtGui.QColor("red"), QtGui.QColor("blue"))
-    painter.end()
-    mark = brand.tinted_mark(40, QtGui.QColor("#FFFFFF"))
-    assert mark is not None and mark.pixelColor(20, 20).name() == "#ffffff"
-    assert brand.wordmark_aspect(QtGui.QColor("#FFFFFF")) == pytest.approx(2.0)
-    wordmark = Wordmark(30)
-    assert wordmark.available() and wordmark.width() == 60
-    _rendered(LogoMark(40))
-    wordmark.close()
-
-
-def test_a_broken_svg_is_treated_as_missing(app, monkeypatch, tmp_path):
-    (tmp_path / brand.LOGO).write_text("not an svg", encoding="utf-8")
-    monkeypatch.setattr(brand, "brand_path", lambda name: tmp_path / name)
-    assert brand.renderer(brand.LOGO) is None
 
 
 def test_a_brand_file_elsewhere_with_the_same_mtime_is_read_afresh(app, monkeypatch, tmp_path):

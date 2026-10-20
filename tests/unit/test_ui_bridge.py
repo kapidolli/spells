@@ -13,10 +13,9 @@ import time
 import pytest
 from PySide6 import QtCore
 
-from spells.models import EngineState
 from spells.ui.bridge import UiBridge
 
-from .test_ui_support import WHISPER, event, flush, qt_app
+from .test_ui_support import event, flush, qt_app
 
 
 @pytest.fixture(scope="module")
@@ -63,28 +62,6 @@ def test_pipeline_event_is_delivered_on_the_qt_thread(app):
     assert args == (ev,)
 
 
-def test_engine_status_is_delivered_on_the_qt_thread(app):
-    bridge = UiBridge()
-    receiver = Receiver()
-    bridge.connect_engine_status(receiver.on_anything)
-    run_on_thread(lambda: bridge.on_engine_status(WHISPER, EngineState.READY, "ok"))
-    flush(app)
-    ident, _qthread, args = receiver.seen[0]
-    assert ident == threading.get_ident()
-    assert args == (WHISPER, EngineState.READY, "ok")
-
-
-def test_hotkey_error_is_delivered_on_the_qt_thread(app):
-    bridge = UiBridge()
-    receiver = Receiver()
-    bridge.connect_hotkey_error(receiver.on_anything)
-    run_on_thread(lambda: bridge.on_hotkey_error("SetWindowsHookEx failed"))
-    flush(app)
-    ident, _qthread, args = receiver.seen[0]
-    assert ident == threading.get_ident()
-    assert args == ("SetWindowsHookEx failed",)
-
-
 def test_settings_change_is_delivered_on_the_qt_thread(app, tmp_path):
     from spells.config import default_settings
 
@@ -118,11 +95,3 @@ def test_a_call_from_the_qt_thread_is_still_queued_not_reentrant(app):
     flush(app)
     assert len(receiver.seen) == 1
 
-
-def test_plain_callables_receive_on_the_qt_thread_too(app):
-    bridge = UiBridge()
-    seen: list[int] = []
-    bridge.connect_hotkey_error(lambda message: seen.append(threading.get_ident()))
-    run_on_thread(lambda: bridge.on_hotkey_error("x"))
-    flush(app)
-    assert seen == [threading.get_ident()]

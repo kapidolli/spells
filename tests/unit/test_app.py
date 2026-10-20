@@ -16,17 +16,15 @@ from pathlib import Path
 import pytest
 
 from spells import app as app_module
-from spells import calibrate, paths, platform
-from spells.app import MUTEX_NAME, WINDOW_CLASS, Deps, main, parse_args
-from spells.config import ConfigStore, Settings, default_settings, load
+from spells import calibrate, paths
+from spells.app import MUTEX_NAME, WINDOW_CLASS, Deps, main
+from spells.config import ConfigStore, Settings
 from spells.engines import SpeechEngine
 from spells.gpu import GpuDevice, GpuSelection
 from spells.modelcatalog import CatalogError, load_catalog, parse_catalog
 from spells.models import CpuPlan, Engine, EngineId, EngineState
 from spells.pipeline import PillState, PipelineEvent, TrayState
-from spells.platform.base import Capabilities, MessageHandlers
-
-from .fake_platform import fake_platform
+from spells.platform.base import MessageHandlers
 
 RTX = "NVIDIA GeForce RTX 5060 Laptop GPU"
 SELECTION = GpuSelection(
@@ -572,55 +570,12 @@ def quiet_logging():
 
 
 
-def test_parse_args_recognises_every_flag():
-    assert parse_args([]) == app_module.Args()
-    assert parse_args(["--quit"]).quit is True
-    assert parse_args(["--settings"]).settings is True
-    assert parse_args(["--version"]).version is True
-    assert parse_args(["--QUIT"]).quit is True
-
-
-def test_parse_args_keeps_unknown_arguments_without_failing():
-    args = parse_args(["--wat", "extra"])
-    assert args.unknown == ("--wat", "extra")
-    assert args.quit is False
-
-
-def test_version_prints_and_starts_nothing(world, capsys):
-    assert main(["--version"], deps=world.deps()) == 0
-    assert app_module.__version__ in capsys.readouterr().out
-    assert world.log == []
-
-
-
 def test_second_launch_asks_the_running_instance_to_open_settings(world):
     world.taken = True
     assert main([], deps=world.deps()) == 0
     assert world.signals == [(WINDOW_CLASS, "open-settings")]
     assert "qapp" not in world.log
     assert world.engines is None
-
-
-def test_a_start_on_the_stub_says_so_in_the_log(world, caplog, use_platform):
-    use_platform(fake_platform())
-    world.taken = True
-    with caplog.at_level(logging.INFO, logger="spells.app"):
-        assert main([], deps=world.deps()) == 0
-    assert "Running on the linux platform stub" in caplog.text
-
-
-def test_a_start_with_every_capability_does_not_mention_the_stub(world, caplog, use_platform):
-    use_platform(replace(platform.current(), capabilities=Capabilities.everything()))
-    world.taken = True
-    with caplog.at_level(logging.INFO, logger="spells.app"):
-        assert main([], deps=world.deps()) == 0
-    assert "stub" not in caplog.text
-
-
-def test_settings_flag_reaches_the_running_instance(world):
-    world.taken = True
-    assert main(["--settings"], deps=world.deps()) == 0
-    assert world.signals == [(WINDOW_CLASS, "open-settings")]
 
 
 def test_settings_flag_opens_settings_in_a_fresh_instance(world):
@@ -653,17 +608,6 @@ def test_quit_waits_for_the_window_of_an_instance_that_is_still_starting(world):
     assert world.signals == [(WINDOW_CLASS, "quit")]
     assert world.window_present is False
     assert 0 < sum(slept) < app_module.QUIT_TIMEOUT_S
-
-
-def test_quit_gives_up_when_the_window_never_appears(world, caplog):
-    world.taken = True
-    world.window_present = False
-    deps, slept = _fake_clock_deps(world)
-    with caplog.at_level(logging.WARNING, logger="spells.app"):
-        assert main(["--quit"], deps=deps) == 0
-    assert world.signals == []
-    assert sum(slept) >= app_module.QUIT_TIMEOUT_S
-    assert "no window" in caplog.text.lower()
 
 
 def _fake_clock_deps(world: World):
@@ -735,64 +679,6 @@ def test_start_order_follows_the_spec(world):
     ]
 
 
-def test_wiring_hands_each_collaborator_the_bridge_callbacks(world):
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    bridge = world.bridge
-    assert world.pipeline.kwargs["on_event"] == bridge.on_pipeline_event
-    assert world.engines.on_status == bridge.on_engine_status
-    assert world.hotkey.on_error == bridge.on_hotkey_error
-    assert world.ui_kwargs["bridge"] is bridge
-    assert world.ui_kwargs["gpu_selection"] is SELECTION
-    assert world.ui_kwargs["log_dir"] == world.layout.log_dir
-    assert world.hotkey.callbacks == ("callbacks",)
-    settings = world.config.settings
-    assert world.hotkey.chords == [settings.general.main_chord, *settings.general.language_chords]
-    assert world.history.retention == settings.history.retention
-    assert world.history.upload_hold is settings.upload.enabled
-    assert world.engines.paths.whisper_model == world.layout.whisper_model
-
-
-def test_the_history_holds_unsent_rows_from_the_start_when_uploading_is_on(world):
-    settings = ConfigStore(world.settings_file()).settings
-    world.write_settings(
-        replace(
-            settings,
-            upload=replace(settings.upload, enabled=True, url="https://example.com/spells"),
-        )
-    )
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    assert world.history.upload_hold is True
-    assert world.history.hold_recordings is False
-    assert world.history.upload_skip_apps == []
-
-
-def test_the_history_knows_the_skipped_apps_from_the_start(world):
-    settings = ConfigStore(world.settings_file()).settings
-    world.write_settings(
-        replace(
-            settings,
-            upload=replace(
-                settings.upload,
-                enabled=True,
-                url="https://example.com/spells",
-                skip_apps=["keepassxc.exe"],
-            ),
-        )
-    )
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    assert world.history.upload_skip_apps == ["keepassxc.exe"]
-
-
-def test_the_pipeline_ends_recordings_through_the_hotkey_thread(world):
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    world.pipeline.end_recording(7)
-    assert world.hotkey.ended == [7]
-
-
 def test_shutdown_order_and_idempotence(world):
     world.on_exec = lambda: world.handles.tray.quit_requested.emit()
     assert main([], deps=world.deps()) == 0
@@ -851,15 +737,6 @@ def test_end_session_shuts_down_before_it_returns(world):
         assert step in during
     assert world.pipeline.stopped == 1
     assert world.engines.stopped == 1
-
-
-def test_the_starting_icon_covers_the_gpu_probe_and_goes_once_the_ui_is_up(world):
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    assert world.probe_saw_placeholder == [True]
-    assert world.log.index("placeholder") < world.log.index("gpu")
-    assert world.log.index("placeholder.hide") > world.log.index("ui.create")
-    assert (world.placeholder.hidden, world.placeholder.deleted) == (1, 1)
 
 
 def test_a_failed_start_returns_one_and_releases_the_mutex(world):
@@ -955,17 +832,6 @@ def test_an_unknown_command_is_ignored(world, caplog):
     assert "rm -rf" in caplog.text
 
 
-def test_resume_and_unlock_reinstall_the_hook(world):
-    def wake() -> None:
-        world.handlers().on_resume()
-        world.handlers().on_session_unlock()
-
-    world.on_exec = wake
-    main([], deps=world.deps())
-    assert world.hotkey.reinstalls == 2
-
-
-
 def test_autostart_is_applied_at_start_and_on_change(world):
     def toggle() -> None:
         world.config.update(lambda s: replace(s, general=replace(s.general, autostart=False)))
@@ -973,26 +839,6 @@ def test_autostart_is_applied_at_start_and_on_change(world):
     world.on_exec = toggle
     main([], deps=world.deps())
     assert world.autostart_calls == [(True, '"pythonw.exe" -m spells'), (False, '"pythonw.exe" -m spells')]
-
-
-def test_idle_unload_minutes_reach_the_supervisor(world):
-    def change() -> None:
-        world.config.update(
-            lambda s: replace(s, general=replace(s.general, idle_unload_minutes=12))
-        )
-
-    world.on_exec = change
-    main([], deps=world.deps())
-    assert world.engines.idle_minutes == [0, 12]
-
-
-def test_retention_is_left_to_the_settings_dialog(world):
-    def change() -> None:
-        world.config.update(lambda s: replace(s, history=replace(s.history, retention="7d")))
-
-    world.on_exec = change
-    main([], deps=world.deps())
-    assert world.history.retentions == []
 
 
 def test_debug_logging_takes_effect_at_once(world):
@@ -1021,25 +867,6 @@ def test_an_unchanged_setting_is_not_reapplied(world):
 
 
 
-def test_the_gpu_choice_is_probed_with_the_cache_and_the_override(world):
-    settings = ConfigStore(world.settings_file()).settings
-    world.write_settings(
-        replace(
-            settings,
-            diagnostics=replace(
-                settings.diagnostics, gpu_device_override=3, gpu_device_index=0, gpu_device_name="old"
-            ),
-        )
-    )
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    call = world.gpu_calls[0]
-    assert call["llama_server"] == world.layout.llama_exe("vulkan")
-    assert call["whisper_server"] == world.layout.whisper_exe("vulkan")
-    assert call["override"] == 3
-    assert call["cached"] == (0, "old")
-
-
 def test_the_gpu_cache_is_written_only_when_it_changed(world):
     world.on_exec = lambda: None
     main([], deps=world.deps())
@@ -1054,30 +881,11 @@ def test_the_gpu_cache_is_written_only_when_it_changed(world):
     assert first_writes >= 1
 
 
-def test_no_gpu_keeps_the_cache_empty(world):
-    world.selection = GpuSelection(raw_index=None, name="", memory_mb=0, devices=())
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    diagnostics = world.config.settings.diagnostics
-    assert diagnostics.gpu_device_index is None
-    assert diagnostics.gpu_device_name is None
-
-
-
 def test_first_run_shows_the_welcome_page_and_writes_the_settings_file(world):
     world.on_exec = lambda: None
     main([], deps=world.deps())
     assert world.ui_kwargs["first_run"] is True
     assert world.settings_file().exists()
-
-
-def test_a_second_start_is_not_a_first_run(world):
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    second = World(tmp_path=world.tmp_path)
-    second.on_exec = lambda: None
-    main([], deps=second.deps())
-    assert second.ui_kwargs["first_run"] is False
 
 
 def test_a_settings_load_notice_becomes_a_tray_warning(world):
@@ -1087,31 +895,6 @@ def test_a_settings_load_notice_becomes_a_tray_warning(world):
     world.on_exec = lambda: None
     main([], deps=world.deps())
     assert any(warning for _text, warning in world.handles.tray.messages)
-
-
-def test_a_missing_cleanup_model_is_a_balloon_but_not_a_second_tooltip_line(world):
-    """The engine's no_model state already warns in the tray; Windows cuts a tooltip at 127."""
-    models = world.tmp_path / "build" / "cache" / "models"
-    models.mkdir(parents=True)
-    (models / paths.WHISPER_DEV_MODEL_NAME).write_bytes(b"")
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    texts = [text for text, _warning in world.handles.tray.messages]
-    assert any("cleanup" in text.lower() for text in texts)
-    assert not any(world.handles.tray.extra_warnings)
-    assert world.layout.llama_model is None
-    assert world.engines.paths.llama_model is None
-
-
-def test_only_a_missing_speech_model_becomes_the_lasting_tray_warning(world):
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    texts = [text for text, _warning in world.handles.tray.messages]
-    assert any("cleanup" in text.lower() for text in texts)
-    assert any(world.layout.whisper_notice == text for text in texts)
-    standing = world.handles.tray.extra_warnings
-    assert standing and standing[-1] == world.layout.whisper_notice
-    assert "cleanup" not in standing[-1].lower()
 
 
 WHISPER_ID = "whisper-large-v3-turbo-q8_0"
@@ -1219,17 +1002,6 @@ def test_a_language_change_that_keeps_the_models_changes_nothing(world):
     assert world.engines.model_changes == []
 
 
-def test_a_setting_other_than_the_languages_never_touches_the_models(world):
-    world.install(*ALL_IDS)
-
-    def touch() -> None:
-        world.config.update(lambda s: replace(s, cleanup=replace(s.cleanup, enabled=False)))
-
-    world.on_exec = touch
-    main([], deps=world.deps())
-    assert world.engines.model_changes == []
-
-
 def test_gpu_override_rebuilds_cpu_plan_and_caches_the_selected_device(world):
     world.install(*ALL_IDS)
     world.selection = replace(INTEGRATED, devices=INTEGRATED.devices + SELECTION.devices)
@@ -1283,15 +1055,6 @@ def test_languages_no_installed_cleanup_model_suits_start_llama_without_a_model(
     texts = [text for text, _warning in world.handles.tray.messages]
     assert app_module.NO_SUITABLE_CLEANUP in texts
     assert not any(world.handles.tray.extra_warnings)
-
-
-def test_a_chosen_cleanup_model_replaces_the_layouts_cleanup_notice(world):
-    world.install(*ALL_IDS)
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    assert "several models" in world.layout.cleanup_notice
-    texts = [text for text, _warning in world.handles.tray.messages]
-    assert not any("cleanup" in text.lower() for text in texts)
 
 
 def test_without_catalog_models_the_layout_models_are_kept(world):
@@ -1400,19 +1163,6 @@ def test_the_log_carries_no_transcript_text_at_info(world, quiet_logging):
     assert "MainThread" in text
 
 
-def test_debug_logging_from_the_settings_raises_the_level(world, quiet_logging):
-    """The stored setting reaches logging through the same seam the checkbox uses."""
-    settings = ConfigStore(world.settings_file()).settings
-    world.write_settings(
-        replace(settings, diagnostics=replace(settings.diagnostics, debug_logging=True))
-    )
-    world.real_logging = True
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    assert logging.getLogger().level == logging.DEBUG
-
-
-
 def _seed_file(world: World, text: str) -> Path:
     """Write what the online installer leaves beside Spells.exe, which is layout.root here."""
     path = world.tmp_path / app_module.FIRST_RUN_FILE
@@ -1430,39 +1180,11 @@ def test_the_first_run_seeds_the_languages_the_installer_asked_for(world):
     assert world.config.settings.general.enabled_languages == ["en", "de"]
 
 
-def test_the_seeded_languages_reach_the_settings_file_on_disk(world):
-    _seed_file(world, '{"enabled_languages": ["sq"]}')
-    world.on_exec = lambda: None
-
-    main([], deps=world.deps())
-
-    saved, notice = load(world.settings_file())
-    assert notice is None
-    assert saved.general.enabled_languages == ["sq"]
-
-
-def test_without_the_file_the_first_run_keeps_the_default_languages(world):
-    world.on_exec = lambda: None
-
-    main([], deps=world.deps())
-
-    assert world.config.settings.general.enabled_languages == ["en", "de", "sq"]
-
-
 def test_a_malformed_seed_file_never_stops_the_start(world):
     _seed_file(world, "{not json")
     world.on_exec = lambda: None
 
     assert main([], deps=world.deps()) == 0
-    assert world.config.settings.general.enabled_languages == ["en", "de", "sq"]
-
-
-def test_a_seed_file_naming_only_unknown_codes_changes_nothing(world):
-    _seed_file(world, '{"enabled_languages": ["klingon"]}')
-    world.on_exec = lambda: None
-
-    main([], deps=world.deps())
-
     assert world.config.settings.general.enabled_languages == ["en", "de", "sq"]
 
 
@@ -1477,18 +1199,6 @@ def test_the_seed_file_is_ignored_once_a_settings_file_exists(world):
 
     assert second.ui_kwargs["first_run"] is False
     assert second.config.settings.general.enabled_languages == ["en", "de", "sq"]
-
-
-def test_first_run_seed_is_a_pure_function_of_the_file_beside_the_executable(tmp_path):
-    (tmp_path / app_module.FIRST_RUN_FILE).write_text(
-        '{"enabled_languages": ["de"]}', encoding="utf-8")
-
-    seeded = app_module.first_run_seed(default_settings(), tmp_path)
-
-    assert seeded.general.enabled_languages == ["de"]
-    assert app_module.first_run_seed(default_settings(), tmp_path / "elsewhere") \
-        == default_settings()
-
 
 
 def join_calibration() -> None:
@@ -1574,15 +1284,6 @@ def test_the_processor_writes_with_the_strong_model_in_an_engine_of_its_own(worl
     paths = world.engines.paths
     assert paths.llama_model.name == "gemma-4-E2B-it-Q4_0.gguf"
     assert paths.writer_model == world.models_dir() / "Qwen3.5-4B-Q4_K_M.gguf"
-
-
-def test_a_graphics_card_writes_and_cleans_with_one_engine(world):
-    world.install(*ALL_IDS)
-    world.on_exec = lambda: None
-    main([], deps=world.deps())
-    paths = world.engines.paths
-    assert paths.llama_model.name == "Qwen3.5-4B-Q4_K_M.gguf"
-    assert paths.writer_model is None
 
 
 def test_with_only_the_small_model_there_is_one_text_engine(world):

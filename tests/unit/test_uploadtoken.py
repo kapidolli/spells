@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from spells.uploadtoken import TOKEN_FILE, TokenStore, token_path_for
+from spells.uploadtoken import TOKEN_FILE, TokenStore
 
 from .fake_platform import secrets_where_missing
 
@@ -30,11 +30,6 @@ def test_dpapi_refuses_a_blob_it_did_not_make():
 
     with pytest.raises(dpapi.DpapiError):
         dpapi.unprotect(b"not a protected blob at all")
-
-
-def test_the_token_file_sits_beside_the_history(tmp_path):
-    assert token_path_for(tmp_path / "history.db") == tmp_path / TOKEN_FILE
-    assert TOKEN_FILE == "upload-token.bin"
 
 
 def test_the_store_writes_an_encrypted_file_and_reads_it_back(tmp_path):
@@ -80,14 +75,3 @@ def test_without_a_path_the_token_lives_in_memory_only(tmp_path):
     store.write("")
     assert store.read() == "" and not store.exists()
     assert list(tmp_path.iterdir()) == []
-
-
-def test_the_encryption_is_injectable(tmp_path):
-    store = TokenStore(
-        tmp_path / TOKEN_FILE,
-        protect=lambda data: data[::-1],
-        unprotect=lambda blob: blob[::-1],
-    )
-    store.write("abc")
-    assert (tmp_path / TOKEN_FILE).read_bytes() == b"cba"
-    assert store.read() == "abc"

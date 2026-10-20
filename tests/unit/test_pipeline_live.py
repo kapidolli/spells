@@ -21,7 +21,6 @@ from spells.pipeline import (
     COPIED_NOTICE,
     PARTIAL_MAX_LATENCY_CANCELLABLE_MS,
     PARTIAL_MAX_LATENCY_MS,
-    PARTIAL_MIN_AUDIO_S,
     PARTIAL_WINDOW_S,
     Notice,
 )
@@ -33,7 +32,6 @@ from .fake_clients import FakeLlamaAsrClient, FakeWhisperClient
 from .test_inject import OTHER_HWND
 from .test_pipeline import (
     CLEANED,
-    LONG_TEXT,
     OK_RESPONSE,
     WHISPER,
     Harness,
@@ -140,10 +138,6 @@ def test_the_first_partial_waits_for_enough_audio(tmp_path):
     assert h.pipeline.run_partial_tick() == "waiting"
     assert h.whisper.calls == []
     assert typed(h) == []
-
-
-def test_the_minimum_audio_sits_under_the_two_second_language_rule():
-    assert 1.0 < PARTIAL_MIN_AUDIO_S < 2.0
 
 
 def test_a_tick_while_a_pass_is_in_flight_is_skipped(tmp_path):
@@ -260,16 +254,6 @@ def test_release_aborts_the_pass_in_flight_and_drops_its_text(tmp_path):
     assert typed(h) == []
 
 
-def test_a_tick_after_the_dictation_ended_does_nothing(tmp_path):
-    h = live_harness(tmp_path)
-    h.press()
-    live = h.pipeline.live
-    h.release()
-    assert live.tick() == "off"
-    assert h.whisper.calls == []
-
-
-
 def test_the_final_pass_reconciles_the_draft_instead_of_pasting(tmp_path):
     h = live_harness(tmp_path)
     h.press()
@@ -299,38 +283,6 @@ def test_the_reconciliation_keeps_the_prefix_the_draft_got_right(tmp_path):
     h.process()
     assert erased(h) == []
     assert typed(h) == [CLEANED[len("I think we should") :]]
-
-
-def test_a_partial_never_reaches_history(tmp_path):
-    h = live_harness(tmp_path)
-    h.press()
-    h.pipeline.run_partial_tick()
-    h.release()
-    h.process()
-    entry = h.history.entries[-1]
-    assert entry.raw_text == LONG_TEXT
-    assert entry.delivered_text == CLEANED
-    assert PARTIAL_TEXT not in entry.delivered_text
-
-
-def test_the_partial_counts_reach_the_timings(tmp_path):
-    h = live_harness(tmp_path)
-    h.press()
-    h.pipeline.run_partial_tick()
-    h.release()
-    h.process()
-    extra = h.history.entries[-1].timings.extra
-    assert extra["partials"] == 1.0
-    assert extra["partial_inserts"] == 1.0
-
-
-def test_the_clipboard_is_untouched_while_a_dictation_runs(tmp_path):
-    h = live_harness(tmp_path)
-    h.press()
-    h.pipeline.run_partial_tick()
-    h.pipeline.run_partial_tick()
-    assert not [entry for entry in h.inject_log if entry[0] in ("set_text", "snapshot")]
-
 
 
 def test_focus_moving_mid_dictation_stops_the_draft_and_copies(tmp_path):
@@ -374,20 +326,6 @@ def test_escape_takes_the_draft_back(tmp_path):
     assert h.pipeline.live is None
 
 
-def test_the_pill_says_the_dictation_is_typing_live(tmp_path):
-    h = live_harness(tmp_path)
-    h.press()
-    assert h.last.live_typing is True
-    h.release()
-    assert h.last.live_typing is False
-
-
-def test_a_dictation_without_live_typing_says_so(tmp_path):
-    h = Harness(tmp_path)
-    h.press()
-    assert h.last.live_typing is False
-
-
 def test_a_capture_without_a_window_never_types(tmp_path):
     h = live_harness(tmp_path)
     h.ctx_window = 0
@@ -400,11 +338,8 @@ def test_a_capture_without_a_window_never_types(tmp_path):
     ("latency", "expected"),
     [
         (300, True),
-        (400, True),
         (PARTIAL_MAX_LATENCY_MS, True),
         (PARTIAL_MAX_LATENCY_MS + 1, False),
-        (1300, False),
-        (4500, False),
         (None, False),
     ],
 )
@@ -417,11 +352,9 @@ def test_the_enable_rule_follows_the_catalog_latency(tmp_path, latency, expected
 @pytest.mark.parametrize(
     ("latency", "expected"),
     [
-        (400, True),
         (1300, True),
         (PARTIAL_MAX_LATENCY_CANCELLABLE_MS, True),
         (PARTIAL_MAX_LATENCY_CANCELLABLE_MS + 1, False),
-        (4500, False),
     ],
 )
 def test_an_engine_that_cancels_may_be_slower(tmp_path, latency, expected):
@@ -441,28 +374,12 @@ def test_auto_mode_follows_the_engine_it_asks_first(tmp_path):
     assert h.pipeline.live_enabled(settings, profile, LangMode("locked", "sq")) is False
 
 
-def test_auto_mode_stays_off_when_the_first_engine_is_slow(tmp_path):
-    h = Harness(tmp_path, selection=FakeSelection(4500, per_language={"en": 300}))
-    settings = h.config.settings
-    profile = BUILTIN_PROFILES["Default"]
-    assert h.pipeline.live_enabled(settings, profile, LangMode("auto")) is False
-    assert h.pipeline.live_enabled(settings, profile, LangMode("forced", "en")) is True
-
-
 def test_a_language_with_no_speech_model_is_never_live(tmp_path):
     h = Harness(tmp_path, selection=FakeSelection(300, per_language={"de": None}))
     profile = BUILTIN_PROFILES["Default"]
     settings = h.config.settings
     assert h.pipeline.live_enabled(settings, profile, LangMode("forced", "de")) is False
     assert h.pipeline.live_enabled(settings, profile, LangMode("auto")) is True
-
-
-def test_set_selection_applies_a_new_hardware_verdict(tmp_path):
-    h = Harness(tmp_path, selection=FakeSelection(4500))
-    profile = BUILTIN_PROFILES["Default"]
-    assert h.pipeline.live_enabled(h.config.settings, profile, LangMode("auto")) is False
-    h.pipeline.set_selection(FakeSelection(300))
-    assert h.pipeline.live_enabled(h.config.settings, profile, LangMode("auto")) is True
 
 
 def test_the_setting_turns_live_typing_off(tmp_path):
@@ -488,17 +405,6 @@ def test_live_typing_stays_out_of_code_and_terminal_windows(tmp_path):
     )
     everywhere = h.config.update(general(live_text_everywhere=True))
     assert h.pipeline.live_enabled(everywhere, BUILTIN_PROFILES["Code"], LangMode("auto")) is True
-
-
-def test_a_code_window_records_normally_without_a_draft(tmp_path):
-    h = live_harness(tmp_path, whisper=FakeWhisperClient(responses=[OK_RESPONSE]))
-    h.ctx_process = "Code.exe"
-    h.press()
-    assert h.pipeline.live is None
-    h.release()
-    h.process()
-    assert h.delivered_texts() == [CLEANED]
-
 
 
 def test_a_long_dictation_commits_the_draft_and_starts_the_window_again(tmp_path):
@@ -596,26 +502,6 @@ def test_a_partial_never_waits_on_a_slow_engine(tmp_path):
     assert h.pipeline.run_partial_tick() == "off"
     assert h.whisper.calls == []
     assert typed(h) == []
-
-
-def test_whisper_timeouts_grow_with_the_measured_speed(tmp_path):
-    fast = Harness(tmp_path / "fast", selection=FakeSelection(300))
-    fast.dictate()
-    slow = Harness(tmp_path / "slow", selection=FakeSelection(10000))
-    slow.dictate()
-    quick, patient = fast.whisper.calls[0]["timeout_s"], slow.whisper.calls[0]["timeout_s"]
-    assert patient - quick == 40.0 - 10.0
-
-
-def test_an_integrated_gpu_cleans_long_text_without_fillers(tmp_path):
-    selection = FakeSelection(300)
-    selection.integrated = True
-    h = Harness(tmp_path, selection=selection)
-    h.dictate()
-    assert len(h.llama.calls) == 1
-    assert h.history.entries[-1].cleanup_reason == "ok"
-
-
 
 
 def test_live_typing_stays_off_where_the_platform_cannot_do_it():

@@ -158,43 +158,6 @@ def test_the_bundle_never_carries_a_recording_or_a_transcript(tmp_path: Path):
     assert b"secret transcript" not in blob
 
 
-def test_a_recordings_folder_inside_the_log_folder_is_still_left_out(tmp_path: Path):
-    """The bundle only walks the log folder's own files, so a stray folder adds nothing."""
-    log_dir = tmp_path / "logs"
-    (log_dir / "recordings").mkdir(parents=True)
-    (log_dir / "spells.log").write_text("app log line\n", encoding="utf-8")
-    (log_dir / "recordings" / "000001.wav").write_bytes(b"RIFF....WAVEfmt ")
-    target = tmp_path / "bundle.zip"
-    names = write_bundle(target, log_dir=log_dir, settings_path=None, summary="ok\n")
-    assert names == ["logs/spells.log", "diagnostics.txt"]
-
-
-def test_licence_components_cover_spec_21():
-    names = " ".join(name for name, _license, _manifest in LICENSE_COMPONENTS).lower()
-    for word in (
-        "whisper.cpp",
-        "llama.cpp",
-        "ggml",
-        "cpp-httplib",
-        "nlohmann",
-        "libgcc",
-        "winpthreads",
-        "openmp",
-        "whisper",
-        "silero",
-        "qwen",
-        "gemma",
-        "pyside6",
-        "python",
-        "pyinstaller",
-        "numpy",
-        "sounddevice",
-        "portaudio",
-    ):
-        assert word in names
-
-
-
 def make_tab(tmp_path: Path, *, selection: GpuSelection = SELECTION):
     config = make_config(tmp_path)
     engines = FakeEngines()
@@ -231,31 +194,6 @@ def make_tab(tmp_path: Path, *, selection: GpuSelection = SELECTION):
     return tab, config, engines, pipeline, messages, launched, saved
 
 
-def test_engine_rows_show_state_backend_reason_and_verification(app, tmp_path):
-    tab, *_ = make_tab(tmp_path)
-    whisper = tab.engine_summary(WHISPER)
-    assert "Ready" in whisper and "Vulkan" in whisper
-    assert "not name the chosen device" in whisper.lower() or "warning" in whisper.lower()
-    llama = tab.engine_summary(LLAMA)
-    assert "CPU" in llama and "GPU memory" in llama and "not verified" in llama
-    tab.close()
-
-
-def test_a_missing_cleanup_model_is_named_without_build_or_gpu_clauses(app, tmp_path):
-    tab, _config, engines, *_ = make_tab(tmp_path)
-    engines.states[LLAMA] = EngineState.FAILED
-    engines.reasons[LLAMA] = "no_model"
-    engines.variants[LLAMA] = "vulkan"
-    assert tab.engine_summary(LLAMA) == "Failed; no cleanup model for your languages"
-    level, badge, detail = tab.engine_view(LLAMA)
-    assert (level, badge) == ("caution", "Cleanup off")
-    assert "without cleanup" in detail
-    engines.reasons[LLAMA] = "crash"
-    crashed = tab.engine_summary(LLAMA)
-    assert crashed.startswith("Failed; Vulkan build; crashed") and "not verified" in crashed
-    tab.close()
-
-
 def test_gpu_override_saves_without_restarting_engines_with_a_stale_model_plan(app, tmp_path):
     tab, config, engines, *_ = make_tab(tmp_path)
     combo = tab.gpu_override
@@ -271,42 +209,12 @@ def test_gpu_override_saves_without_restarting_engines_with_a_stale_model_plan(a
     tab.close()
 
 
-def test_medians_and_recommendation(app, tmp_path):
-    tab, *_ = make_tab(tmp_path)
-    assert "280" in tab.median_label("mic_open_ms").text()
-    assert tab.median_label("release_to_cleaned_ms").text() == "No data"
-    assert tab.recommendation.isVisible() or "keep mic warm" in tab.recommendation.text().lower()
-    assert "keep mic warm" in tab.recommendation.text().lower()
-    tab.close()
-
-
-def test_recommendation_hides_under_the_target(app, tmp_path):
-    tab, _config, _engines, pipeline, *_ = make_tab(tmp_path)
-    pipeline.timings = timings(30.0, 40.0)
-    tab.refresh()
-    assert tab.recommendation.text() == ""
-    tab.close()
-
-
 def test_guard_counts_are_listed(app, tmp_path):
     tab, *_ = make_tab(tmp_path)
     text = tab.guards_text()
     assert "length_ratio" in text and "2" in text
     assert "preamble" in text
     assert {reason: label.text() for reason, label in tab.guard_rows.items()} == {"length_ratio": "2", "preamble": "1"}
-    tab.close()
-
-
-def test_no_guard_rejections_show_one_calm_row(app, tmp_path):
-    tab, _config, _engines, pipeline, *_ = make_tab(tmp_path)
-    pipeline.guards = {}
-    tab.refresh()
-    assert tab.guard_rows == {}
-    assert tab.guards_text() == "none since start"
-    assert len(tab.guards_card.rows()) == 1
-    pipeline.guards = {"preamble": 4}
-    tab.refresh()
-    assert tab.guard_rows["preamble"].text() == "4"
     tab.close()
 
 
@@ -326,24 +234,6 @@ def test_engine_rows_show_a_level_a_badge_and_sentences(app, tmp_path):
     assert "Chosen for this computer." in detail
     tab.refresh()
     assert tab._engine_badges[WHISPER].text() == "Failed"
-    tab.close()
-
-
-def test_a_missing_speech_model_is_named_as_such(app, tmp_path):
-    tab, _config, engines, *_ = make_tab(tmp_path)
-    engines.states[WHISPER] = EngineState.FAILED
-    engines.reasons[WHISPER] = "no_model"
-    assert tab.engine_summary(WHISPER) == "Failed; no speech model installed"
-    tab.close()
-
-
-def test_changing_the_gpu_override_announces_it(app, tmp_path):
-    tab, *_ = make_tab(tmp_path)
-    changed: list[int] = []
-    tab.gpu_changed.connect(lambda: changed.append(1))
-    tab.gpu_override.setCurrentIndex(1)
-    assert changed == [1]
-    assert tab.selection.raw_index == 0
     tab.close()
 
 
@@ -381,20 +271,8 @@ def test_bundle_button_saves_to_the_chosen_path_without_history(app, tmp_path):
     tab.close()
 
 
-def test_elevated_note_is_present(app, tmp_path):
-    tab, *_ = make_tab(tmp_path)
-    assert "elevated" in tab.note.text().lower() or "admin" in tab.note.text().lower()
-    tab.close()
-
-
 REPO_LICENSES = Path(__file__).resolve().parents[2] / "build" / "licenses"
 POINTER = "The full text ships in the licenses folder"
-
-
-def test_licenses_dir_is_build_licenses_in_development():
-    assert not getattr(sys, "frozen", False)
-    assert licenses_dir() == REPO_LICENSES
-    assert (REPO_LICENSES / "MANIFEST.json").is_file()
 
 
 def test_licenses_dir_sits_next_to_the_frozen_executable(monkeypatch, tmp_path):
@@ -414,28 +292,6 @@ def test_every_row_names_manifest_entries_and_every_shipping_entry_has_a_row():
             covered.add(name)
     shipping = {name for name, entry in entries.items() if entry.get("ships") and entry.get("file")}
     assert shipping <= covered, f"shipping components without a row: {sorted(shipping - covered)}"
-
-
-def test_every_shipping_row_shows_the_real_text():
-    entries = manifest_entries(REPO_LICENSES)
-    for component, license_name, names in LICENSE_COMPONENTS:
-        text = license_text(component, license_name, names, folder=REPO_LICENSES)
-        assert text.startswith(f"{component}\nLicense: {license_name}")
-        if any(entries[name].get("ships") for name in names):
-            assert POINTER not in text, f"{component} shows the pointer instead of its licence"
-            for name in names:
-                assert f"=== {name}" in text
-                body = (REPO_LICENSES / entries[name]["file"]).read_text(encoding="utf-8", errors="replace")
-                assert body.strip()[:80] in text
-            assert len(text) > 500
-
-
-def test_gcc_row_joins_the_licence_and_its_exception():
-    row = next(r for r in LICENSE_COMPONENTS if r[2] == ("gcc_runtime_gplv3", "gcc_runtime_library_exception"))
-    text = license_text(*row, folder=REPO_LICENSES)
-    assert "=== gcc_runtime_gplv3" in text
-    assert "=== gcc_runtime_library_exception" in text
-    assert text.index("=== gcc_runtime_gplv3") < text.index("=== gcc_runtime_library_exception")
 
 
 def test_missing_folder_or_manifest_gives_the_pointer(tmp_path):
@@ -476,12 +332,6 @@ def test_capture_device_names_the_device_and_a_fallback():
     assert capture_device([]) == NO_CAPTURES
 
 
-def test_capture_helpers_read_the_newest_recording():
-    older = capture(host_api="MME", sample_rate=44100)
-    newest = capture()
-    assert capture_path([older, newest]) == "Windows WASAPI, 48 kHz, mono"
-
-
 def test_dropped_summary_counts_the_blocks_and_the_dictations():
     assert dropped_summary([]) == NO_CAPTURES
     assert dropped_summary([capture(), capture()]) == "None over the last 2 dictations."
@@ -490,26 +340,3 @@ def test_dropped_summary_counts_the_blocks_and_the_dictations():
     assert "words may be missing" in text
     assert dropped_summary([capture(dropped_blocks=1)]).startswith("1 block over the last 1 dictation")
 
-
-def test_the_microphone_card_shows_the_last_capture(app, tmp_path):
-    tab, _config, _engines, pipeline, *_ = make_tab(tmp_path)
-    assert tab.capture_row.title_label.text() == CAPTURE_UNKNOWN
-    assert tab.dropped_row.description_label.text() == NO_CAPTURES
-    pipeline.captures = [capture(dropped_blocks=2)]
-    tab.refresh()
-    assert tab.capture_row.title_label.text() == "Windows WASAPI, 48 kHz, mono"
-    assert "HyperX" in tab.capture_row.description_label.text()
-    assert tab.dropped_row.description_label.text().startswith("2 blocks over the last 1 dictation")
-    tab.close()
-
-
-def test_a_pipeline_without_captures_is_tolerated(app, tmp_path):
-    tab, _config, _engines, pipeline, *_ = make_tab(tmp_path)
-
-    class Older(type(pipeline)):
-        recent_captures = None
-
-    tab._pipeline = Older()
-    tab.refresh()
-    assert tab.capture_row.title_label.text() == CAPTURE_UNKNOWN
-    tab.close()

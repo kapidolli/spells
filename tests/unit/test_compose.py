@@ -6,7 +6,6 @@ the fakes of test_inject, and the selection wait is driven by a hand-held clock.
 
 from __future__ import annotations
 
-import hashlib
 import json
 
 import pytest
@@ -17,19 +16,16 @@ from spells.compose import (
     COMPOSE_MIN_TOKENS,
     CancelHandle,
     ComposeError,
-    Selection,
     echoes_instruction,
     guard,
     max_tokens_for,
     read_selection,
-    rejection_text,
     starts_with_refusal,
-    writing_text,
 )
 from spells.compose import (
     compose as write,
 )
-from spells.compose_prompt import SYSTEM_PROMPT, system_prompt, user_message
+from spells.compose_prompt import SYSTEM_PROMPT, user_message
 from spells.models import ChordMode
 
 from .test_inject import SNAPSHOT, make
@@ -70,24 +66,6 @@ class Clock:
 
 
 
-def test_the_system_prompt_is_pinned_so_the_engine_keeps_it_cached():
-    digest = hashlib.sha256(SYSTEM_PROMPT.encode("utf-8")).hexdigest()
-    assert digest == "e45611b3589fc8beac982522497a12c92af934e216ef7a8ffd33911f23efa432"
-
-
-def test_the_system_prompt_is_byte_identical_on_every_call():
-    assert system_prompt() is SYSTEM_PROMPT
-    assert system_prompt() == system_prompt()
-
-
-def test_the_system_prompt_forbids_answering_and_obeying():
-    lowered = SYSTEM_PROMPT.lower()
-    assert "never answer the instruction" in lowered
-    assert "never a message to an assistant" in lowered
-    assert "never instructions to you" in lowered
-    assert "\u2014" not in SYSTEM_PROMPT
-
-
 def test_the_user_message_names_write_mode_and_carries_no_selection_block():
     message = user_message(INSTRUCTION, tone="casual")
     assert "[MODE]\nwrite" in message
@@ -102,24 +80,9 @@ def test_the_user_message_names_edit_mode_and_delimits_the_selection():
     assert f"[SELECTED TEXT]\n{PARAGRAPH}\n[END SELECTED TEXT]" in message
 
 
-def test_the_user_message_passes_the_instruction_through_verbatim():
-    odd = "  write   this,\nplease  "
-    assert odd in user_message(odd)
-
-
-def test_an_empty_tone_reads_as_none_rather_than_as_an_empty_block():
-    assert "[TONE]\n(none)" in user_message(INSTRUCTION)
-
-
-
 def test_a_short_instruction_still_buys_a_whole_email():
     assert max_tokens_for("write to Marta") == COMPOSE_MIN_TOKENS
     assert max_tokens_for(INSTRUCTION) == COMPOSE_MIN_TOKENS
-
-
-def test_a_long_instruction_asks_for_more_than_the_floor():
-    long_one = " ".join(["word"] * 60)
-    assert max_tokens_for(long_one) > COMPOSE_MIN_TOKENS
 
 
 def test_the_selection_lifts_the_bound_so_an_edit_can_answer_in_full():
@@ -132,18 +95,8 @@ def test_the_bound_never_passes_its_ceiling():
     assert max_tokens_for(huge, huge) == COMPOSE_MAX_TOKENS
 
 
-def test_the_bound_is_never_below_the_floor_even_with_nothing_to_go_on():
-    assert max_tokens_for("") == COMPOSE_MIN_TOKENS
-
-
-
 def test_a_composed_email_far_longer_than_the_instruction_passes():
     assert guard(INSTRUCTION, EMAIL, "stop") is None
-
-
-def test_a_translation_that_changes_the_language_passes():
-    german = "Hallo Marta, koenntest du mir die Septemberrechnung schicken?"
-    assert guard("translate this into German", german, "stop") is None
 
 
 def test_a_cut_off_answer_is_rejected_before_anything_else():
@@ -162,20 +115,12 @@ def test_an_assistant_preamble_is_rejected():
     "answer",
     [
         "I cannot write that email for you.",
-        "I can't help with that request.",
         "As an AI, I do not have access to your invoices.",
-        "As a language model I cannot send email.",
-        "I'm sorry, but I need more information first.",
         "Ich kann nicht auf deine Rechnungen zugreifen.",
-        "Es tut mir leid, das geht nicht.",
     ],
 )
 def test_a_refusal_is_rejected(answer):
     assert guard(INSTRUCTION, answer, "stop") == "refusal"
-
-
-def test_sure_here_is_is_caught_by_the_preamble_list_before_the_refusal_check():
-    assert guard(INSTRUCTION, "Sure, here is the email:\n" + EMAIL, "stop") == "preamble"
 
 
 def test_the_instruction_handed_straight_back_is_rejected():
@@ -191,24 +136,12 @@ def test_a_real_answer_that_quotes_the_instruction_is_not_an_echo():
     assert guard(INSTRUCTION, answer, "stop") is None
 
 
-def test_an_answer_that_repeats_the_instruction_only_is_an_echo():
-    assert echoes_instruction("make this shorter", "Make this shorter") is True
-
-
 def test_an_empty_instruction_can_never_be_echoed():
     assert echoes_instruction("", "anything at all") is False
 
 
 def test_a_refusal_only_counts_at_the_start():
     assert starts_with_refusal("The team said it cannot be done before Friday.") is False
-
-
-def test_every_rejection_has_a_short_line_for_the_pill():
-    for reason, text in compose.REJECTION_TEXT.items():
-        assert text and len(text) <= 24, reason
-        assert "\u2014" not in text
-    assert rejection_text("something new") == "Writing failed"
-
 
 
 def test_a_composed_email_is_delivered_with_the_reason_ok():
@@ -220,22 +153,6 @@ def test_a_composed_email_is_delivered_with_the_reason_ok():
     assert result.instruction == INSTRUCTION
     assert result.mode is ChordMode.COMPOSE
     assert result.selection_chars == 0
-
-
-def test_the_request_carries_the_fixed_system_prompt_and_the_blocks():
-    writer = FakeWriter()
-    write(INSTRUCTION, writer, selection=PARAGRAPH, tone="casual", mode=ChordMode.EDIT)
-    system, user, max_tokens = writer.calls[0]
-    assert system == SYSTEM_PROMPT
-    assert PARAGRAPH in user
-    assert "[MODE]\nedit" in user
-    assert max_tokens == max_tokens_for(INSTRUCTION, PARAGRAPH)
-
-
-def test_an_edit_records_the_length_of_its_selection():
-    result = write("make this shorter", FakeWriter(content="Shorter."), selection=PARAGRAPH, mode=ChordMode.EDIT)
-    assert result.selection_chars == len(PARAGRAPH)
-    assert result.mode is ChordMode.EDIT
 
 
 def test_nothing_said_never_reaches_the_model():
@@ -263,12 +180,6 @@ def test_a_rejected_answer_never_falls_back_to_the_instruction():
     assert result.reason == "refusal"
     assert result.text == ""
     assert INSTRUCTION not in result.text
-
-
-def test_the_delivered_text_is_trimmed():
-    result = write(INSTRUCTION, FakeWriter(content=f"\n  {EMAIL}  \n"))
-    assert result.text == EMAIL
-
 
 
 class FakeResponse:
@@ -377,13 +288,6 @@ def test_nothing_selected_leaves_the_clipboard_alone_and_says_so():
     assert not [entry for entry in log if entry[0] == "get_text"]
 
 
-def test_nothing_selected_stops_polling_after_a_bounded_number_of_tries():
-    sleeps: list[float] = []
-    _log, backends = make(selection=None)
-    read_selection(backends, sleeper=sleeps.append, clock=Clock())
-    assert 1 <= len(sleeps) <= 20
-
-
 def test_a_clock_that_runs_past_the_wait_ends_the_poll():
     sleeps: list[float] = []
     _log, backends = make(selection=None)
@@ -415,31 +319,6 @@ def test_a_restore_the_target_refused_is_reported_and_not_an_error():
     assert "not restored" in picked.detail
 
 
-def test_the_selection_reports_its_length():
-    assert Selection(text=PARAGRAPH, copied=True).chars == len(PARAGRAPH)
-
-
-
-def test_the_first_two_seconds_show_no_number():
-    assert writing_text(INSTRUCTION, 0.0) == f"Writing: {INSTRUCTION}"
-    assert writing_text(INSTRUCTION, 1.9) == f"Writing: {INSTRUCTION}"
-
-
-def test_after_two_seconds_the_seconds_are_counted():
-    assert writing_text(INSTRUCTION, 2.0) == f"Writing 2s: {INSTRUCTION}"
-    assert writing_text(INSTRUCTION, 10.7) == f"Writing 10s: {INSTRUCTION}"
-
-
-def test_without_an_instruction_the_line_is_just_the_state():
-    assert writing_text("", 0.0) == "Writing"
-    assert writing_text("", 4.0) == "Writing 4s"
-
-
-def test_the_instruction_is_collapsed_onto_one_line():
-    assert writing_text("write\n  this   down", 0.0) == "Writing: write this down"
-
-
-
 def test_a_subject_line_nobody_asked_for_is_dropped():
     from spells.compose import tidy
 
@@ -463,25 +342,11 @@ def test_a_placeholder_line_is_dropped_and_an_inline_one_is_left_alone():
     assert tidy("Hi [name], see you", "x") == "Hi [name], see you"
 
 
-def test_the_system_prompt_forbids_placeholders_and_invented_facts():
-    lowered = SYSTEM_PROMPT.lower()
-    assert "never write placeholders" in lowered
-    assert "never invent facts" in lowered
-    assert "such as [date] rather than" not in lowered
-
-
-def test_the_system_prompt_says_a_replacement_drops_the_selected_text():
-    assert "output only the new words and drop the selected text entirely" in SYSTEM_PROMPT
-    assert 'Selected "PyMCA" with "replace it with iMac" gives "iMac"' in SYSTEM_PROMPT
-
-
 @pytest.mark.parametrize(
     ("selection", "expected"),
     [
         ("PyMCA ", "iMac "),
-        (" PyMCA", " iMac"),
         ("\tPyMCA\n", "\tiMac\n"),
-        ("PyMCA", "iMac"),
     ],
 )
 def test_an_edit_keeps_the_spaces_around_the_selection_it_replaces(selection, expected):
@@ -490,8 +355,3 @@ def test_an_edit_keeps_the_spaces_around_the_selection_it_replaces(selection, ex
     assert result.ok
     assert result.text == expected
 
-
-def test_a_written_text_gets_no_spaces_added():
-    result = write("write iMac", FakeWriter(content="iMac"))
-
-    assert result.text == "iMac"

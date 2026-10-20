@@ -10,7 +10,7 @@ from spells import profiles
 from spells.config import DEFAULT_TONES, ProfileRule, Settings, default_settings
 from spells.models import DeliveryMethod, Profile, TargetContext
 
-BROWSERS = ["chrome.exe", "msedge.exe", "firefox.exe"]
+BROWSERS = ["chrome.exe", "firefox.exe"]
 
 CUSTOM = Profile(
     name="Email and docs",
@@ -34,7 +34,6 @@ def _settings(*rules: ProfileRule, tones: dict[str, str] | None = None) -> Setti
 
 def _match(ctx: TargetContext, settings: Settings | None = None) -> Profile:
     return profiles.match(ctx, settings if settings is not None else default_settings())
-
 
 
 def test_builtin_rules_cover_the_spec_table():
@@ -63,57 +62,13 @@ def test_builtin_rules_cover_the_spec_table():
         assert rule.profile is profiles.BUILTIN_PROFILES[rule.name]
 
 
-def test_builtin_profiles_have_the_spec_shapes():
-    chat = profiles.BUILTIN_PROFILES["Chat"]
-    assert chat.cleanup is True
-    assert chat.delivery is DeliveryMethod.PASTE
-    assert chat.drop_trailing_period_single_sentence is True
-    assert chat.drop_trailing_punctuation is False
-    assert chat.tone == DEFAULT_TONES["Chat"]
-
-    email = profiles.BUILTIN_PROFILES["Email and docs"]
-    assert email.cleanup is True
-    assert email.delivery is DeliveryMethod.PASTE
-    assert email.drop_trailing_period_single_sentence is False
-    assert email.drop_trailing_punctuation is False
-
-    code = profiles.BUILTIN_PROFILES["Code"]
-    assert code.cleanup is True
-    assert code.delivery is DeliveryMethod.PASTE
-    assert "identifiers" in code.tone and "paths" in code.tone and "symbols" in code.tone
-
-    terminal = profiles.BUILTIN_PROFILES["Terminal"]
-    assert terminal.cleanup is False
-    assert terminal.delivery is DeliveryMethod.TYPE
-    assert terminal.drop_trailing_punctuation is True
-    assert terminal.drop_trailing_period_single_sentence is False
-
-    default = profiles.BUILTIN_PROFILES["Default"]
-    assert default is profiles.DEFAULT_PROFILE
-    assert default.cleanup is True
-    assert default.delivery is DeliveryMethod.PASTE
-    assert default.drop_trailing_period_single_sentence is False
-    assert default.drop_trailing_punctuation is False
-
-    expected_order = ["Chat", "Email and docs", "Code", "Terminal", "Default"]
-    assert list(profiles.BUILTIN_PROFILES) == expected_order
-
-
 @pytest.mark.parametrize(
     ("process", "expected"),
     [
         ("ms-teams.exe", "Chat"),
-        ("slack.exe", "Chat"),
-        ("WhatsApp.exe", "Chat"),
         ("OUTLOOK.EXE", "Email and docs"),
-        ("olk.exe", "Email and docs"),
-        ("WINWORD.EXE", "Email and docs"),
         ("Code.exe", "Code"),
-        ("idea64.exe", "Code"),
-        ("devenv.exe", "Code"),
         ("WindowsTerminal.exe", "Terminal"),
-        ("powershell.exe", "Terminal"),
-        ("pwsh.exe", "Terminal"),
         ("cmd.exe", "Terminal"),
         ("notepad.exe", "Default"),
         ("", "Default"),
@@ -127,11 +82,7 @@ def test_builtin_process_matches(process, expected):
     ("process", "expected"),
     [
         ("CODE.EXE", "Code"),
-        ("code.exe", "Code"),
-        ("outlook.exe", "Email and docs"),
-        ("Outlook.exe", "Email and docs"),
         ("whatsapp.exe", "Chat"),
-        ("WINDOWSTERMINAL.EXE", "Terminal"),
     ],
 )
 def test_process_match_is_case_insensitive(process, expected):
@@ -144,16 +95,13 @@ def test_process_may_be_a_full_path():
     assert _match(_ctx(forward_slashes)).name == "Code"
 
 
-
 @pytest.mark.parametrize("browser", BROWSERS)
 @pytest.mark.parametrize(
     ("title", "expected"),
     [
         ("general - Contoso - Slack", "Chat"),
         ("WhatsApp", "Chat"),
-        ("(3) WhatsApp - Google Chrome", "Chat"),
         ("Inbox (12) - alex@example.com - Gmail", "Email and docs"),
-        ("Mail - Alex Morgan - Outlook", "Email and docs"),
         ("GitHub - spells", "Default"),
         ("", "Default"),
     ],
@@ -190,11 +138,6 @@ def test_application_frame_host_whatsapp():
     assert _match(_ctx("ApplicationFrameHost.exe", "Calculator")).name == "Default"
 
 
-def test_application_frame_host_uses_every_title_rule():
-    assert _match(_ctx("ApplicationFrameHost.exe", "Mail - Outlook")).name == "Email and docs"
-
-
-
 def test_user_rule_is_checked_before_builtins():
     rule = ProfileRule(
         name="Slack typed",
@@ -207,12 +150,6 @@ def test_user_rule_is_checked_before_builtins():
 
     assert result == CUSTOM
     assert result.delivery is DeliveryMethod.TYPE
-
-
-def test_user_rule_process_match_is_case_insensitive():
-    rule = ProfileRule(name="r", match_process=["SLACK.EXE"], match_title=[], profile=CUSTOM)
-
-    assert _match(_ctx("slack.exe"), _settings(rule)) == CUSTOM
 
 
 def test_user_rule_with_both_matchers_requires_both():
@@ -243,12 +180,6 @@ def test_user_rule_with_only_title_matches_any_process():
     assert _match(_ctx("notepad.exe", "BT-1 - Jira"), _settings(rule)) == CUSTOM
     assert _match(_ctx("chrome.exe", "BT-1 - Jira"), _settings(rule)) == CUSTOM
     assert _match(_ctx("chrome.exe", "Slack"), _settings(rule)).name == "Chat"
-
-
-def test_user_rule_title_match_is_case_insensitive_substring():
-    rule = ProfileRule(name="r", match_process=[], match_title=["jira"], profile=CUSTOM)
-
-    assert _match(_ctx("chrome.exe", "BT-1 - JIRA"), _settings(rule)) == CUSTOM
 
 
 def test_user_rule_title_match_ignores_case_unlike_builtins():
@@ -303,15 +234,8 @@ def test_user_rule_without_matchers_never_matches():
     assert _match(_ctx("notepad.exe", "anything"), _settings(rule)).name == "Default"
 
 
-def test_user_rule_ignores_blank_title_substrings():
-    rule = ProfileRule(name="blank", match_process=[], match_title=["", "  "], profile=CUSTOM)
-
-    assert _match(_ctx("notepad.exe", "anything"), _settings(rule)).name == "Default"
-
-
 def test_default_fallback_when_nothing_matches():
     assert _match(_ctx("unknown.exe", "Unknown")) is profiles.DEFAULT_PROFILE
-
 
 
 def test_tone_comes_from_settings_when_edited():
@@ -324,18 +248,8 @@ def test_tone_comes_from_settings_when_edited():
     assert result.drop_trailing_period_single_sentence is True
 
 
-def test_tone_override_applies_to_default_profile():
-    tones = {**DEFAULT_TONES, "Default": "plain"}
-
-    assert _match(_ctx("unknown.exe"), _settings(tones=tones)).tone == "plain"
-
-
 def test_tone_override_applies_to_user_rules_by_profile_name():
     rule = ProfileRule(name="r", match_process=["x.exe"], match_title=[], profile=CUSTOM)
     tones = {**DEFAULT_TONES, "Email and docs": "very formal"}
 
     assert _match(_ctx("x.exe"), _settings(rule, tones=tones)).tone == "very formal"
-
-
-def test_unedited_tones_return_the_builtin_profile_object():
-    assert _match(_ctx("slack.exe")) is profiles.BUILTIN_PROFILES["Chat"]

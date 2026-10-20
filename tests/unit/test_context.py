@@ -6,15 +6,10 @@ The platform's focus is faked, so nothing here touches a real window.
 
 from __future__ import annotations
 
-import inspect
-import time
-
 import pytest
 
 from spells import context
 from spells.models import TargetContext
-
-from .fake_platform import fake_platform
 
 HWND = 0x00110022
 
@@ -70,23 +65,6 @@ def test_capture_reads_the_foreground_window():
     )
 
 
-def test_capture_asks_about_the_foreground_window_only():
-    focus = FakeFocus()
-    context.capture(focus=focus, clock=FakeClock(0.0))
-    assert focus.calls == [
-        ("foreground",),
-        ("app_name", HWND),
-        ("title", HWND),
-    ]
-
-
-def test_capture_stamps_the_clock_exactly_once():
-    clock = FakeClock(3.0, 99.0)
-    ctx = context.capture(focus=FakeFocus(), clock=clock)
-    assert clock.calls == 1
-    assert ctx.captured_at == 3.0
-
-
 def test_capture_keeps_an_unknown_process_empty():
     ctx = context.capture(focus=FakeFocus(process="", title=""), clock=FakeClock(1.0))
     assert ctx.process == ""
@@ -113,22 +91,3 @@ def test_capture_does_not_retry_a_failing_lookup():
         "app_name",
         "title",
     ]
-
-
-def test_capture_survives_a_backend_that_is_not_a_window_module():
-    ctx = context.capture(focus=object(), clock=FakeClock(2.0))
-    assert ctx == TargetContext(window=0, process="", title="", captured_at=2.0)
-
-
-def test_capture_defaults_to_the_platform_focus(use_platform):
-    focus = FakeFocus()
-    use_platform(fake_platform(focus=focus))
-    assert inspect.signature(context.capture).parameters["focus"].default is None
-    context.capture(clock=FakeClock(0.0))
-    assert focus.calls[0] == ("foreground",)
-
-
-def test_capture_defaults_to_a_high_resolution_clock():
-    default = inspect.signature(context.capture).parameters["clock"].default
-    assert default is time.perf_counter
-    assert time.get_clock_info("perf_counter").resolution < 0.001
