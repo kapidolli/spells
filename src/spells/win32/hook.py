@@ -42,7 +42,7 @@ LLKHF_INJECTED = 0x10
 LLKHF_ALTDOWN = 0x20
 LLKHF_UP = 0x80
 
-VK_PROBE = 0xE8  # unassigned virtual key used for the liveness probe and Start menu masking
+VK_PROBE = 0xE8
 MASK_TAG = 0x5554544D
 
 mask_keys = ((VK_PROBE, True, MASK_TAG), (VK_PROBE, False, MASK_TAG))
@@ -75,17 +75,16 @@ MOD_SHIFT = 0x0004
 MOD_WIN = 0x0008
 MOD_NOREPEAT = 0x4000
 ERROR_HOTKEY_ALREADY_REGISTERED = 1409
-_HOTKEY_PROBE_ID = 0xB0B0  # private id inside the application range 0x0000 to 0xBFFF
+_HOTKEY_PROBE_ID = 0xB0B0
 
-# Keys whose scan code carries the E0 prefix; SendInput needs KEYEVENTF_EXTENDEDKEY for them.
 # fmt: off
 _EXTENDED_VKS = frozenset({
-    0x21, 0x22, 0x23, 0x24,  # VK_PRIOR, VK_NEXT, VK_END, VK_HOME
-    0x25, 0x26, 0x27, 0x28,  # arrows
-    0x2C, 0x2D, 0x2E,  # VK_SNAPSHOT, VK_INSERT, VK_DELETE
-    0x5B, 0x5C, 0x5D,  # VK_LWIN, VK_RWIN, VK_APPS
-    0x6F, 0x90,  # VK_DIVIDE, VK_NUMLOCK
-    0xA3, 0xA5,  # VK_RCONTROL, VK_RMENU
+    0x21, 0x22, 0x23, 0x24,
+    0x25, 0x26, 0x27, 0x28,
+    0x2C, 0x2D, 0x2E,
+    0x5B, 0x5C, 0x5D,
+    0x6F, 0x90,
+    0xA3, 0xA5,
 })
 # fmt: on
 
@@ -217,11 +216,8 @@ def key_event_from_struct(kb: KBDLLHOOKSTRUCT, wparam: int) -> KeyEvent:
     )
 
 
-# Hook handle -> (ctypes callback object, Python callback). The ctypes object must outlive the
-# hook or Windows calls into freed memory.
 _hooks: dict[int, tuple[object, Callable[[KeyEvent], bool]]] = {}
 _hooks_lock = threading.Lock()
-# Recently uninstalled procedures, kept a little longer in case a call is still in flight.
 _retired_procs: deque[object] = deque(maxlen=8)
 
 

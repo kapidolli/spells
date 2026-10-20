@@ -146,8 +146,6 @@ def harness(tmp_path, world) -> Harness:
     return Harness(tmp_path, world)
 
 
-# Startup ---------------------------------------------------------------------------
-
 
 def test_starting_to_ready_with_warm_up(harness, world):
     assert harness.sup.status(WHISPER) is EngineState.STARTING
@@ -201,7 +199,6 @@ def test_no_gpu_launches_cpu_variants_directly(tmp_path, world):
         (EngineState.STARTING, "no_vulkan_gpu"),
         (EngineState.CPU_FALLBACK, "no_vulkan_gpu"),
     ]
-    # No Vulkan retry ever: there is nothing to retry with.
     harness.run_both(3600.0)
     assert len(world.processes) == 2
 
@@ -242,8 +239,6 @@ def test_no_device_line_flushed_just_before_health_still_counts(harness, world):
 
 
 def test_no_device_line_after_ready_is_ignored(harness, world):
-    # whisper-server 1.9.4 prints "whisper_backend_init_gpu: no GPU found" for its CPU-side VAD
-    # context on the first request of a healthy Vulkan run; only the startup window counts.
     harness.run(WHISPER)
     vulkan = world.latest("whisper")
     vulkan.write_log("whisper_backend_init_gpu: no GPU found\n")
@@ -306,8 +301,6 @@ def test_gpu_verified_from_log_reads_only_the_device_block():
     assert gpu_verified_from_log(FOUND_RTX, "") is False
 
 
-# OOM ----------------------------------------------------------------------------
-
 
 def test_whisper_oom_switches_to_cpu_and_retries_vulkan_with_a_second_process(harness, world):
     harness.run(WHISPER)
@@ -324,7 +317,6 @@ def test_whisper_oom_switches_to_cpu_and_retries_vulkan_with_a_second_process(ha
         (EngineState.RESTARTING, "oom"),
         (EngineState.CPU_FALLBACK, "oom"),
     ]
-    # The retry launches beside the CPU process: it does not become healthy right away.
     world.on_spawn = lambda proc: setattr(proc, "healthy", False)
     harness.run(WHISPER, 59.0)
     assert len(world.spawned("whisper", "vulkan")) == 1
@@ -411,8 +403,6 @@ def test_oom_at_runtime_is_classified_like_a_startup_failure(harness, world):
     assert harness.sup.reason(LLAMA) == "oom"
 
 
-# Crashes and backoff ----------------------------------------------------------------
-
 
 def test_backoff_schedule_is_exactly_1_2_5_10_30_30(tmp_path, world):
     harness = Harness(tmp_path, world, max_consecutive_failures=100)
@@ -455,7 +445,6 @@ def test_three_failures_then_cpu_fallback_with_ten_minute_vulkan_retry(harness, 
         (EngineState.RESTARTING, "crash"),
         (EngineState.CPU_FALLBACK, "crash"),
     ]
-    # The Vulkan retry is due 600 s after the CPU build became ready (at 1003.0).
     harness.run(LLAMA, 1003.0 + 599.0 - harness.clock.now())
     assert len(world.spawned("llama", "vulkan")) == 3
     harness.run(LLAMA, 2.0)
@@ -463,7 +452,6 @@ def test_three_failures_then_cpu_fallback_with_ten_minute_vulkan_retry(harness, 
     assert spawn_times["vulkan"][-1] == 1603.0
     assert harness.sup.status(LLAMA) is EngineState.CPU_FALLBACK
     assert cpu.alive
-    # The retry crashed again: the next one is another ten minutes out.
     harness.run(LLAMA, 1603.0 + 599.0 - harness.clock.now())
     assert len(world.spawned("llama", "vulkan")) == 4
     harness.run(LLAMA, 2.0)
@@ -578,7 +566,6 @@ def test_spawn_error_counts_as_a_crash(harness, world):
 def test_persistent_spawn_error_ends_in_failed(harness, world):
     world.spawn_error = OSError("exe missing")
     harness.run(LLAMA, 10.0)
-    # Three Vulkan launch failures, then the CPU launch fails as well.
     assert harness.sup.status(LLAMA) is EngineState.FAILED
     assert harness.events_for(LLAMA)[-2:] == [
         (EngineState.RESTARTING, "crash"),
@@ -630,8 +617,6 @@ def test_bind_failure_relaunches_on_a_new_port_without_counting(harness, world):
     assert harness.sup.status(LLAMA) is EngineState.READY
     assert harness.events_for(LLAMA) == [(EngineState.READY, "ok")]
 
-
-# Health, idle unload, commands -----------------------------------------------------
 
 
 def test_health_failure_while_ready_restarts(harness, world):
@@ -783,8 +768,6 @@ def test_set_gpu_to_none_moves_both_to_cpu(harness, world):
     assert harness.sup.status(LLAMA) is EngineState.CPU_FALLBACK
 
 
-# Launch details -------------------------------------------------------------------
-
 
 def test_whisper_and_llama_arguments(harness, world):
     harness.run_both()
@@ -867,12 +850,9 @@ def test_classification_only_reads_the_lines_of_the_failing_process(harness, wor
     assert harness.sup.status(LLAMA) is EngineState.READY
     world.latest("llama").exit(1, CRASH)
     harness.run(LLAMA)
-    # The old OOM lines are still in the file but belong to the earlier process.
     assert harness.sup.status(LLAMA) is EngineState.RESTARTING
     assert harness.sup.reason(LLAMA) == "crash"
 
-
-# Reasons, callbacks, threads -------------------------------------------------------
 
 
 def test_every_reason_string():
@@ -887,8 +867,6 @@ def test_every_reason_string():
         "cpu_selected",
     )
 
-
-# Models for the dictation languages (batch 5) -----------------------------------------------
 
 NGRAM = ("--spec-type", "ngram-simple", "--spec-ngram-simple-size-n", "2")
 
@@ -1056,8 +1034,6 @@ def test_a_model_change_while_unloaded_waits_for_the_next_press(tmp_path, world)
     assert world.latest("llama").arg_after("-m") == str(new_paths.llama_model)
 
 
-# No cleanup model (spec 14.1, 16) -----------------------------------------------------------
-
 
 def no_model_harness(tmp_path: Path, world: FakeWorld, **kwargs) -> Harness:
     paths = replace(make_paths(tmp_path), llama_model=None)
@@ -1076,7 +1052,6 @@ def test_without_a_cleanup_model_llama_is_failed_with_no_model_and_never_launche
     assert harness.sup.llama_url is None
     assert harness.sup.cleanup_available is False
     assert harness.sup.pid(LLAMA) is None
-    # Announced once, on the supervisor thread's first step, like every other change.
     assert harness.events_for(LLAMA) == [(EngineState.FAILED, "no_model")]
 
 
@@ -1167,7 +1142,7 @@ def test_start_runs_threads_and_stop_kills_everything(tmp_path, world):
     assert world.live() == []
     assert world.jobs[0].closed
     assert (WHISPER, EngineState.READY, "ok") in events
-    sup.stop()  # idempotent
+    sup.stop()
 
 
 def test_stop_without_start_closes_nothing_and_is_safe(harness, world):
@@ -1182,8 +1157,6 @@ def test_stop_after_manual_steps_kills_processes_and_closes_the_job(harness, wor
     assert world.jobs[0].closed
     assert harness.sup.whisper_url is None
 
-
-# Several speech engines (B5-13 to B5-15) ---------------------------------------------------------
 
 
 def two_speech_paths(tmp_path: Path) -> EnginePaths:
@@ -1418,8 +1391,6 @@ def test_a_llama_asr_warm_up_failure_is_a_launch_failure(tmp_path, world):
     assert by_model(world, "qwen-asr.gguf").killed
 
 
-# Placeholders, performance cores and the gate inputs ---------------------------------------------
-
 
 def test_a_cleanup_extra_file_placeholder_becomes_the_absolute_path(tmp_path, world):
     draft = tmp_path / "models" / "mtp.gguf"
@@ -1529,8 +1500,6 @@ def test_engine_labels_name_the_languages():
     assert engine_label(CLEANUP) == "Cleanup engine"
     assert EngineId(WHISPER, 1).key == "whisper-2" and str(CLEANUP) == "llama"
 
-
-# The writing engine ----------------------------------------------------------------------
 
 
 def test_a_writing_model_of_its_own_gets_an_engine_of_its_own(tmp_path, world):

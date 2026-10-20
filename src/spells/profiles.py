@@ -16,7 +16,6 @@ from pathlib import PureWindowsPath
 from spells.config import DEFAULT_TONES, ProfileRule, Settings
 from spells.models import DeliveryMethod, Profile, TargetContext
 
-# Processes whose window title is consulted for built-in rules (spec 9, V2-11).
 TITLE_MATCH_PROCESSES = frozenset(
     {"chrome.exe", "msedge.exe", "firefox.exe", "applicationframehost.exe"}
 )
@@ -54,13 +53,11 @@ DEFAULT_PROFILE = Profile(
     delivery=DeliveryMethod.PASTE,
 )
 
-# Every built-in profile by name, in spec 9 table order (for the Apps tab picker).
 BUILTIN_PROFILES: dict[str, Profile] = {
     profile.name: profile
     for profile in (CHAT_PROFILE, EMAIL_PROFILE, CODE_PROFILE, TERMINAL_PROFILE, DEFAULT_PROFILE)
 }
 
-# The spec 9 table. Default is the fallback, not a rule.
 BUILTIN_RULES: list[ProfileRule] = [
     ProfileRule(
         name="Chat",

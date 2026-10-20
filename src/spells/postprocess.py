@@ -22,15 +22,10 @@ from spells.models import DeliveryOutcome, LastDelivery, Profile, TargetContext
 
 LEADING_SPACE_WINDOW_S = 60.0
 
-# Sentence-ending punctuation that Terminal strips from the end of the text.
-# Quotes and brackets are left alone: they are usually part of the command.
 TRAILING_PUNCTUATION = ".!?,;:…"
 
 _DELIVERED = frozenset({DeliveryOutcome.PASTED, DeliveryOutcome.TYPED})
 
-# A sentence terminator run followed by whitespace and more text: the text goes
-# on after a sentence ended. "3.50" and "example.com" do not count because their
-# period is followed directly by a non-space character.
 _INNER_SENTENCE_END = re.compile(r"[.!?]+\s+\S")
 
 
@@ -50,8 +45,6 @@ def apply(
         text = " " + text
     return text
 
-
-# --- 1. replacements ---
 
 
 def _phrase_pattern(find: str) -> re.Pattern[str] | None:
@@ -78,8 +71,6 @@ def apply_replacements(text: str, replacements: list[Replacement]) -> str:
     return text
 
 
-# --- 2. snippets ---
-
 
 def normalize_utterance(text: str) -> str:
     """Lowercase, drop punctuation, collapse whitespace (the spec 10 trigger comparison)."""
@@ -98,8 +89,6 @@ def apply_snippets(text: str, snippets: list[Snippet]) -> str:
             return snippet.text
     return text
 
-
-# --- 3. profile formatting ---
 
 
 def is_single_sentence(text: str) -> bool:
@@ -134,8 +123,6 @@ def apply_profile_formatting(text: str, profile: Profile) -> str:
         text = _drop_trailing_punctuation(text)
     return text
 
-
-# --- 4. leading space ---
 
 
 def needs_leading_space(

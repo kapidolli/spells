@@ -420,8 +420,6 @@ def test_concurrent_adds_from_threads(store):
     assert len(store.recent(limit=1000)) == 100
 
 
-# migration from the released shape (spec 15)
-
 
 V1_SCHEMA = """
 CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -539,8 +537,6 @@ def test_a_newer_database_is_read_as_it_is(tmp_path):
         assert conn.execute(VERSION_QUERY).fetchone() == ("99",)
 
 
-# the quality fields on a row
-
 
 def test_quality_fields_round_trip(store):
     signals = QualitySignals(
@@ -626,8 +622,6 @@ def test_row_stats_carries_the_speaking_numbers():
 def test_split_cleanup_reason(reason, expected):
     assert split_cleanup_reason(make_entry(1, cleanup_reason=reason)) == expected
 
-
-# recordings (spec 15, 17)
 
 
 def test_no_recording_is_written_without_the_setting(tmp_path):
@@ -792,8 +786,6 @@ def test_a_disabled_retention_stores_no_audio_either(tmp_path):
         assert not (tmp_path / "recordings").exists()
 
 
-# export (spec 14.4)
-
 
 def rich_entry(n: int = 1) -> HistoryEntry:
     return make_entry(
@@ -955,8 +947,6 @@ def test_the_export_takes_the_rows_it_is_given(tmp_path):
         assert json.loads(target.read_text(encoding="utf-8"))[0]["raw_text"] == "text 3"
 
 
-# --- written dictations (spec 8.5) ---
-
 
 def compose_entry(n: int, **overrides) -> HistoryEntry:
     fields = {
@@ -1048,8 +1038,6 @@ def test_a_version_one_database_reads_every_row_as_a_dictation(tmp_path):
         store.add(compose_entry(8))
         assert store.recent()[0].mode == "compose"
 
-
-# upload bookkeeping (schema version 4)
 
 
 def young_entry(n: int, **overrides) -> HistoryEntry:

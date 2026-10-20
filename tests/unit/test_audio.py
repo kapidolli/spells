@@ -226,8 +226,6 @@ def no_input_devices(fake: FakeSounddevice) -> None:
     fake.default.device = [-1, 0]
 
 
-# list_input_devices
-
 
 def test_list_input_devices_prefers_wasapi_with_full_names(fake_sd):
     assert list_input_devices() == [
@@ -278,8 +276,6 @@ def test_capture_host_api_is_wasapi_when_there_is_one(fake_sd):
     assert capture_host_api() == "Windows WASAPI"
 
 
-# Name matching and migration
-
 
 @pytest.mark.parametrize(
     "stored,name,expected",
@@ -316,8 +312,6 @@ def test_match_device_falls_back_to_the_system_default(fake_sd):
     assert how == "default"
     assert device.name == OBSBOT_WASAPI
 
-
-# capture_plans
 
 
 def test_capture_plans_lead_with_wasapi_and_keep_mme_behind(fake_sd):
@@ -363,8 +357,6 @@ def test_channel_options_try_mono_first():
     assert channel_options(stereo) == (1, 2)
 
 
-# downmix
-
 
 def test_downmix_averages_the_channels():
     interleaved = pcm([100, 200, -400, 0, 32767, 32767])
@@ -380,8 +372,6 @@ def test_downmix_drops_a_partial_frame():
     assert downmix_to_mono(pcm([10, 20, 30]), 2) == pcm([15])
     assert downmix_to_mono(pcm([10]), 2) == b""
 
-
-# start / stop / cancel
 
 
 def test_start_stop_returns_fed_bytes_and_closes_stream(fake_sd):
@@ -652,8 +642,6 @@ def test_start_while_recording_and_stop_while_idle_raise(fake_sd):
     rec.cancel()
 
 
-# keep_open
-
 
 def test_keep_open_reuses_the_stream_and_discards_idle_data(fake_sd):
     rec = Recorder(keep_open=True)
@@ -699,8 +687,6 @@ def test_keep_open_reopens_a_stream_that_stopped_running(fake_sd):
     assert fake_sd.streams[-1].active
     rec.close()
 
-
-# MicError mapping
 
 
 def test_mic_error_kind_and_message():
@@ -850,8 +836,6 @@ def test_cancel_never_raises_blocked(fake_sd):
 def test_microphone_privacy_denied_reads_registry_without_error():
     assert audio._microphone_privacy_denied() in (True, False, None)
 
-
-# pcm16_to_wav
 
 
 @pytest.mark.parametrize("rate", [16000, 44100, 48000])

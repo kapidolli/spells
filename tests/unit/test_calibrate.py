@@ -73,8 +73,6 @@ def measured(model_id, gpu_ms, cpu_ms, *, gpu_similarity=1.0, cpu_similarity=1.0
     )
 
 
-# The verdict ---------------------------------------------------------------------------
-
 
 def test_a_clearly_faster_gpu_wins():
     assert measured(QWEN, 300, 1300).prefers_gpu is True
@@ -112,8 +110,6 @@ def test_describe_names_the_winner():
     assert "the processor wins" in measured(QWEN, 3000, 1300).describe()
 
 
-# The store -----------------------------------------------------------------------------
-
 
 def test_results_round_trip_per_device(tmp_path):
     path = tmp_path / "calibration.json"
@@ -150,8 +146,6 @@ def test_an_older_version_or_a_broken_file_is_ignored(tmp_path):
 def test_the_store_sits_beside_the_settings(tmp_path):
     assert calibrate.store_path(tmp_path / "settings.json") == tmp_path / "calibration.json"
 
-
-# Which hardware ------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -265,8 +259,6 @@ def test_pending_lists_every_installed_speech_model_for_the_languages_once():
     rest = calibrate.pending(device(uma=True), ["en", "de", "sq"], INSTALLED, catalog(), done)
     assert [choice.model_id for choice in rest] == [QWEN]
 
-
-# The measurement -----------------------------------------------------------------------
 
 
 class FakeProc:

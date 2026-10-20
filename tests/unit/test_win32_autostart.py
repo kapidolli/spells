@@ -42,8 +42,6 @@ def value(key_path: str) -> str | None:
     return autostart.current_value(key_path=key_path)
 
 
-# Writing and deleting -------------------------------------------------------------------
-
 
 def test_enabling_writes_the_run_value(key_path):
     assert autostart.apply(True, COMMAND, key_path=key_path) is True
@@ -98,8 +96,6 @@ def test_a_registry_error_is_logged_and_never_raised(key_path, monkeypatch, capl
 def test_current_value_is_none_without_the_key(key_path):
     assert value(key_path) is None
 
-
-# The command ----------------------------------------------------------------------------
 
 
 def test_command_for_a_frozen_build():

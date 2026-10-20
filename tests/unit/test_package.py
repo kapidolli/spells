@@ -46,8 +46,6 @@ def _values(**overrides) -> dict:
     return values
 
 
-# ----------------------------------------------------------------------------- Qt exclusions
-
 
 def test_the_modules_the_ui_imports_are_kept():
     assert package.QT_KEEP == ("QtCore", "QtGui", "QtWidgets", "QtSvg")
@@ -82,8 +80,6 @@ def test_the_installed_pyside6_has_no_extension_module_that_is_neither_kept_nor_
 def test_the_qt_folders_that_are_pruned_after_the_build():
     assert package.PYSIDE_PRUNE_DIRS == ("qml", "translations")
 
-
-# ----------------------------------------------------------------------------- PyInstaller arguments
 
 
 def test_pyinstaller_args_are_one_folder_windowed_and_without_upx():
@@ -120,8 +116,6 @@ def test_pyinstaller_args_put_the_source_tree_on_the_search_path():
     assert args[args.index("--paths") + 1] == r"C:\repo\src"
 
 
-# ----------------------------------------------------------------------------- version derivation
-
 
 def test_version_comes_from_the_project_table_of_pyproject():
     text = '[project]\nname = "spells"\nversion = "1.2.3"\n'
@@ -151,8 +145,6 @@ def test_the_installer_file_name_carries_the_version():
     assert package.installer_basename("0.1.0-dev") == "Spells-Setup-0.1.0-dev"
 
 
-# ----------------------------------------------------------------------------- the size gates
-
 
 @pytest.mark.parametrize("size,verdict", [
     (0, "ok"),
@@ -181,8 +173,6 @@ def test_installer_size_boundary_is_the_one_spec_19_3_step_8_names(size, ok):
     assert package.INSTALLER_MAX_BYTES == 2_000_000_000
     assert package.installer_size_ok(size) is ok
 
-
-# ----------------------------------------------------------------------------- the dist layout plan
 
 
 def _plan(cleanup_name: str = "qwen3-4b-q4_k_m.gguf"):
@@ -236,8 +226,6 @@ def test_the_top_level_of_a_built_dist_is_exactly_what_the_installer_copies():
         package.check_dist_top_level([name for name in package.DIST_TOP_LEVEL if name != "models"])
 
 
-# ----------------------------------------------------------------------------- exactly one gguf
-
 
 def test_exactly_one_gguf_ships_in_models():
     plan = _plan()
@@ -257,8 +245,6 @@ def test_no_gguf_in_models_is_refused():
     with pytest.raises(package.PackageError):
         package.check_one_gguf(plan)
 
-
-# ----------------------------------------------------------------------------- the Inno script
 
 
 def test_the_template_exists_and_only_uses_placeholders_the_script_fills():
@@ -288,8 +274,6 @@ def test_the_rendered_script_carries_every_directive_spec_19_5_asks_for():
 
     assert "PrivilegesRequired=lowest" in text
     assert r"DefaultDirName={autopf}\Spells" in text
-    # Inno checks AppMutex when Setup and Uninstall start, before PrepareToInstall, so a running
-    # instance would stop the wizard (and abort a silent upgrade) before --quit could close it.
     assert "AppMutex=" not in text
     assert "CloseApplications=yes" in text
     assert "[UninstallRun]" in text
@@ -308,7 +292,7 @@ def test_the_rendered_script_asks_for_elevation_only_when_the_user_picks_all_use
     assert "PrivilegesRequiredOverridesAllowed=dialog commandline" in text
     assert "PrivilegesRequired=admin" not in text
     assert "requestedExecutionLevel" not in text
-    assert "[Registry]" not in text  # the app writes its own Run value (spec 15)
+    assert "[Registry]" not in text
 
 
 @pytest.mark.parametrize("which", ["offline", "online"])
@@ -339,8 +323,6 @@ def test_the_version_reaches_both_the_app_version_and_the_output_file_name():
     assert "OutputBaseFilename=Spells-Setup-0.1.0-dev" in text
 
 
-# ----------------------------------------------------------------------------- the Gemma page
-
 
 def test_a_gemma_cleanup_model_is_recognised_by_its_file_name():
     assert package.ships_gemma("gemma-3-4b-it-Q4_K_M.gguf") is True
@@ -370,8 +352,6 @@ def test_the_gemma_terms_exist_in_the_repository_so_the_page_can_be_shown():
     assert (REPO_DIR / "build" / "licenses" / package.GEMMA_LICENSE_FILE).is_file()
 
 
-# ----------------------------------------------------------------------------- the machine state check
-
 
 def test_the_paths_the_installer_tests_touch_are_the_ones_spec_15_names():
     assert package.INSTALL_DIR.name == "Spells"
@@ -380,8 +360,6 @@ def test_the_paths_the_installer_tests_touch_are_the_ones_spec_15_names():
     assert package.RUN_KEY == r"Software\Microsoft\Windows\CurrentVersion\Run"
     assert package.RUN_VALUE == "Spells"
 
-
-# ----------------------------------------------------------------------------- loopback endpoints
 
 
 def _endpoint(state, local, remote="0.0.0.0"):
@@ -422,8 +400,6 @@ def test_the_state_is_asked_for_by_name_because_convertto_json_writes_the_enum_a
     assert package.loopback_only(_endpoint(2, "127.0.0.1")) is False
 
 
-# ----------------------------------------------------------------------------- the exit code
-
 
 @pytest.mark.parametrize("counts,code", [
     ({"PASS": 23, "FAIL": 0, "SKIP": 0}, 0),
@@ -438,8 +414,6 @@ def test_an_unverified_installer_never_exits_zero(counts, code):
 def test_the_three_exit_codes_are_distinct():
     assert {package.EXIT_OK, package.EXIT_FAILED, package.EXIT_SKIPPED} == {0, 1, 2}
 
-
-# ----------------------------------------------------------------------------- the signing hook
 
 
 def test_nothing_is_signed_by_default():
@@ -488,8 +462,6 @@ def test_the_signing_command_is_split_with_the_file_substituted_for_the_placehol
                                  Path(r"C:\dist\Spells\Spells.exe"))
     assert args == ["signtool.exe", "sign", "/fd", "sha256", r"C:\dist\Spells\Spells.exe"]
 
-
-# ----------------------------------------------------------------------------- upgrade and uninstall
 
 
 def _section(text: str, name: str, until: str) -> list[str]:
@@ -545,7 +517,7 @@ def test_prepare_to_install_polls_the_app_mutex_for_up_to_20_seconds():
     wait = _pascal_routine(text, "function WaitForAppToExit(")
 
     assert MUTEX_NAME == "Spells"
-    assert "ewNoWait" in prepare  # a hung --quit must not block Setup
+    assert "ewNoWait" in prepare
     assert "if not FileExists(Existing) then" in prepare
     assert "WaitForAppToExit(QuitWaitMs)" in prepare
     assert int(_pascal_const(text, "QuitWaitMs")) == 20000
@@ -579,12 +551,10 @@ def test_prepare_to_install_gives_the_helper_up_to_2_seconds_after_the_mutex_is_
     mutex_wait = prepare.index("if WaitForAppToExit(QuitWaitMs) then")
     helper_wait = prepare.index("WaitForHelperToLeave(Existing, HelperGraceMs)")
     timed_out = prepare.index("still held after 20 s")
-    # Only after the mutex is free: the grace sits in the success branch, before its else.
     assert mutex_wait < helper_wait < timed_out
     assert "while (Waited < TimeoutMs) and FileInUse(FileName) do" in grace
     assert "Sleep(QuitPollMs);" in grace
     assert "Waited := Waited + QuitPollMs;" in grace
-    # fmOpenReadWrite or fmShareExclusive fails while a process still runs the executable.
     assert _pascal_const(text, "ExclusiveWriteMode") == "$0012"
     assert "TFileStream.Create(FileName, ExclusiveWriteMode)" in in_use
     assert "except" in in_use and "Result := True;" in in_use
@@ -594,8 +564,6 @@ def test_prepare_to_install_never_blocks_the_install_after_the_timeout():
     text = package.render_iss(_template(), _values())
     prepare = _pascal_routine(text, "function PrepareToInstall(")
 
-    # A non-empty result would stop Setup on the preparing page; Restart Manager stays as the
-    # second line.
     assert "Result := '';" in prepare
     assert "Result :=" not in prepare.replace("Result := '';", "")
     assert "NeedsRestart := False;" in prepare
@@ -605,8 +573,6 @@ def test_a_cancelled_data_removal_dialog_removes_nothing():
     text = package.render_iss(_template(), _values())
     assert "Result := (Form.ShowModal() = mrOk) and Box.Checked;" in text
 
-
-# ----------------------------------------------------------------------------- registry scoping
 
 
 def test_the_uninstall_entry_is_found_by_the_app_id_never_by_a_name_substring():
@@ -619,8 +585,6 @@ def test_the_uninstall_entry_is_found_by_the_app_id_never_by_a_name_substring():
     assert "EnumKey" not in source
 
 
-# ----------------------------------------------------------------------------- the setup process
-
 
 @pytest.mark.windows
 def test_the_running_setup_is_watched_by_its_temp_child_not_only_the_exe():
@@ -630,8 +594,6 @@ def test_the_running_setup_is_watched_by_its_temp_child_not_only_the_exe():
     assert "Spells-Setup-0.1.0-dev.exe" in names
     assert "Spells-Setup-0.1.0-dev.tmp" in names
 
-
-# ----------------------------------------------------------------------------- the licence manifest
 
 
 def test_a_cleanup_model_with_no_shipping_licence_entry_is_warned_about_not_refused():
@@ -648,10 +610,8 @@ def test_the_shipping_names_come_from_the_licence_manifest():
     names = package.shipping_license_names()
 
     assert "whisper_cpp" in names
-    assert "numpy" not in names  # recorded but never shipped (B4-25)
+    assert "numpy" not in names
 
-
-# ----------------------------------------------------------------------------- the models that ship
 
 GEMMA4_FILE = "gemma-4-E2B-it-Q4_0.gguf"
 GEMMA4_DRAFT = "mtp-gemma-4-E2B-it-Q4_0.gguf"
@@ -874,8 +834,6 @@ def test_the_real_default_cleanup_model_has_a_listed_licence():
     assert package.warn_unlisted_cleanup_model(bundle.cleanup.file) == ""
 
 
-# ----------------------------------------------------------------------------- disk spanning
-
 
 def test_the_span_threshold_is_below_innos_own_requirement():
     """ISCC refuses a single file above 2,100,000,000 bytes; it says so itself (B5-49)."""
@@ -1010,8 +968,6 @@ def test_default_bundle_contents_are_unaffected_by_spanning():
         "qwen3-asr-0.6b-q4_k_m", "whisper-large-v3-turbo-q8_0", "gemma-4-e2b-it-q4_0"]
 
 
-# ----------------------------------------------------------------------------- the online flavour
-
 
 ONLINE_TEMPLATE_PATH = BUILD_DIR / "spells-online.iss.template"
 
@@ -1045,8 +1001,6 @@ def _rendered(**overrides) -> str:
 def _by_name(manifest) -> dict:
     return {item.name: item for item in manifest}
 
-
-# --- the manifest generated from the pins and the catalog
 
 
 def test_every_manifest_entry_carries_what_the_download_page_needs():
@@ -1208,8 +1162,6 @@ def test_pinned_sizes_that_disagree_with_the_catalog_stop_the_build():
         package.online_manifest(pins=pins)
 
 
-# --- what each machine installs, generated from the catalog
-
 CPU = Hardware.CPU
 GPU = Hardware.GPU
 QWEN35_4B = "qwen3.5-4b-q4_k_m"
@@ -1336,8 +1288,6 @@ def test_the_mask_is_one_bit_per_offered_language():
     assert {row.mask for row in package.install_sets() if row.hardware is CPU} == set(range(1, 8))
 
 
-# --- the totals the language page shows
-
 
 VAD_BYTES = 885_098
 GEMMA4_BYTES = 2_841_481_184 + 59_235_872
@@ -1388,8 +1338,6 @@ def test_language_subsets_are_every_combination_shortest_first():
     assert len(set(subsets)) == 7
 
 
-# --- where the files come from
-
 
 @pytest.mark.parametrize(
     "base, expected",
@@ -1426,8 +1374,6 @@ def test_a_mirror_that_resolves_to_the_pinned_url_is_not_tried_twice():
         "https://pinned.example", "a.bin", "https://pinned.example/a.bin"
     ) == ("https://pinned.example/a.bin",)
 
-
-# --- the generated Inno Setup script
 
 
 def test_the_online_template_asks_for_exactly_the_values_the_build_computes():
@@ -1764,8 +1710,6 @@ def test_language_names_read_as_a_sentence():
     assert package.language_phrase(("en", "de", "sq")) == "English, German and Albanian"
 
 
-# --- the command line
-
 
 def test_the_online_flag_is_recognised_by_the_cli(capsys):
     with pytest.raises(SystemExit):
@@ -1790,8 +1734,6 @@ def test_a_mirror_without_the_online_flag_is_refused(capsys):
         package.main(["--all", "--model-mirror", "https://mirror.example"])
     assert "only means something for --online" in capsys.readouterr().err
 
-
-# The version file of spec 19.7 ------------------------------------------------------------------
 
 CHANGELOG_SAMPLE = """# Changelog
 
@@ -2000,8 +1942,6 @@ def test_an_installer_that_was_not_built_is_reported_not_invented(tmp_path, monk
 def test_the_version_file_step_is_the_last_one():
     assert package.STEPS[-1] == "latest"
 
-
-# What the online installer does on an update (spec 19.7) ----------------------------------------
 
 
 def test_a_model_already_in_the_folder_is_never_downloaded_again():

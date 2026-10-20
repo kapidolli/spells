@@ -151,8 +151,6 @@ class TkWindow:
 
 @pytest.fixture(scope="module")
 def tk_root():
-    # One Tk interpreter per module: tests use Toplevel windows on it. A second tk.Tk()
-    # in the same process fails to re-source Tk's ttk scripts on this machine.
     root = tk.Tk()
     root.withdraw()
     yield root
@@ -176,8 +174,6 @@ def preserved_clipboard():
 def _decode(payload: bytes) -> str:
     return payload.decode("utf-16-le").split("\x00", 1)[0]
 
-
-# clipboard
 
 
 def test_clipboard_snapshot_set_text_restore_round_trip(preserved_clipboard):
@@ -203,7 +199,7 @@ def test_clipboard_restore_refuses_after_an_external_change(preserved_clipboard)
     set_text("before")
     snap = snapshot()
     seq = set_text("ours")
-    set_text("someone else")  # simulates another app changing the clipboard
+    set_text("someone else")
     assert sequence_number() != seq
     assert restore(snap, seq) is False
     assert get_text() == "someone else"
@@ -219,24 +215,22 @@ def _tiny_dib() -> bytes:
     """A 2x2 32-bit BI_RGB device-independent bitmap, the CF_DIB payload."""
     header = struct.pack(
         "<IiiHHIIiiII",
-        40,  # biSize
-        2,  # biWidth
-        2,  # biHeight
-        1,  # biPlanes
-        32,  # biBitCount
-        0,  # biCompression, BI_RGB
-        16,  # biSizeImage
-        2835,  # biXPelsPerMeter
-        2835,  # biYPelsPerMeter
-        0,  # biClrUsed
-        0,  # biClrImportant
+        40,
+        2,
+        2,
+        1,
+        32,
+        0,
+        16,
+        2835,
+        2835,
+        0,
+        0,
     )
     return header + bytes([0x20, 0x40, 0x80, 0x00] * 4)
 
 
 def test_clipboard_round_trip_restores_non_text_formats(preserved_clipboard):
-    # An image or a file drop must survive a dictation as well as text does: the snapshot
-    # keeps raw bytes per format and the restore puts every one of them back.
     dib = _tiny_dib()
     payload = b"spells non-text payload"
     custom = clipboard_module._user32.RegisterClipboardFormatW("SpellsLiveTestFormat")
@@ -247,7 +241,6 @@ def test_clipboard_round_trip_restores_non_text_formats(preserved_clipboard):
         clipboard_module._put_global(custom, payload)
 
     snap = snapshot()
-    # GlobalAlloc may hand out a slightly larger block, so compare the payload prefix.
     assert snap.formats[CF_DIB][: len(dib)] == dib
     assert snap.formats[custom][: len(payload)] == payload
 
@@ -272,12 +265,9 @@ def test_clipboard_restore_of_an_empty_snapshot_leaves_it_empty(preserved_clipbo
     seq = set_text("spells filled the clipboard")
     assert get_text() == "spells filled the clipboard"
     assert restore(empty, seq) is True
-    # An empty clipboard is restored to empty, without the exclusion tag standing in for it.
     assert get_text() is None
     assert snapshot().formats == {}
 
-
-# window
 
 
 def test_foreground_window_process_name_and_title(tkwin):
@@ -286,8 +276,6 @@ def test_foreground_window_process_name_and_title(tkwin):
     assert hwnd == tkwin.hwnd
     assert window_pid(hwnd) == os.getpid()
     assert window_process_name(hwnd).lower() == Path(sys.executable).name.lower()
-    # The venv python.exe is a launcher that runs the base interpreter as a child, so
-    # only the basename is stable across layouts.
     image = process_image_path(os.getpid())
     assert Path(image).name.lower() == "python.exe"
     assert Path(image).is_file()
@@ -305,7 +293,7 @@ def test_unknown_process_and_window_are_handled():
     assert process_integrity_level(0) is None
     assert window_process_name(0) == ""
     assert window_pid(0) == 0
-    assert is_elevated_window(0) is True  # undeterminable counts as elevated
+    assert is_elevated_window(0) is True
 
 
 def test_monitor_work_area(tkwin):
@@ -314,8 +302,6 @@ def test_monitor_work_area(tkwin):
     assert bottom > top
 
 
-# process
-
 
 def _process_alive(pid: int) -> bool:
     return process_image_path(pid) != ""
@@ -323,8 +309,6 @@ def _process_alive(pid: int) -> bool:
 
 def test_job_object_kills_child_on_close(tmp_path):
     pid_file = tmp_path / "child.pid"
-    # sys.executable in a venv is a launcher that runs the base interpreter as its own
-    # child; that grandchild must die with the job as well.
     code = f"import os, time; open({str(pid_file)!r}, 'w').write(str(os.getpid())); time.sleep(60)"
     job = JobObject()
     proc = spawn_hidden(
@@ -382,7 +366,7 @@ def test_spawn_hidden_kills_the_suspended_child_when_the_job_assignment_fails(
 
     monkeypatch.setattr(process_module.subprocess, "Popen", recording_popen)
     job = JobObject()
-    job.close()  # assign() now raises ValueError, which is not an OSError
+    job.close()
     with pytest.raises(ValueError):
         spawn_hidden(
             [sys.executable, "-c", "import time; time.sleep(120)"],
@@ -395,15 +379,11 @@ def test_spawn_hidden_kills_the_suspended_child_when_the_job_assignment_fails(
     assert len(created) == 1
     proc = created[0]
     try:
-        # Without the kill this child would sit suspended forever: no window, no job, and
-        # no Popen object left anywhere to stop it.
         assert proc.poll() is not None, "the suspended child outlived the failed assignment"
     finally:
         if proc.poll() is None:
             proc.kill()
 
-
-# input
 
 
 def test_type_unicode_into_entry_with_emoji(tkwin):
@@ -445,8 +425,6 @@ def test_release_held_modifiers_releases_a_synthetic_shift(tkwin):
     finally:
         send_key(VK_LSHIFT, False)
 
-
-# hook and message loop
 
 
 class HookThread:
@@ -493,9 +471,6 @@ class HookThread:
             assert self.ready.wait(5), "hook thread did not start"
             assert self.error is None, self.error
         except BaseException:
-            # The with body never runs when __enter__ raises, so __exit__ never runs
-            # either: stop the thread here or the low-level hook stays installed for the
-            # rest of the session and swallows the user's keys.
             self.stop.set()
             self.thread.join(5)
             raise
@@ -532,7 +507,6 @@ def test_hook_sees_injected_probe_and_swallows_tagged_keys(tkwin):
         tkwin.pump(0.2)
         assert tkwin.entry.get() == ""
 
-        # A swallowed key never reaches the focused Entry; an untagged one does.
         send_key(VK_A, True, SWALLOW_TAG)
         send_key(VK_A, False, SWALLOW_TAG)
         assert wait_until(lambda: len(hooked.seen(VK_A, SWALLOW_TAG)) >= 2, pump=tkwin.pump)
@@ -542,7 +516,6 @@ def test_hook_sees_injected_probe_and_swallows_tagged_keys(tkwin):
         send_key(VK_A, False, 0)
         assert wait_until(lambda: tkwin.entry.get() == "a", pump=tkwin.pump), tkwin.entry.get()
 
-        # An exception inside the callback is logged and the key is passed on.
         send_key(VK_B, True, RAISE_TAG)
         send_key(VK_B, False, RAISE_TAG)
         assert wait_until(lambda: tkwin.entry.get() == "ab", pump=tkwin.pump), tkwin.entry.get()
@@ -556,7 +529,7 @@ def test_message_loop_timers_one_shot_and_prompt_stop():
         ticks.append((timer_id, threading.get_ident()))
         if timer_id == 1 and sum(1 for tid, _ in ticks if tid == 1) == 3:
             kill_timer(1)
-            set_timer(2, 20)  # one-shot, armed from the loop thread
+            set_timer(2, 20)
         elif timer_id == 2:
             kill_timer(2)
             done.set()
@@ -568,7 +541,7 @@ def test_message_loop_timers_one_shot_and_prompt_stop():
     thread.start()
     try:
         assert done.wait(5), ticks
-        time.sleep(0.15)  # a leftover timer would tick again here
+        time.sleep(0.15)
         started = time.monotonic()
     finally:
         stop.set()
@@ -599,12 +572,8 @@ def test_probe_sent_from_the_loop_thread_reaches_the_callback():
     assert all(event.injected for event in events)
 
 
-# hotkey probe
-
 
 def test_register_hotkey_probe_ctrl_alt_f9_is_free_and_not_left_registered():
-    # F9, not F12: RegisterHotKey reserves F12 for the debugger, so a probe there answers
-    # about the debugger rather than about the chord.
     modifiers = MOD_CONTROL | MOD_ALT
     first = register_hotkey_probe(modifiers, VK_F9)
     if not first and not _user32.RegisterHotKey(None, 0x0BEE, modifiers, VK_F9):
@@ -612,7 +581,6 @@ def test_register_hotkey_probe_ctrl_alt_f9_is_free_and_not_left_registered():
     _user32.UnregisterHotKey(None, 0x0BEE)
     assert first is True
     assert register_hotkey_probe(modifiers, VK_F9) is True
-    # Registering it ourselves succeeds only when the probe left nothing behind.
     assert _user32.RegisterHotKey(None, 0x0BEE, modifiers, VK_F9)
     _user32.UnregisterHotKey(None, 0x0BEE)
 
@@ -626,8 +594,6 @@ def test_register_hotkey_probe_reports_a_taken_chord():
         _user32.UnregisterHotKey(None, 0x0BEF)
     assert register_hotkey_probe(modifiers, VK_F11) is True
 
-
-# message window and single instance
 
 
 class WindowThread:
@@ -717,8 +683,6 @@ def test_message_window_passes_a_refused_query_end_session_through():
         wnd.query_result = False
         assert _user32.SendMessageW(hwnd, WM_QUERYENDSESSION, 0, ENDSESSION_CLOSEAPP) == 0
         assert wnd.queries == [ENDSESSION_CLOSEAPP]
-        # Refusing the shutdown is an answer, not an exit: the window is still there and
-        # still answering, and no WM_ENDSESSION was handled.
         assert find_message_window(class_name) == hwnd
         assert wnd.ended == []
         wnd.query_result = True
@@ -731,7 +695,7 @@ def test_message_window_destroy_from_another_thread():
     class_name = f"SpellsTestMsgWnd_{os.getpid()}_{uuid.uuid4().hex[:8]}"
     with WindowThread(class_name) as wnd:
         hwnd = wnd.window.hwnd
-        wnd.window.destroy()  # forwarded as WM_CLOSE to the owning thread
+        wnd.window.destroy()
         assert wait_until(lambda: wnd.window.hwnd == 0)
         assert find_message_window(class_name) == 0
         assert hwnd

@@ -69,8 +69,6 @@ class Clock:
         return value
 
 
-# The system prompt (spec 8.5) -----------------------------------------------------------------
-
 
 def test_the_system_prompt_is_pinned_so_the_engine_keeps_it_cached():
     digest = hashlib.sha256(SYSTEM_PROMPT.encode("utf-8")).hexdigest()
@@ -113,8 +111,6 @@ def test_an_empty_tone_reads_as_none_rather_than_as_an_empty_block():
     assert "[TONE]\n(none)" in user_message(INSTRUCTION)
 
 
-# max_tokens (spec 8.5) ------------------------------------------------------------------------
-
 
 def test_a_short_instruction_still_buys_a_whole_email():
     assert max_tokens_for("write to Marta") == COMPOSE_MIN_TOKENS
@@ -139,8 +135,6 @@ def test_the_bound_never_passes_its_ceiling():
 def test_the_bound_is_never_below_the_floor_even_with_nothing_to_go_on():
     assert max_tokens_for("") == COMPOSE_MIN_TOKENS
 
-
-# The guards (spec 8.5) ------------------------------------------------------------------------
 
 
 def test_a_composed_email_far_longer_than_the_instruction_passes():
@@ -216,8 +210,6 @@ def test_every_rejection_has_a_short_line_for_the_pill():
     assert rejection_text("something new") == "Writing failed"
 
 
-# compose() (spec 8.5) -------------------------------------------------------------------------
-
 
 def test_a_composed_email_is_delivered_with_the_reason_ok():
     writer = FakeWriter()
@@ -277,8 +269,6 @@ def test_the_delivered_text_is_trimmed():
     result = write(INSTRUCTION, FakeWriter(content=f"\n  {EMAIL}  \n"))
     assert result.text == EMAIL
 
-
-# The request itself ---------------------------------------------------------------------------
 
 
 class FakeResponse:
@@ -361,8 +351,6 @@ def test_a_body_that_is_not_a_chat_completion_is_an_error(monkeypatch):
     assert caught.value.reason == "error"
 
 
-# The selection (spec 8.5, 11) -----------------------------------------------------------------
-
 
 def test_the_selection_is_copied_and_the_clipboard_put_back():
     log, backends = make(selection=PARAGRAPH)
@@ -431,8 +419,6 @@ def test_the_selection_reports_its_length():
     assert Selection(text=PARAGRAPH, copied=True).chars == len(PARAGRAPH)
 
 
-# The pill line (spec 14.2) --------------------------------------------------------------------
-
 
 def test_the_first_two_seconds_show_no_number():
     assert writing_text(INSTRUCTION, 0.0) == f"Writing: {INSTRUCTION}"
@@ -452,8 +438,6 @@ def test_without_an_instruction_the_line_is_just_the_state():
 def test_the_instruction_is_collapsed_onto_one_line():
     assert writing_text("write\n  this   down", 0.0) == "Writing: write this down"
 
-
-# Tidying the written text ----------------------------------------------------------------
 
 
 def test_a_subject_line_nobody_asked_for_is_dropped():

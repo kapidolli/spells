@@ -30,7 +30,7 @@ MODEL = REPO_DIR / "build" / "cache" / "models" / "ggml-tiny.bin"
 VARIANTS = ("vulkan", "cpu")
 HEALTH_TIMEOUT_S = 30.0
 INFERENCE_TIMEOUT_S = 120.0
-ERROR_APPCONTROL_BLOCKED = 4551  # WinError raised by CreateProcess when code integrity rejects the exe
+ERROR_APPCONTROL_BLOCKED = 4551
 
 pytestmark = pytest.mark.integration
 
@@ -166,7 +166,6 @@ def test_whisper_server_smoke(variant, tmp_path):
     stderr_lines: list[str] = []
     pumps: list[threading.Thread] = []
     try:
-        # inside the try: a failure starting the readers must still terminate the server
         pumps = [_pump(proc.stdout, stdout_lines), _pump(proc.stderr, stderr_lines)]
         _wait_for_health(port, proc, lambda: stderr_lines + stdout_lines)
 

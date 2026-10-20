@@ -209,8 +209,6 @@ def test_the_hotkey_is_shown_as_keycaps_in_the_tour(app, tmp_path, use_platform)
     page.close()
 
 
-# The capture path in the picker and the meter
-
 
 def test_the_picker_matches_a_name_stored_while_capture_went_through_mme(app, tmp_path):
     config = make_config(tmp_path)

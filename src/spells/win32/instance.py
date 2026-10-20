@@ -24,7 +24,6 @@ _user32.FindWindowExW.restype = wintypes.HWND
 _user32.FindWindowW.argtypes = (wintypes.LPCWSTR, wintypes.LPCWSTR)
 _user32.FindWindowW.restype = wintypes.HWND
 
-# Mutex handles kept open for the life of the process (or until released).
 _mutexes: dict[str, int] = {}
 _mutex_lock = threading.Lock()
 

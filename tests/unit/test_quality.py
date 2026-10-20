@@ -38,8 +38,6 @@ def segment(**overrides) -> dict:
     return base
 
 
-# metrics_from_verbose_json ------------------------------------------------------------
-
 
 def test_metrics_from_a_single_segment():
     metrics = metrics_from_verbose_json({"segments": [segment()]})
@@ -114,8 +112,6 @@ def test_a_llama_asr_engine_reports_a_source_and_no_numbers():
     assert metrics.scored is False
 
 
-# counting and rates --------------------------------------------------------------------
-
 
 def test_count_phrases_matches_whole_words_only():
     assert count_phrases("I like it, um, like that", ["um", "like"]) == 3
@@ -163,8 +159,6 @@ def test_signals_without_metrics_are_still_useful():
     assert signal.scored is False
     assert signal.words_per_minute == pytest.approx(120.0)
 
-
-# assess --------------------------------------------------------------------------------
 
 
 def test_a_clean_transcription_is_good():
@@ -264,8 +258,6 @@ def test_every_reason_is_one_sentence_without_an_em_dash():
         assert "\u2014" not in reason
 
 
-# summarize -----------------------------------------------------------------------------
-
 
 def test_summarize_over_no_rows():
     summary = summarize([])
@@ -303,8 +295,6 @@ def test_summarize_counts_cleanup_changes_only_where_cleanup_ran():
     assert summary.cleanup_runs == 2
     assert summary.cleanup_changed_rate == pytest.approx(0.5)
 
-
-# the on-demand check -------------------------------------------------------------------
 
 
 def test_check_messages_are_fixed_apart_from_the_transcript():
@@ -386,8 +376,6 @@ def test_check_label_words():
     assert quality.check_label("garbled") == "Looks garbled"
     assert quality.check_label("") == ""
 
-
-# json round trip -----------------------------------------------------------------------
 
 
 def test_signals_round_trip():

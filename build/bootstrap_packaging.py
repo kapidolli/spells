@@ -61,9 +61,6 @@ STAGE_DIR = TOOLCHAIN_ROOT / "innosetup-stage"
 SMOKE_DIR = TOOLCHAIN_ROOT / "packaging-smoke"
 PYINSTALLER_SMOKE_DIR = OUT_DIR / "pyinstaller-smoke"
 
-# What has to be on disk for a part to count as installed. ISCC.exe alone cannot compile: the
-# compiler and preprocessor DLLs, the default message file, the two setup stubs it stamps into
-# every installer and the compression helpers all live beside it in the installer's {app} folder.
 INNOEXTRACT_FILES = ("innoextract.exe",)
 INNOSETUP_FILES = (
     "ISCC.exe", "ISCmplr.dll", "ISPP.dll", "ISPPBuiltins.iss", "Default.isl",
@@ -83,7 +80,6 @@ SMOKE_APP_SOURCE = (
     f'print("{SMOKE_APP_MARKER}", sys.version_info[0], sys.version_info[1])\n'
 )
 
-# innoextract writes the installer's {app} files into this subdirectory of its output directory.
 EXTRACTED_APP_SUBDIR = "app"
 
 SMOKE_ISS_TEMPLATE = """\
@@ -112,8 +108,6 @@ PYINSTALLER_VERSION_RE = re.compile(r"^[ \t]*(\d+(?:\.\d+)+\S*)[ \t]*$", re.MULT
 class PackagingError(Exception):
     pass
 
-
-# ----------------------------------------------------------------------------- pure helpers
 
 
 def smoke_iss_text(*, output_dir: Path | str, output_basename: str, payload: Path | str) -> str:
@@ -183,8 +177,6 @@ def pinned_version(key: str) -> str:
     return fetch.resolve(fetch.load_pins(), key)["version"]
 
 
-# ----------------------------------------------------------------------------- extraction
-
 
 def extract_zip(archive: Path, dest: Path) -> None:
     """Extract every member of ``archive`` under ``dest``, refusing a member that escapes it."""
@@ -242,8 +234,6 @@ def ensure_innosetup() -> None:
     print(f"inno setup: unpacked into {INNOSETUP_DIR} (the installer was never run)")
 
 
-# ----------------------------------------------------------------------------- verification
-
 
 def verify_iscc(pinned: str) -> str:
     """``ISCC.exe /?`` prints its banner; check the version in it against the pin.
@@ -300,8 +290,6 @@ def compile_smoke_installer(pinned: str) -> str:
           f"then deleted it; it was never run")
     return version
 
-
-# ----------------------------------------------------------------------------- pyinstaller
 
 
 def installed_pyinstaller_version() -> str | None:
@@ -368,8 +356,6 @@ def pyinstaller_smoke() -> None:
     shutil.rmtree(work_dir, ignore_errors=True)
     print(f"  removed {PYINSTALLER_SMOKE_DIR} and the PyInstaller work directory")
 
-
-# ----------------------------------------------------------------------------- main
 
 
 def main(argv=None) -> int:

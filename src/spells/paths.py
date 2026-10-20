@@ -58,10 +58,7 @@ class Layout:
     whisper_model: Path
     vad_model: Path
     llama_model: Path | None
-    # Empty unless the cleanup model is missing; the app shows it as a tray warning.
     cleanup_notice: str = ""
-    # Empty unless the speech model is missing; a packaged build never falls back to the
-    # development model, so this is a startup failure the app reports (spec 16).
     whisper_notice: str = ""
 
     def variant_dir(self, variant: Variant) -> Path:
@@ -139,8 +136,6 @@ def resolve(
     )
 
 
-# User data (spec 15) --------------------------------------------------------------------
-
 
 def _settings_path(env: Mapping[str, str]) -> Path:
     override = env.get(SETTINGS_DIR_ENV)
@@ -162,8 +157,6 @@ def _log_dir(env: Mapping[str, str]) -> Path:
         return Path(override) / LOGS_DIR
     return current_paths().log_dir
 
-
-# Models ---------------------------------------------------------------------------------
 
 
 def _whisper_model(models_dir: Path, *, frozen: bool) -> tuple[Path, str]:

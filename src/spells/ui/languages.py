@@ -101,8 +101,6 @@ def set_language_enabled(config: ConfigStore, notify: Notify, code: str, enabled
     return True
 
 
-# The enabled languages ------------------------------------------------------------------------
-
 
 class LanguageRow(QtWidgets.QWidget):
     """A language chip and, on the settings page, its per-language hotkeys."""
@@ -204,8 +202,6 @@ class LanguageList(Card):
     def codes(self) -> list[str]:
         return list(self.language_rows)
 
-
-# Adding a language --------------------------------------------------------------------------------
 
 
 class _ResultDelegate(QtWidgets.QStyledItemDelegate):
@@ -339,8 +335,6 @@ class LanguageAdder(QtWidgets.QWidget):
                 return
 
 
-# Models -----------------------------------------------------------------------------------------------
-
 
 class ModelsCard(Card):
     """The speech model per language and the cleanup model select_models picks, with reasons."""
@@ -435,8 +429,6 @@ class ModelsCard(Card):
     def names(self) -> list[str]:
         return [row.title_label.text() for row in self.model_rows]
 
-
-# The page -------------------------------------------------------------------------------------------------
 
 
 class LanguagesPage(ScrollPage):

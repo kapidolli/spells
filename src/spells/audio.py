@@ -53,16 +53,12 @@ WASAPI = "Windows WASAPI"
 MME = "MME"
 FALLBACK_SAMPLE_RATE = 48000
 
-# PaErrorCode values from portaudio.h.
 PA_UNANTICIPATED_HOST_ERROR = -9999
 PA_INVALID_CHANNEL_COUNT = -9998
 PA_INVALID_SAMPLE_RATE = -9997
 PA_INVALID_DEVICE = -9996
 PA_DEVICE_UNAVAILABLE = -9985
 
-# Host error texts, lower-cased with underscores replaced by spaces. MME says
-# "The specified device is already in use"; WASAPI reports AUDCLNT_E_DEVICE_IN_USE
-# (0x8889000A) or AUDCLNT_E_DEVICE_INVALIDATED (0x88890004) when a device vanished.
 _BUSY_PATTERNS = ("in use", "busy", "already allocated", "0x8889000a")
 _MISSING_PATTERNS = (
     "out of range",
@@ -414,7 +410,6 @@ def is_rate_refusal(exc: BaseException | None) -> bool:
 def classify_open_error(exc: BaseException) -> MicErrorKind:
     """Map a failure while opening a stream to a MicError kind."""
     if isinstance(exc, ValueError):
-        # sounddevice's own device lookup: "No input device matching ..."
         return "missing"
     if isinstance(exc, sd.PortAudioError):
         code = exc.args[1] if len(exc.args) > 1 and isinstance(exc.args[1], int) else None
@@ -531,8 +526,6 @@ class Recorder:
         self._last_open_error: BaseException | None = None
         self.dropped_blocks = 0
 
-    # State
-
     @property
     def is_recording(self) -> bool:
         return self._recording
@@ -582,8 +575,6 @@ class Recorder:
             match=self.device_match,
         )
 
-    # Control
-
     def start(self) -> None:
         """Open the microphone and begin capturing. Raises MicError."""
         started = time.perf_counter()
@@ -591,7 +582,6 @@ class Recorder:
             if self._recording:
                 raise RuntimeError("Recorder.start() called while already recording")
         if self._stream is not None and not getattr(self._stream, "active", False):
-            # A warm stream that PortAudio stopped on its own: reopen it.
             self._close_stream()
         if self._stream is None:
             self._open_stream()
@@ -613,8 +603,6 @@ class Recorder:
             with self._lock:
                 self._recording = False
         else:
-            # Pa_StopStream first: full blocks still queued are delivered to the
-            # callback before it returns, so the tail of the utterance is kept.
             self._stop_stream()
             with self._lock:
                 self._recording = False
@@ -641,8 +629,6 @@ class Recorder:
             self._recording = False
             self._chunks = []
         self._close_stream()
-
-    # Internals
 
     def _open_stream(self) -> None:
         plans, chosen, match = capture_plans(self.device, self.requested_sample_rate)
@@ -741,8 +727,6 @@ class Recorder:
             logger.warning("closing the input stream failed", exc_info=True)
 
     def _callback(self, indata: Any, frames: int, time_info: Any, status: Any) -> None:
-        # Runs on the PortAudio thread: copy, measure, hand off, nothing else.
-        # Nothing may escape: an exception here makes PortAudio abort the stream.
         try:
             if status:
                 logger.debug("input stream status: %s", status)

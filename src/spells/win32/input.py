@@ -28,7 +28,6 @@ VK_V = 0x56
 VK_C = 0x43
 VK_BACK = 0x08
 
-# Generic and side-specific modifier keys, in the order they are checked and released.
 MODIFIER_VKS = (
     VK_SHIFT,
     VK_CONTROL,
@@ -44,10 +43,6 @@ MODIFIER_VKS = (
 )
 WIN_VKS = frozenset({VK_LWIN, VK_RWIN})
 
-# The Start menu mask: the unassigned key VK 0xE8 carrying the hotkey layer's private
-# dwExtraInfo tag. Both values must stay equal to spells.hotkey.MASK_VK and
-# spells.hotkey.MASK_TAG, which a unit test asserts; they are repeated rather than imported
-# because spells.win32 is the bottom layer and never imports the layers above it.
 MASK_VK = VK_PROBE
 MASK_TAG = 0x5554544D
 

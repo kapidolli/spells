@@ -77,8 +77,6 @@ def make_pill(*, reduced_motion=True, rect=WORK_AREA):
     return pill, resolved, activated
 
 
-# Metrics -------------------------------------------------------------------------------------
-
 
 def test_metrics_at_100_percent_match_the_mockup():
     m = PillMetrics.for_unit(1.0)
@@ -126,8 +124,6 @@ def test_placement_at_150_percent_scales_the_gap_and_margin():
     assert y == 1560 - 18 - 54 - 36
 
 
-# Level smoothing ---------------------------------------------------------------------------
-
 
 def test_envelope_uses_attack_and_decay_constants():
     smoother = LevelSmoother()
@@ -150,8 +146,6 @@ def test_static_pose_has_fifteen_heights_in_range():
     assert len(STATIC_POSE) == BAR_COUNT
     assert all(3 <= h <= 20 for h in STATIC_POSE)
 
-
-# Content per state ---------------------------------------------------------------------------
 
 
 def test_idle_shows_nothing():
@@ -245,8 +239,6 @@ def test_copied_notice_is_the_full_sentence_for_2600_ms():
 def test_no_notice_gives_none():
     assert notice_for(event()) is None
 
-
-# The widget ---------------------------------------------------------------------------------
 
 
 def test_window_flags_never_take_focus(app):
@@ -548,8 +540,6 @@ def test_meter_level_is_monotonic_and_bounded():
     assert values == sorted(values)
     assert all(0.0 <= value <= 1.0 for value in values)
 
-
-# --- the writing state (spec 14.2, 8.5) ---
 
 
 INSTRUCTION = "write an email to Marta asking for the September invoice"

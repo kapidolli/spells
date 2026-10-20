@@ -124,8 +124,6 @@ def sm(clock: FakeClock, rec: Recorder) -> ChordStateMachine:
     return ChordStateMachine([MAIN, LANG_SQ], rec.callbacks(), clock.now)
 
 
-# Constants and types -------------------------------------------------------
-
 
 def test_constants_match_the_contract():
     assert PROBE_TAG == 0x55545452
@@ -163,8 +161,6 @@ def test_initial_state(sm: ChordStateMachine):
     assert sm.chords == (MAIN, LANG_SQ)
 
 
-# Hold, tap, latch ------------------------------------------------------------
-
 
 def test_hold_and_release_after_250ms_fires_pressed_then_released(sm, rec, clock):
     press_chord(sm, MAIN)
@@ -180,7 +176,6 @@ def test_hold_and_release_after_250ms_fires_pressed_then_released(sm, rec, clock
     assert sm.active_chord is None
     assert sm.dictation_id is None
     assert sm.recording is False
-    # the remaining chord keys going up do nothing more
     sm.on_key(ev(VK_LMENU, False))
     sm.on_key(ev(VK_LCONTROL, False))
     assert rec.events == [("pressed", MAIN, 1), ("released", MAIN, 1)]
@@ -213,7 +208,7 @@ def test_tap_then_window_expiry_fires_pressed_then_discarded(sm, rec, clock):
 
 def test_tap_window_is_measured_from_release_not_press(sm, rec, clock):
     tap(sm, clock, MAIN, hold_s=0.2)
-    clock.advance(0.3)  # 0.5 s after the press, 0.3 s after the release
+    clock.advance(0.3)
     sm.on_tick()
     assert sm.state is ChordState.TAP_WINDOW
     press_chord(sm, MAIN)
@@ -228,24 +223,20 @@ def test_double_tap_latches_and_a_later_press_ends_it_consumed(sm, rec, clock):
     assert sm.state is ChordState.LATCHED
     assert sm.active_chord == MAIN
     assert sm.dictation_id == 1
-    # releasing the latching press changes nothing, however long it was held
     clock.advance(2.0)
     release_chord(sm, MAIN)
     assert sm.state is ChordState.LATCHED
     clock.advance(30.0)
     sm.on_tick()
     assert sm.state is ChordState.LATCHED
-    # any later press of the chord ends the latch
     press_chord(sm, MAIN)
     assert rec.events == [("pressed", MAIN, 1), ("latched", MAIN, 1), ("released", MAIN, 1)]
     assert sm.state is ChordState.IDLE
     assert sm.active_chord is None
-    # that press is consumed: its own release does nothing, whatever its hold length
     clock.advance(1.0)
     release_chord(sm, MAIN)
     assert rec.events == [("pressed", MAIN, 1), ("latched", MAIN, 1), ("released", MAIN, 1)]
     assert sm.state is ChordState.IDLE
-    # and the press after that is a fresh dictation
     press_chord(sm, MAIN)
     assert rec.events[-1] == ("pressed", MAIN, 2)
     assert sm.state is ChordState.HELD
@@ -273,7 +264,6 @@ def test_per_language_chord_press_ending_a_latch_is_consumed(sm, rec, clock):
     release_chord(sm, LANG_SQ)
     assert rec.events[-1] == ("released", MAIN, 1)
     assert sm.state is ChordState.IDLE
-    # a fresh per-language press afterwards starts a forced-language dictation
     press_chord(sm, LANG_SQ)
     assert rec.events[-1] == ("pressed", LANG_SQ, 2)
     assert sm.active_chord == LANG_SQ
@@ -295,7 +285,7 @@ def test_per_language_chord_uses_the_same_rules(sm, rec, clock):
 def test_same_chord_press_after_the_window_is_a_fresh_press(sm, rec, clock):
     tap(sm, clock, MAIN)
     clock.advance(0.5)
-    press_chord(sm, MAIN)  # no tick ran; the key event evaluates the expiry first
+    press_chord(sm, MAIN)
     assert rec.events == [("pressed", MAIN, 1), ("discarded", 1), ("pressed", MAIN, 2)]
     assert sm.state is ChordState.HELD
 
@@ -365,8 +355,6 @@ def test_dictation_ids_increase_with_every_press(sm, rec, clock):
     ]
     assert sm.dictation_id is None
 
-
-# Chord release rules -----------------------------------------------------------
 
 
 @pytest.mark.parametrize("released_vk", [VK_LCONTROL, VK_LMENU, VK_D])
@@ -468,8 +456,6 @@ def test_update_chords_keeps_the_active_dictation(sm, rec, clock):
     assert rec.events == [("pressed", MAIN, 1), ("released", MAIN, 1)]
 
 
-# Esc ------------------------------------------------------------------------------
-
 
 @pytest.mark.parametrize("setup", ["held", "tap_window", "latched"])
 def test_escape_while_recording_cancels_and_is_swallowed(sm, rec, clock, setup):
@@ -487,10 +473,8 @@ def test_escape_while_recording_cancels_and_is_swallowed(sm, rec, clock, setup):
     assert sm.active_chord is None
     assert sm.recording is False
     assert sm.on_key(ev(VK_ESCAPE, False)).swallow is True, "the paired key-up is swallowed"
-    # the cancel ended the recording: a second Esc passes through
     assert sm.on_key(ev(VK_ESCAPE, True)).swallow is False
     assert sm.on_key(ev(VK_ESCAPE, False)).swallow is False
-    # chord keys still physically down produce nothing when they go up
     release_chord(sm, MAIN)
     assert rec.events == before + [("cancelled", 1)]
 
@@ -509,8 +493,6 @@ def test_escape_passes_through_after_end_recording(sm, rec):
     assert rec.events == [("pressed", MAIN, 1)]
 
 
-# end_recording -----------------------------------------------------------------------
-
 
 def test_end_recording_in_held_ends_silently_and_keeps_swallowing_held_keys(sm, rec, clock):
     press_chord(sm, MAIN)
@@ -525,7 +507,6 @@ def test_end_recording_in_held_ends_silently_and_keeps_swallowing_held_keys(sm, 
     assert sm.on_key(ev(VK_D, False)).swallow is True, "swallowed until its own key-up"
     assert sm.on_key(ev(VK_LMENU, False)).swallow is False
     assert rec.events == [("pressed", MAIN, 1)], "no released for an ended dictation"
-    # pressing the chord again is a fresh dictation with the next id
     sm.on_key(ev(VK_LMENU, True))
     assert sm.on_key(ev(VK_D, True)).swallow is True
     assert rec.events[-1] == ("pressed", MAIN, 2)
@@ -568,7 +549,7 @@ def test_end_recording_with_a_stale_id_is_ignored(sm, rec, clock):
     clock.advance(0.3)
     sm.on_key(ev(VK_D, False))
     assert rec.events[-1] == ("released", MAIN, 2)
-    sm.end_recording(2)  # already over: nothing to do
+    sm.end_recording(2)
     assert sm.state is ChordState.IDLE
     assert rec.events == [("pressed", MAIN, 1), ("released", MAIN, 1), ("pressed", MAIN, 2),
                           ("released", MAIN, 2)]  # fmt: skip
@@ -588,8 +569,6 @@ def test_end_recording_keeps_the_win_mask_pending(rec, clock):
     sm.on_key(ev(VK_H, False))
     assert sm.on_key(ev(VK_LWIN, False)) == Decision(swallow=False, inject=MASK_PAIR)
 
-
-# Swallowing --------------------------------------------------------------------------
 
 
 def test_non_modifier_chord_keys_are_swallowed_and_modifiers_pass(sm, rec, clock):
@@ -611,7 +590,7 @@ def test_non_modifier_chord_keys_are_swallowed_and_modifiers_pass(sm, rec, clock
 def test_swallowed_key_stays_swallowed_until_its_own_key_up(sm, rec, clock):
     press_chord(sm, MAIN)
     clock.advance(0.3)
-    assert sm.on_key(ev(VK_LCONTROL, False)).swallow is False  # chord released
+    assert sm.on_key(ev(VK_LCONTROL, False)).swallow is False
     assert sm.state is ChordState.IDLE
     assert sm.on_key(ev(VK_D, True)).swallow is True, "repeat of the still-held D"
     assert sm.on_key(ev(VK_D, False)).swallow is True
@@ -631,7 +610,6 @@ def test_non_modifier_pressed_before_the_modifiers_has_its_repeats_swallowed(sm,
     clock.advance(0.3)
     assert sm.on_key(ev(VK_D, False)).swallow is True, "and so is its physical key-up"
     assert rec.events == [("pressed", MAIN, 1), ("released", MAIN, 1)]
-    # D alone types normally again once the modifiers are up and the chord cannot refire
     sm.on_key(ev(VK_LMENU, False))
     sm.on_key(ev(VK_LCONTROL, False))
     assert sm.on_key(ev(VK_D, True)).swallow is False
@@ -691,7 +669,6 @@ def test_win_key_up_after_a_win_chord_injects_the_mask_pair_before_passing(rec, 
     assert sm.on_key(ev(VK_H, False)) == Decision(swallow=True)
     assert sm.on_key(ev(VK_LWIN, False)) == Decision(swallow=False, inject=MASK_PAIR)
     assert rec.events == [("pressed", WIN_CHORD, 1), ("released", WIN_CHORD, 1)]
-    # a lone Win tap is not masked: the Start menu opens as usual
     sm.on_key(ev(VK_LWIN, True))
     assert sm.on_key(ev(VK_LWIN, False)) == Decision(swallow=False)
 
@@ -791,8 +768,6 @@ def test_right_win_chord_is_masked_too(rec, clock):
     assert sm.on_key(ev(VK_RWIN, False)) == Decision(swallow=False, inject=MASK_PAIR)
 
 
-# Probe and mask events ----------------------------------------------------------
-
 
 def test_probe_key_with_probe_tag_is_swallowed_and_sets_probe_seen(sm, rec):
     down = ev(VK_PROBE, True, extra_info=PROBE_TAG, injected=True)
@@ -850,8 +825,6 @@ def test_probe_and_mask_events_do_not_disturb_an_active_chord(sm, rec, clock):
     assert rec.events == [("pressed", MAIN, 1), ("released", MAIN, 1)]
 
 
-# Callback exceptions -------------------------------------------------------------------
-
 
 def test_callback_exception_is_caught_counted_and_state_stays_consistent(clock):
     sm = ChordStateMachine([MAIN], raising_callbacks(), clock.now)
@@ -884,8 +857,6 @@ def test_resync_drops_keys_that_are_no_longer_physically_down(sm, rec):
     sm.on_key(ev(VK_D, True))
     assert rec.events == [("pressed", MAIN, 1)]
 
-
-# HotkeyThread ------------------------------------------------------------------------------
 
 
 @pytest.fixture(autouse=True)
@@ -951,20 +922,20 @@ def test_probe_sent_only_while_not_recording(started, hook):
     hook.fire_timer(TIMER_PROBE_CHECK)
     assert TIMER_PROBE_CHECK not in hook.timers
 
-    press_main(hook)  # HELD
+    press_main(hook)
     hook.fire_timer(TIMER_PROBE)
     assert len(hook.sent) == 2
     assert TIMER_PROBE_CHECK not in hook.timers
     hook.clock.advance(0.1)
-    hook.release(VK_D)  # TAP_WINDOW
-    hook.fire_timer(TIMER_PROBE)
-    assert len(hook.sent) == 2
-    hook.clock.advance(0.1)
-    hook.press(VK_D)  # LATCHED
     hook.release(VK_D)
     hook.fire_timer(TIMER_PROBE)
     assert len(hook.sent) == 2
-    hook.press(VK_D)  # ends the latch
+    hook.clock.advance(0.1)
+    hook.press(VK_D)
+    hook.release(VK_D)
+    hook.fire_timer(TIMER_PROBE)
+    assert len(hook.sent) == 2
+    hook.press(VK_D)
     hook.release(VK_D)
     hook.fire_timer(TIMER_PROBE)
     assert len(hook.sent) == 4
@@ -993,7 +964,6 @@ def test_missed_probe_causes_exactly_one_reinstall(started, hook):
     assert hook.install_log == [1, 2]
     assert hook.callback is not None
     assert started.stats.hook_exceptions == 0, "a failed unhook of a dead handle is expected"
-    # the new hook works and the next probe is seen: no further reinstall
     hook.fire_timer(TIMER_PROBE)
     hook.fire_timer(TIMER_PROBE_CHECK)
     assert started.stats.reinstalls == 1
@@ -1005,7 +975,7 @@ def test_missed_probe_causes_exactly_one_reinstall(started, hook):
 def test_reinstall_resyncs_physical_key_state(started, hook, rec):
     hook.press(VK_LCONTROL)
     hook.drop_hook()
-    hook.keys_down.discard(VK_LCONTROL)  # released while the hook was dead
+    hook.keys_down.discard(VK_LCONTROL)
     started.request_reinstall()
     hook.fire_timer(TIMER_TICK)
     assert started.stats.reinstalls == 1
@@ -1150,7 +1120,6 @@ def test_end_recording_after_stop_is_dropped(hook, rec):
     thread.stop()
     thread.end_recording(1)
     thread.end_recording(2)
-    # the queue is private, and after stop() there is no other way to observe it
     assert thread._pending_ends == []
 
 
@@ -1193,7 +1162,6 @@ def test_win_mask_is_sent_before_the_win_key_up_passes_on(started, hook, rec):
     sent_down = hook.trace.index(("sent", MASK_VK, True, MASK_TAG))
     assert hook.trace[sent_down + 1] == ("sent", MASK_VK, False, MASK_TAG)
     assert sent_down < hook.trace.index(("event", VK_LWIN, False, False))
-    # the echoed mask keys pass through the hook unswallowed
     assert ("event", MASK_VK, True, False) in hook.trace
     assert ("event", MASK_VK, False, False) in hook.trace
     assert rec.events == [("pressed", WIN_CHORD, 1), ("released", WIN_CHORD, 1)]
@@ -1253,7 +1221,7 @@ def test_stop_joins_within_one_second(hook, rec):
     assert hook.loop_exited.is_set()
     assert hook.uninstall_log == [1]
     assert hook.hooks == {}
-    thread.stop()  # idempotent
+    thread.stop()
 
 
 def test_stop_before_start_is_harmless(hook, rec):
@@ -1261,8 +1229,6 @@ def test_stop_before_start_is_harmless(hook, rec):
     thread.stop()
     assert not thread.is_alive()
 
-
-# Stress -----------------------------------------------------------------------------------
 
 
 def _spin(stop_at: float) -> None:
@@ -1317,7 +1283,6 @@ def test_stress_per_event_handling_p99_under_1ms_with_a_cpu_bound_thread(started
     p99 = sorted(samples_ns)[int(0.99 * len(samples_ns)) - 1]
     assert p99 < 1_000_000, f"p99 was {p99 / 1e6:.3f} ms"
     assert started.stats.hook_exceptions == 0
-    # the whole script was handled correctly, not just quickly
     assert started.stats.probes_sent == 0
     assert hook.sent.count((MASK_VK, True, MASK_TAG)) == 100
 
@@ -1362,8 +1327,6 @@ def test_a_clean_first_install_reports_nothing(hook, rec):
     finally:
         thread.stop()
 
-
-# --- Esc while the writing model works (spec 8.5) ---
 
 
 def test_escape_cancels_the_composition_the_pipeline_armed(sm, rec):

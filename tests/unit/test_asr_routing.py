@@ -70,8 +70,6 @@ def routed(seconds, mode, clients, *, routes=(FAST, ALBANIAN), enabled=ENABLED, 
     return result, state
 
 
-# Output parsing ------------------------------------------------------------------------------
-
 
 def test_the_language_prefix_is_stripped_and_named():
     assert parse_asr_output("language English<asr_text>Hello there.") == ("English", "Hello there.")
@@ -91,8 +89,6 @@ def test_reported_names_map_to_codes():
     assert language_title("sq") == "Albanian"
     assert language_title("xx") == "xx"
 
-
-# LlamaAsrClient over stdlib urllib ---------------------------------------------------------------
 
 
 class StreamResponse:
@@ -269,8 +265,6 @@ def test_health_follows_the_server(monkeypatch):
     assert LlamaAsrClient("http://127.0.0.1:9").health() is False
 
 
-# Routing -------------------------------------------------------------------------------------
-
 
 def test_languages_are_assigned_to_the_engine_that_lists_them_and_the_rest_to_the_first():
     assert serving_languages((FAST, ALBANIAN), ["sq", "en", "fr", "de"]) == [
@@ -442,8 +436,6 @@ def test_routing_needs_an_engine_and_a_code_for_locked_modes():
     with pytest.raises(ValueError):
         routed(5.0, LangMode("forced"), Clients())
 
-
-# confidence scores across engines (spec 8.4)
 
 
 def whisper_body(text: str, language: str = "albanian", avg_logprob: float = -0.3) -> dict:

@@ -204,8 +204,6 @@ def run(
     )
 
 
-# target checks (spec 11 step 1)
-
 
 def test_focus_changed_copies_the_text_once_and_never_pastes():
     log, backends = make(foreground=OTHER_HWND)
@@ -289,11 +287,8 @@ def test_a_missing_hwnd_copies_instead_of_pasting(foreground, target_hwnd):
     assert report.result.outcome is DeliveryOutcome.COPIED_FOCUS_CHANGED
     assert str(foreground) in report.result.detail
     assert str(target_hwnd) in report.result.detail
-    # window 0 owns no process, so asking whether it is elevated would answer yes.
     assert log == [("foreground",), ("set_text", TEXT)]
 
-
-# paste (spec 11 step 2)
 
 
 def test_paste_call_order_and_restore_arguments():
@@ -368,8 +363,6 @@ def test_set_text_failure_fails_and_sends_no_ctrl_v():
     assert report.elapsed_ms is None
 
 
-# type (spec 11 step 3, decision V2-3)
-
 
 def test_type_releases_modifiers_before_typing():
     log, backends = make()
@@ -384,8 +377,6 @@ def test_type_releases_modifiers_before_typing():
     assert report.elapsed_ms == pytest.approx(10.0)
     assert report.clipboard_restored is None
 
-
-# failures (spec 11 step 4)
 
 
 def test_send_paste_raising_gives_failed_and_never_escapes():
@@ -431,8 +422,6 @@ def test_an_unknown_method_fails_without_delivering():
     assert log == [("foreground",), ("is_elevated", TARGET_HWND)]
 
 
-# helpers and defaults
-
 
 @pytest.mark.parametrize(
     ("text", "expected"),
@@ -463,8 +452,6 @@ def test_default_backends_are_the_win32_modules():
 
 
 def test_deliver_defaults_to_a_high_resolution_clock():
-    # B3-23: time.monotonic is GetTickCount64 on Windows and steps in 15.6 ms, which
-    # cannot measure a delivery against the 100 ms budget of spec 12.
     parameters = inspect.signature(deliver).parameters
     assert parameters["clock"].default is time.perf_counter
     assert parameters["sleeper"].default is time.sleep

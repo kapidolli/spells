@@ -10,8 +10,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
-# Language codes are the codes whisper.cpp uses (100 entries, ISO 639-1 where one
-# exists, plus "haw", "yue", "jw"). See data/whisper_languages.json.
 LanguageCode = str
 
 

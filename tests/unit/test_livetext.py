@@ -29,8 +29,6 @@ def make(**kwargs):
     return log, backends, LiveSession(CTX, backends)
 
 
-# The pure half -----------------------------------------------------------------------
-
 
 @pytest.mark.parametrize(
     ("left", "right", "expected"),
@@ -85,8 +83,6 @@ def test_reconcile_to_nothing_deletes_everything():
 def test_live_typing_allowed(profile, enabled, everywhere, expected):
     assert live_typing_allowed(profile, enabled=enabled, everywhere=everywhere) is expected
 
-
-# The session -------------------------------------------------------------------------
 
 
 def test_first_partial_is_typed_and_counted():

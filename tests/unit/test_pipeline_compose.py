@@ -95,8 +95,6 @@ class WritingHotkey:
         self.armed.append(dictation_id)
 
 
-# Composing (spec 8.5) --------------------------------------------------------------------------
-
 
 def test_a_compose_dictation_delivers_what_the_model_wrote(tmp_path):
     h = ComposeHarness(tmp_path)
@@ -144,8 +142,6 @@ def test_nothing_is_delivered_before_the_answer_is_ready(tmp_path):
     assert seen[0] == [], "the cursor saw nothing while the model was still writing"
     assert h.delivered_texts() == [EMAIL]
 
-
-# Editing (spec 8.5) ----------------------------------------------------------------------------
 
 
 def test_an_edit_copies_the_selection_and_sends_it_with_the_instruction(tmp_path):
@@ -211,8 +207,6 @@ def test_a_written_text_never_gains_the_leading_space_of_the_previous_delivery(t
     assert h.delivered_texts()[-1] == SHORTER
 
 
-# The guards (spec 8.5) -------------------------------------------------------------------------
-
 
 @pytest.mark.parametrize(
     ("answer", "finish", "reason"),
@@ -265,8 +259,6 @@ def test_a_writing_request_that_times_out_delivers_nothing(tmp_path):
     assert h.last.notice_text == compose.rejection_text("timeout")
 
 
-# Esc (spec 8.5) --------------------------------------------------------------------------------
-
 
 def press_escape(h, dictation_id=1):
     """What the hook does when Esc arrives while the writing model is working."""
@@ -308,8 +300,6 @@ def test_an_escape_for_another_dictation_cancels_nothing(tmp_path):
     assert h.delivered_texts() == [EMAIL]
 
 
-# The pill (spec 14.2) --------------------------------------------------------------------------
-
 
 def test_the_pill_shows_the_writing_state_with_the_instruction(tmp_path):
     states: list = []
@@ -324,8 +314,6 @@ def test_the_pill_is_back_to_idle_once_the_text_is_delivered(tmp_path):
     h.write()
     assert h.last.pill is PillState.IDLE
 
-
-# History (spec 8.5) ----------------------------------------------------------------------------
 
 
 def test_a_compose_row_records_the_mode_the_instruction_and_the_text(tmp_path):
@@ -362,8 +350,6 @@ def test_the_speech_signals_still_describe_the_instruction(tmp_path):
     assert h.entry.quality_label in ("good", "uncertain", "poor")
 
 
-# Live typing never runs for an instruction (spec 6, B5-57) -------------------------------------
-
 
 def test_a_compose_dictation_never_types_the_instruction_as_it_goes(tmp_path):
     h = ComposeHarness(tmp_path, settings=lambda s: replace(s, general=replace(s.general, live_text=True)))
@@ -396,8 +382,6 @@ def test_a_retried_composition_goes_to_the_clipboard_like_any_retry(tmp_path):
     assert h.delivered_texts() == [EMAIL]
     assert [entry[0] for entry in h.inject_log if entry[0] == "send_paste"] == []
 
-
-# The writing engine ----------------------------------------------------------------------
 
 
 WRITER_ENGINE = EngineId(Engine.LLAMA, 1)

@@ -55,8 +55,6 @@ REASON_TEXT = {
     "no_model": "no cleanup model for your languages",
     "cpu_selected": "chosen for this computer",
 }
-# llama FAILED with reason no_model: nothing was launched and dictation runs without cleanup,
-# so it is a warning with this line, never an error (spec 14.1, 16).
 NO_CLEANUP_MODEL = "Cleanup is off: no cleanup model for your languages"
 HEADLINES = {
     TrayIconState.STARTING: "Starting engines",
@@ -116,7 +114,6 @@ def compose_tray_state(inputs: TrayInputs) -> tuple[TrayIconState, str]:
         _missing_cleanup_model(engine, state, reason)
         for engine, (state, reason) in inputs.engines.items()
     )
-    # The states that decide Error, Warning, Starting and Idle; a missing cleanup model only warns.
     states = {
         engine: state
         for engine, (state, reason) in inputs.engines.items()
@@ -271,8 +268,6 @@ class Tray(QtCore.QObject):
             return str(stats.last_error)
         return None
 
-    # Public ------------------------------------------------------------------------------------
-
     def show(self) -> None:
         self.icon.show()
 
@@ -358,8 +353,6 @@ class Tray(QtCore.QObject):
         )
         self.icon.showMessage(theme.APP_NAME, body, kind, NOTIFICATION_MS)
 
-    # Slots (Qt thread) -------------------------------------------------------------------------
-
     def apply_event(self, event: PipelineEvent) -> None:
         self._pipeline_state = event.tray
         self.retry_action.setEnabled(bool(event.retry_available))
@@ -399,8 +392,6 @@ class Tray(QtCore.QObject):
         if not self._paused:
             self._push_chords(chords_of(settings))
         self._refresh()
-
-    # Menu handlers -----------------------------------------------------------------------------
 
     def _rebuild_languages(self, settings: Settings) -> None:
         for action in list(self.language_actions.values()):
@@ -465,8 +456,6 @@ class Tray(QtCore.QObject):
                 self._launcher(action)
         except Exception:
             log.exception("could not open %s", action)
-
-    # Internals ---------------------------------------------------------------------------------
 
     def _update(self, mutator: Callable[[Settings], Settings]) -> None:
         try:

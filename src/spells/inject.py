@@ -36,8 +36,6 @@ from spells.models import (
 
 logger = logging.getLogger(__name__)
 
-# Spec 11 step 2.4: wait this long before putting the user's clipboard back, so the target
-# app has processed the Ctrl+V it was sent.
 RESTORE_DELAY_S = 0.3
 
 
@@ -189,16 +187,12 @@ def _paste(
         snap = clipboard.snapshot()
         sequence = clipboard.set_text(text)
     except Exception as exc:
-        # Nothing has been injected yet, so this is a clean failure.
         logger.warning("clipboard could not be prepared for the paste", exc_info=True)
         return _failed(repr(exc))
     try:
         backends.keyboard.release_held_modifiers()
         backends.keyboard.send_paste()
     except Exception as exc:
-        # Our text is on the clipboard and the user's copy is not back yet, which is
-        # exactly where the copy fallback would have left things: say so, so the pipeline
-        # can still tell the user to press Ctrl+V (spec 11 step 1, spec 16).
         logger.warning("Ctrl+V could not be sent", exc_info=True)
         return _failed(f"{exc!r}; the text is on the clipboard")
     elapsed_ms = _elapsed_ms(clock, started)

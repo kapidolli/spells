@@ -59,8 +59,6 @@ WHISPER = Engine.WHISPER
 LLAMA = Engine.LLAMA
 
 
-# Helpers -----------------------------------------------------------------------------
-
 
 def _missing() -> list[str]:
     missing = []
@@ -148,8 +146,6 @@ def print_timings(label: str, timings: StageTimings) -> None:
     )
 
 
-# Fake inject backends: nothing reaches the real clipboard or the real foreground window.
-
 
 class FakeFocus:
     def __init__(self, foreground: int) -> None:
@@ -193,8 +189,6 @@ class FakeClipboard:
     def restore(self, snap: object, expected_sequence: int) -> bool:
         return True
 
-
-# Fixtures ---------------------------------------------------------------------------
 
 
 @pytest.fixture(scope="module")
@@ -281,8 +275,6 @@ class LiveHarness:
         self.pipeline.start()
         self.callbacks = self.pipeline.hotkey_callbacks()
 
-    # Collaborators
-
     def _on_status(self, engine: Engine, state: EngineState, reason: str) -> None:
         with self.cond:
             self.status_events.append(
@@ -304,8 +296,6 @@ class LiveHarness:
     @staticmethod
     def _capture() -> TargetContext:
         return TargetContext(TARGET_HWND, "notepad.exe", "Untitled - Notepad", time.perf_counter())
-
-    # Driving
 
     def wait_engines(self, timeout_s: float = READY_TIMEOUT_S) -> None:
         for engine in Engine:
@@ -373,8 +363,6 @@ class LiveHarness:
         self.history.close()
 
 
-# Tests --------------------------------------------------------------------------------
-
 
 def test_full_dictation_end_to_end(live_paths, gpu, speech, tmp_path):
     h = LiveHarness(live_paths, gpu, tmp_path)
@@ -436,7 +424,7 @@ def test_hook_callback_enqueue_latency_under_a_cpu_bound_worker(
         live_paths, gpu, tmp_path, whisper_client_factory=lambda url: BurningWhisperClient(url, burn_s)
     )
     previous_interval = sys.getswitchinterval()
-    sys.setswitchinterval(0.001)  # what HotkeyThread.run sets in production (spec 5.1)
+    sys.setswitchinterval(0.001)
     try:
         h.wait_engines()
         h.set_pcm(speech)
@@ -516,7 +504,6 @@ def test_whisper_killed_mid_request_is_retried_exactly_once(live_paths, gpu, spe
     factory.harness = h
     try:
         h.wait_engines()
-        # Locked language: exactly one request per attempt, whatever the clip contains.
         h.config.update(lambda s: replace(s, general=replace(s.general, language_mode="en")))
         pid_before = h.engines.pid(WHISPER)
         since = len(h.status_events)

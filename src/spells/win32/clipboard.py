@@ -48,7 +48,6 @@ CF_GDIOBJLAST = 0x03FF
 
 EXCLUDE_FORMAT_NAME = "ExcludeClipboardContentFromMonitorProcessing"
 
-# Formats whose clipboard handle is a GDI object, not global memory.
 GDI_HANDLE_FORMATS = frozenset(
     {
         CF_BITMAP,
@@ -60,13 +59,9 @@ GDI_HANDLE_FORMATS = frozenset(
         CF_DSPMETAFILEPICT,
     }
 )
-# CF_OWNERDISPLAY and the CF_DSP* block: rendered by the owner, nothing to copy.
 _DISPLAY_FORMAT_RANGE = range(CF_OWNERDISPLAY, 0x0100)
 
 GMEM_MOVEABLE = 0x0002
-# GetClipboardSequenceNumber returns a DWORD, so -1 is a value it never produces: set_text
-# returns it when it could not confirm that its own text is on the clipboard, and restore()
-# then refuses rather than overwriting whatever another application put there.
 SEQUENCE_UNKNOWN = -1
 OPEN_TRIES = 10
 OPEN_RETRY_DELAY_S = 0.02
@@ -99,8 +94,6 @@ _kernel32.GlobalUnlock.restype = wintypes.BOOL
 _kernel32.GlobalSize.argtypes = (wintypes.HGLOBAL,)
 _kernel32.GlobalSize.restype = ctypes.c_size_t
 
-# Serializes this process's clipboard sessions; OpenClipboard is a system-wide lock and two
-# of our own threads would otherwise just burn the retry budget against each other.
 _lock = threading.RLock()
 _exclusion_format: int | None = None
 
@@ -120,9 +113,6 @@ def should_snapshot_format(fmt: int) -> bool:
     if fmt in _DISPLAY_FORMAT_RANGE:
         return False
     if CF_PRIVATEFIRST <= fmt <= CF_GDIOBJLAST:
-        # Both ranges carry application-defined handles rather than global memory, so
-        # GlobalLock on them is not safe. Private formats are never freed by the system
-        # either: only the owning application knows what the handle means (decision B3-32).
         return False
     return fmt > 0
 
@@ -270,7 +260,6 @@ def restore(snap: ClipboardSnapshot, expected_sequence: int) -> bool:
     if sequence_number() != expected_sequence:
         return False
     with _Session():
-        # Re-check while we hold the clipboard: nothing else can change it now.
         if sequence_number() != expected_sequence:
             return False
         if not _user32.EmptyClipboard():

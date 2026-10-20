@@ -71,9 +71,6 @@ ELEVATED_NOTE = (
     "The hotkey cannot fire while an elevated (administrator) window is in the foreground: "
     "Windows lets no keyboard hook of a normal app see input there (UIPI)."
 )
-# Spec 21, in table order: (row label, licence, manifest names). The texts and their
-# MANIFEST.json live in build/licenses at development time and in the licenses folder next
-# to the executable when frozen (spec 19.3); the manifest names key the files.
 LICENSE_COMPONENTS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("Spells", "GPL-3.0-or-later", ("spells",)),
     ("whisper.cpp, llama.cpp, ggml", "MIT", ("whisper_cpp", "llama_cpp", "ggml")),
@@ -107,8 +104,6 @@ BUNDLE_DEBUG_NOTE = "It includes debug logs, which may contain dictated text."
 BUNDLE_EXCLUDED_SUFFIXES = (".db", ".db-wal", ".db-shm", ".sqlite")
 SYSTEM_NAMES = {"windows": "Windows", "linux": "Linux", "macos": "macOS"}
 
-
-# Pure helpers ---------------------------------------------------------------------------------------
 
 
 def _plural(count: int, word: str) -> str:
@@ -264,8 +259,6 @@ def license_text(
         f"The full text ships in the licenses folder of the installed app ({folder})."
     )
 
-
-# The page ------------------------------------------------------------------------------------------
 
 ENGINE_LEVELS = {
     EngineState.READY: "ok",
@@ -472,8 +465,6 @@ class DiagnosticsTab(ScrollPage):
     def selection(self) -> GpuSelection:
         return self._selection
 
-    # Refresh -------------------------------------------------------------------------------------------
-
     def refresh(self) -> None:
         for engine in Engine:
             level, badge, detail = self.engine_view(engine)
@@ -608,8 +599,6 @@ class DiagnosticsTab(ScrollPage):
             return "none since start"
         return "\n".join(f"{reason}: {count}" for reason, count in sorted(counts.items()))
 
-    # Internals ------------------------------------------------------------------------------------
-
     def _timings(self) -> list[StageTimings]:
         try:
             return list(self._pipeline.recent_timings())
@@ -735,8 +724,6 @@ class DiagnosticsTab(ScrollPage):
             self._notify("warning", "GPU override", str(exc))
             return
         self._selection = selection
-        # The app's settings subscriber rebuilds the device and model plan together.
-        # Restarting here would retain the previous hardware's CPU-only policy.
         self.refresh()
         self.gpu_changed.emit()
 

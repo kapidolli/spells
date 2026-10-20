@@ -74,8 +74,6 @@ WHISPER = Engine.WHISPER
 LLAMA = Engine.LLAMA
 
 
-# Helpers -----------------------------------------------------------------------------
-
 
 def _missing_binaries() -> list[str]:
     missing = []
@@ -156,8 +154,6 @@ def test_switch_cpu_to_gpu_without_restarting_app(live_paths):
             if engine is WHISPER:
                 assert supervisor.gpu_verified(engine) is True
             else:
-                # Recent llama.cpp logs model-device allocation rather than whisper's
-                # ggml_vulkan device banner. Inspect the actual offload evidence.
                 text = live_paths.log_path(engine).read_text(encoding="utf-8")
                 assert f"using device Vulkan0 ({selection.name})" in text
                 assert re.search(r"offloaded [1-9]\d*/\d+ layers to GPU", text)
@@ -165,8 +161,6 @@ def test_switch_cpu_to_gpu_without_restarting_app(live_paths):
     finally:
         supervisor.stop()
 
-
-# Part 1: the supervisor against the real engines ------------------------------------------
 
 
 @pytest.fixture(scope="module")
@@ -268,11 +262,8 @@ def test_engine_logs_name_the_selected_gpu(live):
     assert live.selection.raw_index is not None, "select_device found no Vulkan GPU"
     for engine in (WHISPER, LLAMA):
         print(f"[{engine.value}] gpu_verified = {live.sup.gpu_verified(engine)}")
-    # whisper-server 1.9.4 prints the ggml_vulkan device block at startup.
     assert live.sup.gpu_verified(WHISPER) is True, live.log_text(WHISPER)[-3000:]
     assert live.selection.name in live.log_text(WHISPER)
-    # llama-server b10997 prints no device line at its default verbosity, and the verbose
-    # levels would log request text (spec 17), so the answer there is "unknown", never False.
     assert live.sup.gpu_verified(LLAMA) is not False, live.log_text(LLAMA)[-3000:]
 
 
@@ -286,7 +277,6 @@ def test_selected_gpu_is_the_rtx_5060(live):
     chosen = next(d for d in live.selection.devices if d.raw_index == live.selection.raw_index)
     assert chosen.uma is False, chosen
     assert "RTX 5060" in live.log_text(WHISPER)
-    # llama-server b10997 logs the device name only at -lv 3 in its device_info block.
     assert "RTX 5060" in live.log_text(LLAMA) or live.sup.gpu_verified(LLAMA) is None
 
 
@@ -368,8 +358,6 @@ def test_engines_die_with_the_app_process(live_paths, tmp_path):
     )
     print(f"[job] engines gone {time.monotonic() - exited_at:.2f} s after the app process exited")
 
-
-# Part 2: already running servers named by environment variables ------------------------------
 
 WHISPER_URL = os.environ.get("SPELLS_WHISPER_URL", "")
 LLAMA_URL = os.environ.get("SPELLS_LLAMA_URL", "")

@@ -73,8 +73,6 @@ CLEANED = (
 OK_RESPONSE = {"text": LONG_TEXT, "language": "english"}
 
 
-# Fakes local to this file ---------------------------------------------------------
-
 
 class FakeEngines:
     """The EngineSupervisor slice the pipeline consumes, scripted per test.
@@ -91,7 +89,6 @@ class FakeEngines:
             LLAMA: "http://127.0.0.1:9002",
         }
         self.calls: list[tuple] = []
-        # wait_ready answers wait_results in order, then wait_result; True moves to READY.
         self.wait_results: list[bool] = []
         self.wait_result = True
         self.on_wait = None
@@ -286,8 +283,6 @@ class Harness:
         )
         self.callbacks = self.pipeline.hotkey_callbacks()
 
-    # Collaborator hooks
-
     def _recorder(self, **kwargs) -> FakeRecorder:
         recorder = FakeRecorder(**kwargs)
         if self.recorder_setup is not None:
@@ -306,8 +301,6 @@ class Harness:
     @property
     def last(self):
         return self.events[-1]
-
-    # Driving
 
     def prime(self) -> None:
         """Deliver the settings the controller thread would see at start()."""
@@ -354,8 +347,6 @@ def history_settings(**changes):
     return lambda s: replace(s, history=replace(s.history, **changes))
 
 
-# Recording controller -------------------------------------------------------------------
-
 
 def test_press_emits_the_recording_event_in_the_same_step(tmp_path):
     h = Harness(tmp_path)
@@ -376,7 +367,6 @@ def test_press_reloads_unloaded_engines_while_recording(tmp_path):
     engines.states[LLAMA] = EngineState.UNLOADED
     h = Harness(tmp_path, engines=engines)
     h.press()
-    # The reload starts on the press and overlaps the recording (spec 13).
     assert engines.calls == [("ensure_ready",)]
     assert engines.states[WHISPER] is EngineState.STARTING
     assert h.recorder.is_recording
@@ -476,7 +466,6 @@ def test_cap_ends_the_recording_through_the_queue(tmp_path):
     assert h.last.pill is PillState.RECORDING
     assert h.last.text == CAP_WARNING_TEXT
     h.scheduler.fire(600.0)
-    # The timer only enqueued: the recorder is still running until the controller acts.
     assert h.recorder.is_recording
     h.pipeline.drain_controller()
     assert not h.recorder.is_recording
@@ -492,7 +481,6 @@ def test_stale_callbacks_are_ignored(tmp_path):
     h.press()
     h.scheduler.fire(600.0)
     h.pipeline.drain_controller()
-    # The key-up crossed the cap: hotkey still fires released for the ended dictation.
     h.callbacks.released(MAIN, 1)
     h.callbacks.latched(MAIN, 1)
     h.callbacks.cancelled(1)
@@ -644,8 +632,6 @@ def test_controller_survives_a_failing_collaborator(tmp_path):
     assert len(h.whisper.calls) == 1
 
 
-# Engine readiness --------------------------------------------------------------------------
-
 
 def test_engine_not_ready_calls_ensure_ready_and_waits_then_transcribes(tmp_path):
     engines = FakeEngines()
@@ -720,7 +706,6 @@ def test_whisper_error_with_a_healthy_engine_fails_at_once(tmp_path):
     assert h.last.notice_text == TRANSCRIPTION_FAILED
     assert h.last.retry_available is True
     assert h.delivered_texts() == []
-    # The kept PCM serves the manual retry.
     assert h.pipeline.retry_last() is True
     h.process()
     assert ("set_text", CLEANED) in h.inject_log
@@ -776,7 +761,6 @@ def test_transcript_none_delivers_nothing(tmp_path):
     assert h.history.entries == []
     assert h.last.pill is PillState.IDLE
     assert h.last.notice is None
-    # The dictation still completed: press-to-pill and mic-open feed the Diagnostics medians.
     timings = h.last.timings
     assert timings is not None
     assert h.pipeline.recent_timings() == [timings]
@@ -785,8 +769,6 @@ def test_transcript_none_delivers_nothing(tmp_path):
     assert timings.delivery_ms is None
     assert timings.extra["nothing_to_deliver"] == 1.0
 
-
-# Cleanup ---------------------------------------------------------------------------------
 
 
 def test_gate_runs_cleanup_when_every_field_allows_it(tmp_path):
@@ -877,7 +859,7 @@ def test_llama_client_is_built_with_the_configured_timeout(tmp_path):
 
 def test_missing_llama_url_skips_cleanup(tmp_path):
     engines = FakeEngines()
-    engines.llama_url = None  # inconsistent with READY on purpose: the URL is what counts
+    engines.llama_url = None
     h = Harness(tmp_path, engines=engines)
     h.dictate()
     assert h.llama_factory.calls == []
@@ -963,8 +945,6 @@ def test_terms_are_passed_oldest_first(tmp_path):
     assert "Alpha" in h.llama.calls[0][1]
 
 
-# Post-processing and delivery ----------------------------------------------------------------
-
 
 def test_postprocess_receives_the_last_delivery_and_the_clock(tmp_path):
     h = Harness(tmp_path)
@@ -986,7 +966,6 @@ def test_last_delivery_is_updated_only_for_pasted_and_typed(tmp_path):
     h.clock.advance(61.0)
     h.dictate(3)
     h.dictate(4)
-    # 3 was typed after the 60 s window and counts for 4; a copy never counts.
     assert h.delivered_texts()[-2:] == [LONG_TEXT, " " + LONG_TEXT]
 
 
@@ -1025,8 +1004,6 @@ def test_typed_delivery_for_the_terminal_profile(tmp_path):
     assert h.history.entries[-1].outcome == "typed"
     assert h.last.notice is None
 
-
-# History and timings ----------------------------------------------------------------------
 
 
 def test_history_failure_never_fails_a_dictation(tmp_path):
@@ -1084,8 +1061,6 @@ def test_timing_ring_keeps_the_last_twenty(tmp_path):
     assert ring[0] is h.history.entries[5].timings
 
 
-# Retry last dictation -----------------------------------------------------------------------
-
 
 def test_retry_last_delivers_to_the_clipboard_and_keeps_the_pcm_until_done(tmp_path):
     whisper = FakeWhisperClient(responses=[WhisperError("reset")], healthy=True)
@@ -1129,8 +1104,6 @@ def test_next_dictation_drops_the_retry_pcm(tmp_path):
     assert h.last.retry_available is False
     assert h.pipeline.retry_last() is False
 
-
-# Recorder lifecycle ----------------------------------------------------------------------
 
 
 def test_mic_device_change_reopens_the_recorder(tmp_path):
@@ -1183,8 +1156,6 @@ def test_keep_mic_warm_off_closes_the_stream_after_each_recording(tmp_path):
     assert not h.recorder.stream_open
 
 
-# Threads and events -----------------------------------------------------------------------
-
 
 def test_stop_joins_the_threads_and_closes_the_recorder(tmp_path):
     h = Harness(tmp_path)
@@ -1225,7 +1196,7 @@ def test_stop_from_an_event_handler_does_not_join_itself(tmp_path):
     def on_event(event):
         h.events.append(event)
         if event.pill is PillState.RECORDING:
-            h.pipeline.stop()  # runs on the controller thread: it must not join itself
+            h.pipeline.stop()
             done.set()
 
     h = Harness(tmp_path, on_event=on_event)
@@ -1288,8 +1259,6 @@ def test_hotkey_may_be_given_as_a_bare_end_recording_callable(tmp_path):
     pipeline.drain_controller()
     assert ended == [7]
 
-
-# Several speech engines (B5-13 to B5-16) -----------------------------------------------------------
 
 
 QWEN = EngineId(WHISPER, 0)
@@ -1459,8 +1428,6 @@ def test_a_language_the_cleanup_model_does_not_score_is_delivered_raw(tmp_path):
     assert h.history.entries[-1].cleanup_reason == "language_unscored"
 
 
-# Quality signals on the history row (spec 8.4)
-
 
 SCORED_RESPONSE = {
     "text": LONG_TEXT,
@@ -1581,8 +1548,6 @@ def test_a_llama_asr_engine_records_its_runtime_and_no_scores(tmp_path):
     assert entry.asr_engine == "whisper"
 
 
-# Keeping the recording (spec 15, 17)
-
 
 def test_no_audio_reaches_the_store_by_default(tmp_path):
     h = Harness(tmp_path)
@@ -1625,8 +1590,6 @@ def test_a_history_error_still_lets_the_dictation_finish(tmp_path):
     h.dictate()
     assert h.delivered_texts() == [CLEANED]
 
-
-# The on-demand check (spec 8.4)
 
 
 def test_check_transcript_returns_the_parsed_verdict(tmp_path):
@@ -1696,8 +1659,6 @@ def test_check_transcript_never_runs_during_a_dictation(tmp_path):
     assert cleanup_calls == 1
     assert all(quality.CHECK_SYSTEM_PROMPT not in call[0] for call in h.llama.calls)
 
-
-# A microphone that delivered nothing (B5-42)
 
 
 def mute(recorder) -> None:
@@ -1813,8 +1774,6 @@ def test_the_next_dictation_works_normally(tmp_path):
     assert h.events_for(2)[-1].notice is None
 
 
-# Blocks the sound card dropped
-
 
 def test_dropped_blocks_reach_the_timings_and_the_row(tmp_path):
     h = Harness(tmp_path, recorder_setup=dropping(4))
@@ -1881,8 +1840,6 @@ def test_an_empty_recording_with_dropped_blocks_reports_both(tmp_path):
     assert entry.timings.extra["dropped_blocks"] == 7.0
     assert h.last.notice_text == NO_AUDIO_TEXT
 
-
-# The capture path (spec 5.2 audio row, 14.4 Diagnostics)
 
 
 def wav_rate(wav: bytes) -> int:

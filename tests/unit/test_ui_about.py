@@ -84,8 +84,6 @@ def test_reflow_joins_hard_wrapped_lines_but_keeps_structure():
     assert "  indented continuation" in result
 
 
-# The update section (spec 19.7) -----------------------------------------------------------------
-
 
 class FakeCoordinator(QtCore.QObject):
     """The whole coordinator surface the page uses, with the calls recorded."""

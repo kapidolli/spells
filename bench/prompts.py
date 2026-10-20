@@ -34,13 +34,10 @@ CATEGORIES = ("short", "long", "filler", "correction", "question", "silence")
 LANGUAGES = ("en", "de", "sq")
 PLACEHOLDER_MARK = "TODO(owner)"
 
-# Spec 12: short is under 2 s, long is 10 to 30 s; everything else is reported but never
-# counted against a target.
 SHORT_MAX_S = 2.0
 LONG_MIN_S = 10.0
 LONG_MAX_S = 30.0
 
-# Silence clips record this long with nothing spoken (spec 18 step 1).
 SILENCE_SECONDS = 3.0
 
 SILENCE_TEXT = "Say nothing at all. The recorder runs on its own for three seconds."
@@ -69,8 +66,6 @@ class ManifestEntry:
     file: str
 
 
-# The warm-up clip is not part of the scored set: its recording replaces data/warmup.wav, the
-# 2 s speech clip the engine supervisor sends to whisper after launch (spec 13).
 WARMUP_PROMPT = Prompt(
     id="warmup",
     language="en",
@@ -81,7 +76,6 @@ WARMUP_PROMPT = Prompt(
 
 
 PROMPTS: tuple[Prompt, ...] = (
-    # ------------------------------------------------------------------ English
     Prompt(
         id="en-short-1",
         language="en",
@@ -195,7 +189,6 @@ PROMPTS: tuple[Prompt, ...] = (
         text=SILENCE_TEXT,
         reference="",
     ),
-    # ------------------------------------------------------------------- German
     Prompt(
         id="de-short-1",
         language="de",
@@ -318,7 +311,6 @@ PROMPTS: tuple[Prompt, ...] = (
         text=SILENCE_TEXT,
         reference="",
     ),
-    # ----------------------------------------------------------------- Albanian
     Prompt(
         id="sq-short-1",
         language="sq",

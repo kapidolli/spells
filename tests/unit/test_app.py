@@ -37,8 +37,6 @@ SELECTION = GpuSelection(
 )
 
 
-# Fakes ------------------------------------------------------------------------------------
-
 
 class Signal:
     """A Qt signal stand-in: connect() collects slots, emit() calls them at once."""
@@ -83,7 +81,7 @@ class FakePlaceholder:
         self.hidden += 1
         self._log.append("placeholder.hide")
 
-    def deleteLater(self) -> None:  # the Qt spelling
+    def deleteLater(self) -> None:
         self.deleted += 1
 
 
@@ -360,8 +358,6 @@ class World:
     calibrators: list = field(default_factory=list)
     calibration_speeds: dict = field(default_factory=dict)
 
-    # Fake implementations -----------------------------------------------------------------
-
     def make_layout(self) -> paths.Layout:
         env = {
             paths.SETTINGS_DIR_ENV: str(self.tmp_path / "cfg"),
@@ -523,8 +519,6 @@ class World:
             calibrator=self.make_calibrator,
         )
 
-    # Helpers -----------------------------------------------------------------------------
-
     def handlers(self) -> MessageHandlers:
         assert self.window is not None
         return self.window.handlers
@@ -577,8 +571,6 @@ def quiet_logging():
     root.setLevel(level)
 
 
-# Arguments ---------------------------------------------------------------------------------
-
 
 def test_parse_args_recognises_every_flag():
     assert parse_args([]) == app_module.Args()
@@ -599,8 +591,6 @@ def test_version_prints_and_starts_nothing(world, capsys):
     assert app_module.__version__ in capsys.readouterr().out
     assert world.log == []
 
-
-# Single instance and --quit ------------------------------------------------------------------
 
 
 def test_second_launch_asks_the_running_instance_to_open_settings(world):
@@ -657,7 +647,7 @@ def test_quit_without_a_running_instance_exits_zero(world):
 
 def test_quit_waits_for_the_window_of_an_instance_that_is_still_starting(world):
     world.taken = True
-    world.window_after_finds = 8  # it is still probing GPUs
+    world.window_after_finds = 8
     deps, slept = _fake_clock_deps(world)
     assert main(["--quit"], deps=deps) == 0
     assert world.signals == [(WINDOW_CLASS, "quit")]
@@ -719,8 +709,6 @@ def test_a_second_launch_drops_the_request_when_no_window_appears(world, caplog)
     assert sum(slept) >= app_module.WINDOW_WAIT_S
     assert "never showed its window" in caplog.text
 
-
-# Start and shutdown ---------------------------------------------------------------------------
 
 
 def test_start_order_follows_the_spec(world):
@@ -943,8 +931,6 @@ def test_the_window_thread_survives_a_window_that_cannot_be_created(world):
     assert world.engines.stopped == 1
 
 
-# Hidden window commands ------------------------------------------------------------------------
-
 
 def test_copydata_open_settings_is_marshalled_to_the_qt_thread(world):
     world.on_exec = lambda: world.handlers().on_copydata("open-settings")
@@ -964,7 +950,7 @@ def test_an_unknown_command_is_ignored(world, caplog):
     world.on_exec = lambda: world.handlers().on_copydata("rm -rf")
     with caplog.at_level(logging.WARNING, logger="spells.app"):
         main([], deps=world.deps())
-    assert world.pipeline.stopped == 1  # only the shutdown after exec
+    assert world.pipeline.stopped == 1
     assert world.handles.opened == []
     assert "rm -rf" in caplog.text
 
@@ -978,8 +964,6 @@ def test_resume_and_unlock_reinstall_the_hook(world):
     main([], deps=world.deps())
     assert world.hotkey.reinstalls == 2
 
-
-# Settings reactions ------------------------------------------------------------------------------
 
 
 def test_autostart_is_applied_at_start_and_on_change(world):
@@ -1036,8 +1020,6 @@ def test_an_unchanged_setting_is_not_reapplied(world):
     assert world.debug_levels == []
 
 
-# GPU selection ---------------------------------------------------------------------------------
-
 
 def test_the_gpu_choice_is_probed_with_the_cache_and_the_override(world):
     settings = ConfigStore(world.settings_file()).settings
@@ -1081,8 +1063,6 @@ def test_no_gpu_keeps_the_cache_empty(world):
     assert diagnostics.gpu_device_name is None
 
 
-# First run and warnings ---------------------------------------------------------------------------
-
 
 def test_first_run_shows_the_welcome_page_and_writes_the_settings_file(world):
     world.on_exec = lambda: None
@@ -1119,7 +1099,6 @@ def test_a_missing_cleanup_model_is_a_balloon_but_not_a_second_tooltip_line(worl
     texts = [text for text, _warning in world.handles.tray.messages]
     assert any("cleanup" in text.lower() for text in texts)
     assert not any(world.handles.tray.extra_warnings)
-    # The supervisor gets no model at all, so it reports llama as FAILED with no_model.
     assert world.layout.llama_model is None
     assert world.engines.paths.llama_model is None
 
@@ -1134,8 +1113,6 @@ def test_only_a_missing_speech_model_becomes_the_lasting_tray_warning(world):
     assert standing and standing[-1] == world.layout.whisper_notice
     assert "cleanup" not in standing[-1].lower()
 
-
-# Models for the dictation languages (spec 13, 15, batch 5) --------------------------------------
 
 WHISPER_ID = "whisper-large-v3-turbo-q8_0"
 GEMMA_ID = "gemma-4-e2b-it-q4_0"
@@ -1397,8 +1374,6 @@ def test_a_failed_processor_probe_leaves_the_engines_unpinned(world, caplog):
     assert "processor topology could not be read" in caplog.text
 
 
-# Logging -------------------------------------------------------------------------------------------
-
 
 def test_the_log_carries_no_transcript_text_at_info(world, quiet_logging):
     world.real_logging = True
@@ -1436,8 +1411,6 @@ def test_debug_logging_from_the_settings_raises_the_level(world, quiet_logging):
     main([], deps=world.deps())
     assert logging.getLogger().level == logging.DEBUG
 
-
-# --- the online installer's language choice, used once (B5-32) ---
 
 
 def _seed_file(world: World, text: str) -> Path:
@@ -1517,8 +1490,6 @@ def test_first_run_seed_is_a_pure_function_of_the_file_beside_the_executable(tmp
         == default_settings()
 
 
-# Measuring an integrated GPU -----------------------------------------------------------
-
 
 def join_calibration() -> None:
     for thread in threading.enumerate():
@@ -1593,8 +1564,6 @@ def test_quitting_cancels_a_measurement(world):
         join_calibration()
     assert world.calibrators[0].cancelled is True
 
-
-# The writing engine ----------------------------------------------------------------------
 
 
 def test_the_processor_writes_with_the_strong_model_in_an_engine_of_its_own(world):

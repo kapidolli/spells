@@ -57,8 +57,6 @@ def timings(*mic_open: float) -> list[StageTimings]:
     return [StageTimings(press_to_pill_ms=40.0, mic_open_ms=value, delivery_ms=6.0) for value in mic_open]
 
 
-# Pure helpers --------------------------------------------------------------------------------
-
 
 def test_median_handles_odd_even_and_empty():
     assert median([3.0, 1.0, 2.0]) == 2.0
@@ -195,8 +193,6 @@ def test_licence_components_cover_spec_21():
     ):
         assert word in names
 
-
-# The tab ------------------------------------------------------------------------------------
 
 
 def make_tab(tmp_path: Path, *, selection: GpuSelection = SELECTION):
@@ -454,8 +450,6 @@ def test_missing_folder_or_manifest_gives_the_pointer(tmp_path):
     assert POINTER in license_text("winpthreads", "MIT", ("winpthreads",), folder=tmp_path)
 
 
-
-# The capture path (spec 14.4)
 
 
 def capture(**changes) -> CaptureInfo:

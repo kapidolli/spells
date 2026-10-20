@@ -25,8 +25,6 @@ class UiBridge(QtCore.QObject):
     hotkey_error = QtCore.Signal(str)
     settings_changed = QtCore.Signal(object)
 
-    # Callbacks handed to the collaborators (any thread) ---------------------------------------
-
     def on_pipeline_event(self, event: Any) -> None:
         self.pipeline_event.emit(event)
 
@@ -38,8 +36,6 @@ class UiBridge(QtCore.QObject):
 
     def on_settings(self, settings: Any) -> None:
         self.settings_changed.emit(settings)
-
-    # Queued connections for the Qt-side handlers --------------------------------------------------
 
     def connect_pipeline(self, slot: Callable[[Any], None]) -> None:
         self.pipeline_event.connect(slot, QUEUED)

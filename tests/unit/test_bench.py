@@ -18,8 +18,6 @@ import run as bench_run
 
 EM_DASH = "\u2014"
 
-# ------------------------------------------------------------------ normalisation
-
 
 def test_normalise_words_lowercases_and_strips_punctuation():
     assert bench_run.normalise_words("Hello, World!") == ["hello", "world"]
@@ -41,8 +39,6 @@ def test_normalise_words_keeps_diacritics_and_collapses_whitespace():
 def test_normalise_words_on_empty_text():
     assert bench_run.normalise_words("   ...  ") == []
 
-
-# ------------------------------------------------------------------ levenshtein
 
 
 def test_levenshtein_identical_is_zero():
@@ -71,8 +67,6 @@ def test_levenshtein_is_symmetric():
     a, b = ["one", "two", "three"], ["one", "three", "four", "five"]
     assert bench_run.levenshtein(a, b) == bench_run.levenshtein(b, a)
 
-
-# ------------------------------------------------------------------ word error rate
 
 
 def test_wer_identical_is_zero():
@@ -105,8 +99,6 @@ def test_wer_of_an_empty_hypothesis_is_one():
     assert bench_run.wer("push it to main", "") == pytest.approx(1.0)
 
 
-# ------------------------------------------------------------------ percentile
-
 
 def test_percentile_of_one_sample_is_that_sample():
     assert bench_run.percentile([42.0], 50) == pytest.approx(42.0)
@@ -133,8 +125,6 @@ def test_percentile_p95_of_many_samples():
     assert bench_run.percentile(values, 95) == pytest.approx(95.05)
 
 
-# ------------------------------------------------------------------ duration buckets
-
 
 @pytest.mark.parametrize(
     "duration_s,expected",
@@ -152,8 +142,6 @@ def test_percentile_p95_of_many_samples():
 def test_duration_bucket(duration_s, expected):
     assert bench_prompts.duration_bucket(duration_s) == expected
 
-
-# ------------------------------------------------------------------ spec 12 targets
 
 
 def _clip(**kwargs):
@@ -283,8 +271,6 @@ def test_candidate_passes_only_when_every_decided_row_passes():
     assert bench_run.candidate_passes(bench_run.target_rows([_clip(duration_s=1.0)])) is None
 
 
-# ------------------------------------------------------------------ fallback rate
-
 
 def test_fallback_rate_counts_long_clips_only():
     """Spec 7.2 step 1 never reaches step 3 below 2 s, and 7.2 puts its 10% line on long clips."""
@@ -307,8 +293,6 @@ def test_fallback_rate_of_a_language_without_long_clips_is_zero_of_zero():
     assert bench_run._fallback_rate([_clip(duration_s=1.0)], "en") == (0, 0)
 
 
-# ------------------------------------------------------------------ language WER
-
 
 def test_language_wer_is_a_micro_average_over_reference_words():
     """A long clip has to weigh more than a short one: total edits over total words."""
@@ -316,7 +300,6 @@ def test_language_wer_is_a_micro_average_over_reference_words():
         _clip(id="long", reference="a b c d e f g h i j", raw_text="a b c d e f g h i x"),
         _clip(id="short", reference="k l", raw_text="x y"),
     ]
-    # 1 edit in 10 words plus 2 edits in 2 words: 3 / 12, not the mean of 10% and 100%.
     assert bench_run._language_wer(clips, "en") == pytest.approx(3 / 12)
 
 
@@ -337,8 +320,6 @@ def test_language_wer_against_the_spoken_text_uses_the_spoken_form():
     assert bench_run._language_wer(clips, "en") == pytest.approx(0.5)
     assert bench_run._language_wer(clips, "en", spoken=True) == pytest.approx(0.0)
 
-
-# ------------------------------------------------------------------ gate and guard reasons
 
 
 def test_cleanup_attempts_count_accepted_and_guard_rejected_clips_only():
@@ -373,8 +354,6 @@ def test_gate_and_guard_reason_names_cover_every_reason_the_app_can_report():
     assert "cpu_fallback" in documented and "language_switch" in documented
     assert documented <= set(models.CleanResult.__doc__.replace('"', " ").replace(",", " ").split())
 
-
-# ------------------------------------------------------------------ manifest round trip
 
 
 def test_manifest_round_trip(tmp_path):
@@ -429,8 +408,6 @@ def test_write_manifest_keeps_non_ascii_readable(tmp_path):
     assert "später" in path.read_text(encoding="utf-8")
 
 
-# ------------------------------------------------------------------ placeholders
-
 
 def test_no_prompt_is_a_placeholder():
     for prompt in bench_prompts.PROMPTS:
@@ -448,8 +425,6 @@ def test_is_placeholder_is_false_once_the_text_is_written():
     )
     assert not bench_prompts.is_placeholder(written)
 
-
-# ------------------------------------------------------------------ prompt set invariants
 
 
 def test_prompt_ids_are_unique_and_file_safe():
@@ -536,8 +511,6 @@ def test_no_em_dashes_anywhere_in_the_prompt_set():
     for prompt in (*bench_prompts.PROMPTS, bench_prompts.WARMUP_PROMPT):
         assert EM_DASH not in prompt.text and EM_DASH not in prompt.reference, prompt.id
 
-
-# ------------------------------------------------------------------ report rendering
 
 
 def _fixed_results():
@@ -687,8 +660,6 @@ def test_render_summary_has_one_row_per_candidate():
     assert "Selection (spec 18 step 4) is manual" in summary
 
 
-# ------------------------------------------------------------------ fetch and select
-
 
 def _pins_file(tmp_path, candidate_sha=""):
     pins = {
@@ -781,8 +752,6 @@ def test_select_model_refuses_when_nothing_is_downloaded_and_no_hash_is_pinned(t
     assert bench_run.select_model("cand_a", pins_path, tmp_path / "cache") == 1
     assert "cleanup_model" not in build_fetch.load_pins(pins_path)["models"]
 
-
-# ------------------------------------------------------------------ measure_clip with fakes
 
 
 import smoke_clips
@@ -908,8 +877,6 @@ def test_measure_clip_keeps_the_raw_text_when_a_guard_rejects_the_output(tmp_pat
     assert result.cleaned_text == LONG_LINE and result.used_llm is False
 
 
-# ------------------------------------------------------------------ SAPI quoting
-
 
 def test_ps_literal_escapes_a_single_quote_and_leaves_a_dollar_sign_alone():
     assert smoke_clips._ps_literal("it's $env:PATH") == "'it''s $env:PATH'"
@@ -933,8 +900,6 @@ def test_the_smoke_short_clip_is_short_enough_to_land_in_the_short_bucket():
     short = next(text for name, _, text in smoke_clips.SMOKE_TEXTS if name == "smoke-short-1")
     assert len(short.split()) <= 5
 
-
-# ------------------------------------------------------------------ the app configuration (--hardware)
 
 
 from spells.engines import SpeechSlot

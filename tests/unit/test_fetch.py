@@ -16,7 +16,7 @@ import fetch
 @pytest.fixture
 def payload(tmp_path):
     src = tmp_path / "source.bin"
-    src.write_bytes(bytes(range(256)) * 4096)  # 1 MiB, spans several stream chunks
+    src.write_bytes(bytes(range(256)) * 4096)
     return src, hashlib.sha256(src.read_bytes()).hexdigest()
 
 
@@ -120,7 +120,7 @@ def test_cached_file_with_matching_hash_is_not_downloaded_again(tmp_path, payloa
     pins_path = _write_pins(tmp_path, src.as_uri(), digest)
     cache = tmp_path / "cache"
     fetch.fetch("sources.thing", pins_path=pins_path, cache_dir=cache)
-    src.unlink()  # the source is gone, so a second fetch can only succeed from the cache
+    src.unlink()
 
     out = fetch.fetch("sources.thing", pins_path=pins_path, cache_dir=cache)
 

@@ -63,8 +63,6 @@ def _apply(
     return postprocess.apply(text, profile, CTX, last, vocabulary, now)
 
 
-# --- nothing to do ---
-
 
 def test_no_rules_leaves_text_untouched():
     assert _apply("Hello, world.") == "Hello, world."
@@ -73,8 +71,6 @@ def test_no_rules_leaves_text_untouched():
 def test_empty_text_stays_empty():
     assert _apply("", CHAT, _vocab([("a", "b")], [("a", "b")]), _last()) == ""
 
-
-# --- replacements ---
 
 
 def test_replacement_is_case_insensitive_whole_phrase():
@@ -140,8 +136,6 @@ def test_apply_replacements_alone():
     assert postprocess.apply_replacements("con toso.", replacements) == "Contoso."
 
 
-# --- snippets ---
-
 
 def test_snippet_replaces_whole_utterance():
     vocab = _vocab(snippets=[("sign off", "Best regards,\nAlex")])
@@ -184,8 +178,6 @@ def test_apply_snippets_alone():
     assert postprocess.apply_snippets("no", snippets) == "no"
 
 
-# --- order: replacements run before snippets ---
-
 
 def test_replacement_can_create_a_snippet_trigger():
     vocab = _vocab([("signature", "sign off")], [("sign off", "Best regards,\nAlex")])
@@ -198,8 +190,6 @@ def test_snippet_output_is_not_fed_back_into_replacements():
 
     assert _apply("sig", vocabulary=vocab) == "Best regards"
 
-
-# --- profile formatting ---
 
 
 @pytest.mark.parametrize(
@@ -283,8 +273,6 @@ def test_profile_formatting_applies_to_snippet_output():
     assert _apply("thanks", CHAT, vocab) == "Thanks a lot"
 
 
-# --- leading space ---
-
 
 def test_leading_space_added_when_all_conditions_hold():
     assert _apply("hello", last=_last(), now=150.0) == " hello"
@@ -337,8 +325,6 @@ def test_needs_leading_space_alone():
     assert postprocess.needs_leading_space("x", CTX, _last(), 150.0) is True
     assert postprocess.needs_leading_space("x", CTX, None, 150.0) is False
 
-
-# --- everything together, in spec order ---
 
 
 def test_full_pipeline_order():

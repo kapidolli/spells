@@ -23,13 +23,12 @@ CREATE_SUSPENDED = 0x00000004
 TH32CS_SNAPTHREAD = 0x00000004
 THREAD_SUSPEND_RESUME = 0x0002
 JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
-JOBOBJECT_EXTENDED_LIMIT_INFORMATION_CLASS = 9  # JobObjectExtendedLimitInformation
+JOBOBJECT_EXTENDED_LIMIT_INFORMATION_CLASS = 9
 PROCESS_SET_QUOTA = 0x0100
 PROCESS_TERMINATE = 0x0001
 PROCESS_SET_INFORMATION = 0x0200
 PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 
-# How long spawn_hidden waits for a child it had to kill, so the handle is reaped.
 KILL_WAIT_S = 5.0
 
 
@@ -246,9 +245,6 @@ def spawn_hidden(
             job.assign(proc.pid)
             resume_process(proc.pid)
         except BaseException:
-            # Every failure counts, not just OSError: assign() raises ValueError on a closed
-            # job, and anything left uncaught here would leave the child suspended, without a
-            # window and owned by no job, so nothing would ever clean it up.
             proc.kill()
             with contextlib.suppress(OSError, subprocess.SubprocessError):
                 proc.wait(timeout=KILL_WAIT_S)

@@ -92,8 +92,6 @@ REFUSAL_OPENINGS = (
     "më vjen keq",
 )
 
-# One short line each: the pill caps at 320 px and elides past it (spec 14.2), so every
-# line here is measured to fit whole. The log carries the detail.
 REJECTION_TEXT = {
     "engine_not_ready": "Writing model not ready",
     "no_instruction": "Nothing was said",
@@ -405,8 +403,6 @@ def writing_text(instruction: str = "", elapsed_s: float = 0.0) -> str:
     said = " ".join(instruction.split())
     return f"{head}: {said}" if said else head
 
-
-# The selection ---------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)

@@ -155,7 +155,7 @@ ENTRY_SCRIPT = BUILD_DIR / "entry.py"
 APP_ICON = BUILD_DIR / "brand" / "spells.ico"
 ISS_TEMPLATE = BUILD_DIR / "spells.iss.template"
 ONLINE_ISS_TEMPLATE = BUILD_DIR / "spells-online.iss.template"
-APP_BUILD_DIR = OUT_DIR / "app"           # PyInstaller writes <APP_BUILD_DIR>/Spells here
+APP_BUILD_DIR = OUT_DIR / "app"
 PYINSTALLER_WORK = OUT_DIR / "pyinstaller-work"
 GENERATED_ISS = OUT_DIR / "spells.iss"
 GENERATED_ONLINE_ISS = OUT_DIR / "spells-online.iss"
@@ -166,8 +166,6 @@ WHISPER_PIN = "models.whisper_large_v3_turbo_q8_0"
 VAD_PIN = "models.silero_vad"
 CLEANUP_PIN = "models.cleanup_model"
 
-# src/spells/ui imports QtCore, QtGui, QtWidgets and QtSvg (the brand SVGs in data/brand) and
-# nothing else: no QtNetwork (the engines are reached with http.client).
 QT_KEEP = ("QtCore", "QtGui", "QtWidgets", "QtSvg")
 QT_DROP = (
     "QtConcurrent", "QtDBus", "QtDesigner", "QtHelp", "QtNetwork", "QtOpenGL",
@@ -175,47 +173,33 @@ QT_DROP = (
     "QtQuickTest", "QtQuickWidgets", "QtSql", "QtSvgWidgets", "QtTest",
     "QtUiTools", "QtXml",
 )
-# Collected by the PySide6 hook whatever is excluded, and useless without QtQuick or a
-# translated UI. Removing them is worth about 12 MB of the app budget of 19.4.
 PYSIDE_PRUNE_DIRS = ("qml", "translations")
 
-# Spec 19.4 budgets the app part at about 120 MB; 160 MB is where the build says so loudly.
 APP_SIZE_TARGET_BYTES = 120_000_000
 APP_SIZE_WARN_BYTES = 160_000_000
-# Spec 19.3 step 8, B5-49: ISCC refuses a single-file installation above 2,100,000,000 bytes
-# ("Disk spanning must be enabled in order to create an installation larger than 2100000000
-# bytes in size"), measured from the compiler itself, not the 4,200,000,000 bytes B5-24
-# assumed. A single-file Setup.exe is refused here above the lower INSTALLER_MAX_BYTES, the
-# same number a build uses to decide ahead of time that it has to span rather than wait for
-# Inno to refuse it.
 INSTALLER_MAX_BYTES = 2_000_000_000
 INSTALLER_SPAN_REQUIRED_BYTES = 2_100_000_000
 DISK_SLICE_SIZE_BYTES = 2_100_000_000
 NONMODEL_COMPRESSED_ESTIMATE_BYTES = 84_000_000
 
 DIST_TOP_LEVEL = ("Spells.exe", "_internal", "data", "engines", "licenses", "models")
-# The online build ships no models\ at all: the installer downloads them (B5-29).
 ONLINE_DIST_TOP_LEVEL = tuple(name for name in DIST_TOP_LEVEL if name != "models")
 GEMMA_LICENSE_FILE = "gemma3.txt"
 
-# The languages the online installer's first page offers, and the one ticked to begin with.
 ONLINE_LANGUAGES = ("en", "de", "sq")
 ONLINE_DEFAULT_LANGUAGES = ("en",)
-# The VAD model is no catalog entry: it belongs to whisper-server rather than to a language.
 VAD_MODEL_ID = "silero-vad"
 VAD_PURPOSE = "voice detection, which every language needs"
 CLEANUP_PURPOSE = "cleanup in every language"
 VAD_TITLE = "Voice detection model"
 CLEANUP_TITLE = "Writing and cleanup model"
 
-# What --test-install touches, and puts back (spec 15).
 INSTALL_DIR = Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / APP_NAME
 SETTINGS_DIR = Path(os.environ.get("APPDATA", "")) / APP_NAME
 USER_DATA_DIR = Path(os.environ.get("LOCALAPPDATA", "")) / APP_NAME
 START_MENU_SHORTCUT = (Path(os.environ.get("APPDATA", "")) / "Microsoft" / "Windows"
                        / "Start Menu" / "Programs" / f"{APP_NAME}.lnk")
 UNINSTALL_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
-# Inno Setup names the uninstall key after the AppId of build/spells.iss.template.
 APP_ID = "{9D5B0F4E-3E2A-4C7A-9C3E-2A1D6B8F41C7}"
 UNINSTALL_SUBKEY = f"{APP_ID}_is1"
 RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
@@ -229,8 +213,6 @@ BUNDLE_LANGUAGES = ("en", "de", "sq")
 
 STEPS = ("tests", "app", "dist", "installer", "size", "latest")
 
-# The version file of spec 19.7 and the address the app reads out of the app folder. Both are
-# written only when --update-source says where the owner serves this release.
 VERSION_FILE_NAME = updates.MANIFEST_NAME
 VERSION_FILE_SCHEMA = updates.MANIFEST_SCHEMA
 UPDATE_SOURCE_NAME = updates.SOURCE_FILE
@@ -238,8 +220,6 @@ UPDATE_SOURCE_ENV = "SPELLS_UPDATE_SOURCE"
 CHANGE_MAX_CHARS = updates.MAX_CHANGE_CHARS
 SIGNTOOL_ENV = "SPELLS_SIGNTOOL"
 
-# What main() returns. A skipped 20.5 check is not a pass: an installer nobody could verify
-# must not read as verified, so it gets an exit code of its own rather than 0.
 EXIT_OK = 0
 EXIT_FAILED = 1
 EXIT_SKIPPED = 2
@@ -248,8 +228,6 @@ EXIT_SKIPPED = 2
 class PackageError(Exception):
     """A packaging problem: a failed step, a layout that does not match, a size over budget."""
 
-
-# ----------------------------------------------------------------------------- pure helpers
 
 
 def qt_excludes() -> list[str]:
@@ -941,8 +919,6 @@ def offline_artifact_name(version: str, bundle: Bundle | None = None) -> str:
     return f"{installer_basename(version)}.exe"
 
 
-# ------------------------------------------------------------- spec 19.7: the version file
-
 def changelog_release(text: str, version: str) -> tuple[str, tuple[str, ...]]:
     """The date and the bullet lines of one version's section of CHANGELOG.md.
 
@@ -1226,8 +1202,6 @@ def format_size(size: int) -> str:
     return f"{size:,} bytes ({size / 1_000_000:.1f} MB)"
 
 
-# ----------------------------------------------------------------------------- filesystem helpers
-
 
 def dir_size(path: Path) -> int:
     total = 0
@@ -1284,8 +1258,6 @@ def run_process(args: Sequence[str], *, cwd: Path) -> int:
     return start_process(args, cwd=cwd).wait()
 
 
-# ----------------------------------------------------------------------------- model resolution
-
 
 def resolve_cleanup_model(override: Path | None) -> tuple[Path, bool]:
     """The cleanup model to ship and whether this is therefore a dev build.
@@ -1334,8 +1306,6 @@ def resolve_models(cleanup_override: Path | None, bundle: Bundle
     return speech, vad, cleanup, extras, dev
 
 
-# ----------------------------------------------------------------------------- step 4: unit tests
-
 
 def step_tests() -> None:
     print("\n=== step 4: unit tests ===", flush=True)
@@ -1343,8 +1313,6 @@ def step_tests() -> None:
         raise PackageError(f"{VENV_PYTHON} is missing; create the project virtual environment first")
     run([VENV_PYTHON, "-m", "pytest", "tests/unit", "-q"], cwd=REPO_DIR, title="the unit tests")
 
-
-# ----------------------------------------------------------------------------- step 5: PyInstaller
 
 
 def prune_pyside6(app_dir: Path) -> int:
@@ -1389,8 +1357,6 @@ def step_app() -> Path:
               f"budgets about {format_size(APP_SIZE_TARGET_BYTES)}", file=sys.stderr, flush=True)
     return app_dir
 
-
-# ----------------------------------------------------------------------------- step 6: dist/Spells
 
 
 def step_dist(cleanup_override: Path | None, update_source: str = "") -> tuple[Path, Path]:
@@ -1594,8 +1560,6 @@ def warn_unlisted_cleanup_model(cleanup_model_name: str) -> str:
     return message
 
 
-# ----------------------------------------------------------------------------- step 7: the installer
-
 
 def cleanup_gguf_name(names: Iterable[str], extra_names: Iterable[str] = ()) -> str:
     extras = {name.lower() for name in extra_names}
@@ -1665,7 +1629,6 @@ def step_installer(version: str, signtool: str | None = None, span: bool = False
           flush=True)
     command = [packaging.ISCC_EXE]
     if signtool:
-        # Inno replaces $p with what /Sspells= gives it, and $f with the file it is signing.
         command.append(f"/Sspells={signtool}")
     command.append(GENERATED_ISS)
     run(command, cwd=OUT_DIR, title="ISCC")
@@ -1677,8 +1640,6 @@ def step_installer(version: str, signtool: str | None = None, span: bool = False
               flush=True)
     return installer
 
-
-# ----------------------------------------------------------------------------- step 8: the size gate
 
 
 def step_size(installer: Path) -> None:
@@ -1736,8 +1697,6 @@ def step_latest(version: str, installer: Path | None, base_url: str,
           flush=True)
     return target
 
-
-# ----------------------------------------------------------------------------- 20.5 installer tests
 
 def window_exists(class_name: str = WINDOW_CLASS) -> bool:
     user32 = ctypes.WinDLL("user32", use_last_error=True)
@@ -1806,7 +1765,6 @@ def tcp_endpoints(pids: Sequence[int]) -> list[dict]:
     return data if isinstance(data, list) else [data]
 
 
-# A socket in one of these states has no peer yet, so only where it is bound can be judged.
 NO_PEER_STATES = ("Listen", "Bound", "Closed")
 
 
@@ -1866,8 +1824,6 @@ class InstallerTests:
         self.backup_root = OUT_DIR / "test-install-backup"
         self.saved: dict[str, Path] = {}
 
-    # reporting ---------------------------------------------------------------------------
-
     def check(self, name: str, ok: bool, detail: str = "") -> bool:
         self._record(name, PASS if ok else FAIL, detail)
         return ok
@@ -1883,8 +1839,6 @@ class InstallerTests:
     def counts(self) -> dict[str, int]:
         return {state: sum(1 for c in self.checks if c.status == state)
                 for state in (PASS, FAIL, SKIP)}
-
-    # the machine's state before and after ------------------------------------------------
 
     def save_existing_data(self) -> None:
         """Move the user's own settings and history aside before the tests touch them.
@@ -1923,14 +1877,10 @@ class InstallerTests:
         if not any((self.backup_root / label).exists() for label in self.saved):
             wipe(self.backup_root)
 
-    # the steps ----------------------------------------------------------------------------
-
     def install(self, *extra: str) -> int:
         args = [str(self.installer), *SILENT_INSTALL_ARGS, *extra]
         print(f"+ {' '.join(args)}", flush=True)
         code = run_process(args, cwd=DIST_DIR)
-        # Inno's setup loader usually waits for the setup it extracted, but the uninstaller
-        # copy it leaves behind does not, so never trust the return alone: wait for the files.
         wait_for(lambda: (INSTALL_DIR / f"{APP_NAME}.exe").is_file(), timeout_s=600.0, poll_s=0.5)
         wait_for(lambda: not self._setup_running(), timeout_s=600.0, poll_s=0.5)
         return code
@@ -1954,7 +1904,6 @@ class InstallerTests:
             run_process(args, cwd=Path(os.environ.get("TEMP", ".")))
         except PackageError as exc:
             return str(exc)
-        # The uninstaller copies itself into %TEMP% and the process we started returns at once.
         wait_for(lambda: not INSTALL_DIR.exists(), timeout_s=180.0, poll_s=0.5)
         return ""
 
@@ -1987,33 +1936,26 @@ class InstallerTests:
         return counts[FAIL] == 0
 
     def _body(self) -> None:
-        # 1: a silent per-user install. A UAC prompt cannot be answered by a silent install, so
-        # a clean exit is the proof that spec 19.5's "no UAC prompt" holds.
         code = self.install()
         self.check("install exits cleanly, so Setup never asked for elevation", code == 0,
                    f"exit code {code}")
         self.check("the install folder is there", (INSTALL_DIR / f"{APP_NAME}.exe").is_file(),
                    str(INSTALL_DIR))
 
-        # 2: the per-user Add/Remove Programs entry.
         entries = uninstall_entries()
         self.check("a per-user Add/Remove Programs entry exists", bool(entries),
                    ", ".join(f"{k} = {v}" for k, v in entries.items()) or "none found")
 
-        # 3: the app comes up and its hidden window appears.
         running = self._launch_and_check_endpoints()
 
-        # 4: reinstall over the running app; PrepareToInstall closes it with no prompt.
         if running:
             self._upgrade_over_running_app()
         else:
             for name in self.UPGRADE_CHECKS:
                 self.skip(name, "the app could not be started on this machine")
 
-        # 5: uninstall keeps the data folders and removes the Run value.
         self._uninstall_keeping_data(app_ran=running)
 
-        # 6: a fresh install, then uninstall with the data removal parameter.
         self._uninstall_removing_data()
 
     RUNNING_APP_CHECKS = (
@@ -2048,7 +1990,6 @@ class InstallerTests:
             timeout_s=240.0, poll_s=1.0)
         self.check("both engine processes are running", engines_up,
                    ", ".join(f"{k}={v}" for k, v in pids_of(ENGINE_PROCESSES).items()))
-        # Give the engines a moment to bind their loopback ports before listing the endpoints.
         wait_for(lambda: bool(self._all_endpoints()), timeout_s=60.0, poll_s=1.0)
         endpoints = self._all_endpoints()
         offenders = [e for e in endpoints if not loopback_only(e)]
@@ -2201,8 +2142,6 @@ def newest_installer() -> Path:
         raise PackageError(f"no {APP_NAME}-Setup-*.exe in {DIST_DIR}; build one first")
     return found[-1]
 
-
-# ----------------------------------------------------------------------------- cli
 
 
 def main(argv: list[str] | None = None) -> int:

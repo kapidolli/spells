@@ -156,8 +156,6 @@ class UpdateCoordinator(QtCore.QObject):
         )
         self._progress.connect(self._on_progress)
 
-    # What the page reads ------------------------------------------------------------------
-
     @property
     def configured(self) -> bool:
         """Whether this build was given an update address when it was built."""
@@ -179,8 +177,6 @@ class UpdateCoordinator(QtCore.QObject):
         value = bool(enabled)
         self._store(lambda current: replace(current, weekly_check=value))
         self._set(weekly_check=value)
-
-    # Checking -----------------------------------------------------------------------------
 
     def start_timer(self) -> None:
         """The hourly tick the weekly check rides on. Safe to call more than once."""
@@ -273,8 +269,6 @@ class UpdateCoordinator(QtCore.QObject):
         )
         self.update_found.emit(release.version, updates.date_text(release.released))
 
-    # Downloading and installing -----------------------------------------------------------
-
     def start_download(self) -> None:
         """Fetch the installer the check found. The only other network call the check makes."""
         release = self._view.release
@@ -350,8 +344,6 @@ class UpdateCoordinator(QtCore.QObject):
             return
         if self._on_quit is not None:
             self._on_quit()
-
-    # Internals ----------------------------------------------------------------------------
 
     def _run(self, work: Callable[[], Any], done: Callable[[Any], None]) -> None:
         try:

@@ -68,8 +68,6 @@ def build(tmp_path, **kwargs) -> tuple[UpdateCoordinator, ConfigStore, Clock]:
     return coordinator, config, clock
 
 
-# --- nothing happens without permission -----------------------------------------------------
-
 
 def test_a_build_without_an_address_says_so_and_never_fetches(app, tmp_path):
     def fetch(url):
@@ -160,8 +158,6 @@ def test_the_button_always_works_even_with_the_weekly_check_off(app, tmp_path):
     assert coordinator.view.phase is Phase.AVAILABLE
 
 
-# --- what the check produces ------------------------------------------------------------------
-
 
 def test_a_newer_version_becomes_an_offer_with_its_change_list(app, tmp_path):
     coordinator, _config, _clock = build(tmp_path, fetch=lambda url: release())
@@ -231,8 +227,6 @@ def test_a_failed_check_still_counts_as_the_week_s_check(app, tmp_path):
     assert calls == [SOURCE]
 
 
-# --- the balloon ------------------------------------------------------------------------------
-
 
 def test_the_weekly_check_offers_the_version_once_a_day(app, tmp_path):
     seen: list[tuple[str, str]] = []
@@ -274,8 +268,6 @@ def test_the_balloon_is_held_back_while_a_dictation_is_in_flight(app, tmp_path):
     assert seen == []
     assert config.settings.updates.last_offer_version == ""
 
-
-# --- downloading and installing -----------------------------------------------------------------
 
 
 def test_a_verified_download_leads_to_the_install_button(app, tmp_path):
@@ -444,8 +436,6 @@ def test_the_progress_of_a_download_reaches_the_view(app, tmp_path):
 
     assert (1024, 4096) in seen
 
-
-# --- following the settings file ---------------------------------------------------------------
 
 
 def test_a_switch_flipped_elsewhere_reaches_the_view(app, tmp_path):

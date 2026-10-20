@@ -72,9 +72,7 @@ class FakePopen:
         self.stderr_path = Path(stderr_path)
         self.cwd = cwd
         self.returncode: int | None = None
-        # While True (and the process is alive) health() answers True.
         self.healthy = True
-        # Raised by the warm-up request when set.
         self.inference_error: Exception | None = None
         self.chat_error: Exception | None = None
         self.health_calls = 0
@@ -85,10 +83,7 @@ class FakePopen:
         self.inference_wavs: list[bytes] = []
         self.chats: list[tuple[str, str, int]] = []
         self.killed = False
-        # Called on every health request, before the answer (to write log lines "late").
         self.on_health: Callable[[], None] | None = None
-
-    # Introspection ---------------------------------------------------------
 
     @property
     def exe(self) -> Path:
@@ -120,8 +115,6 @@ class FakePopen:
             return None
         return self.args[self.args.index(flag) + 1]
 
-    # subprocess.Popen contract ---------------------------------------------
-
     def poll(self) -> int | None:
         return self.returncode
 
@@ -136,8 +129,6 @@ class FakePopen:
             self.returncode = 1
 
     terminate = kill
-
-    # Test controls -----------------------------------------------------------
 
     def write_log(self, text: str) -> None:
         with open(self.stdout_path, "a", encoding="utf-8") as fh:
@@ -221,13 +212,9 @@ class FakeWorld:
     def __init__(self) -> None:
         self.processes: list[FakePopen] = []
         self.jobs: list[FakeJobObject] = []
-        # Called with each new FakePopen right after spawn, before the supervisor sees it.
         self.on_spawn: Callable[[FakePopen], None] | None = None
-        # When set, spawn() raises it instead of creating a process.
         self.spawn_error: Exception | None = None
         self._next_pid = 4000
-
-    # Backend contract ----------------------------------------------------------
 
     def create_job(self) -> FakeJobObject:
         job = FakeJobObject()
@@ -260,8 +247,6 @@ class FakeWorld:
             self.on_spawn(proc)
         return proc
 
-    # Client factories --------------------------------------------------------
-
     def whisper_client(self, base_url: str) -> FakeWhisperClient:
         return FakeWhisperClient(self, base_url)
 
@@ -270,8 +255,6 @@ class FakeWorld:
 
     def llama_asr_client(self, base_url: str) -> FakeLlamaAsrClient:
         return FakeLlamaAsrClient(self, base_url)
-
-    # Test helpers ------------------------------------------------------------
 
     def process_for(self, base_url: str) -> FakePopen | None:
         port = int(base_url.rstrip("/").rsplit(":", 1)[1])

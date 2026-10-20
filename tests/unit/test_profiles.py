@@ -12,9 +12,6 @@ from spells.models import DeliveryMethod, Profile, TargetContext
 
 BROWSERS = ["chrome.exe", "msedge.exe", "firefox.exe"]
 
-# A user rule's profile snapshot: Email and docs, typed instead of pasted. Its tone
-# is the Cleanup tab's tone for that name, which wins over any snapshot (see
-# test_tone_override_applies_to_user_rules_by_profile_name).
 CUSTOM = Profile(
     name="Email and docs",
     cleanup=True,
@@ -38,8 +35,6 @@ def _settings(*rules: ProfileRule, tones: dict[str, str] | None = None) -> Setti
 def _match(ctx: TargetContext, settings: Settings | None = None) -> Profile:
     return profiles.match(ctx, settings if settings is not None else default_settings())
 
-
-# --- built-in table ---
 
 
 def test_builtin_rules_cover_the_spec_table():
@@ -145,8 +140,6 @@ def test_process_may_be_a_full_path():
     assert _match(_ctx(forward_slashes)).name == "Code"
 
 
-# --- browser title rules ---
-
 
 @pytest.mark.parametrize("browser", BROWSERS)
 @pytest.mark.parametrize(
@@ -166,7 +159,6 @@ def test_browser_title_rules(browser, title, expected):
 
 
 def test_builtin_title_match_is_case_sensitive():
-    # Product names are capitalized; "outlook" as a plain word must not select Email and docs.
     assert _match(_ctx("chrome.exe", "Economic outlook 2026")).name == "Default"
     assert _match(_ctx("chrome.exe", "my slack workspace")).name == "Default"
     assert _match(_ctx("firefox.exe", "GMAIL")).name == "Default"
@@ -175,7 +167,6 @@ def test_builtin_title_match_is_case_sensitive():
 
 
 def test_browser_title_rules_follow_table_order():
-    # Chat is listed before Email and docs, so a title matching both goes to Chat.
     assert _match(_ctx("msedge.exe", "Slack message about Gmail")).name == "Chat"
 
 
@@ -196,11 +187,8 @@ def test_application_frame_host_whatsapp():
 
 
 def test_application_frame_host_uses_every_title_rule():
-    # V2-11: title matching applies to Store apps in general, not only WhatsApp.
     assert _match(_ctx("ApplicationFrameHost.exe", "Mail - Outlook")).name == "Email and docs"
 
-
-# --- user rules ---
 
 
 def test_user_rule_is_checked_before_builtins():
@@ -260,7 +248,6 @@ def test_user_rule_title_match_is_case_insensitive_substring():
 
 
 def test_user_rule_title_match_ignores_case_unlike_builtins():
-    # The user chose "outlook" deliberately, so it matches the plain word too.
     rule = ProfileRule(name="r", match_process=[], match_title=["outlook"], profile=CUSTOM)
 
     assert _match(_ctx("chrome.exe", "Economic outlook 2026"), _settings(rule)) == CUSTOM
@@ -321,8 +308,6 @@ def test_user_rule_ignores_blank_title_substrings():
 def test_default_fallback_when_nothing_matches():
     assert _match(_ctx("unknown.exe", "Unknown")) is profiles.DEFAULT_PROFILE
 
-
-# --- tone override from the Cleanup tab ---
 
 
 def test_tone_comes_from_settings_when_edited():

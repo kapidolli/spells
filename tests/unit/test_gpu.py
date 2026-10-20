@@ -38,9 +38,6 @@ WHISPER = Path("C:/engines/vulkan/whisper-server.exe")
 RTX = "NVIDIA GeForce RTX 5060 Laptop GPU"
 AMD = "AMD Radeon(TM) 610M"
 
-# Verbatim stderr of the Vulkan whisper-server 1.9.4 on the reference laptop when started
-# with GGML_VK_VISIBLE_DEVICES=0 (RTX) and =1 (Radeon 610M) and a model path that does not
-# exist; the device block prints once per ggml backend library that loads.
 RTX_LINE = (
     f"ggml_vulkan: 0 = {RTX} (NVIDIA) | uma: 0 | fp16: 1 | bf16: 1 | fp4: 0 | warp size: 32 "
     "| shared memory: 49152 | int dot: 1 | matrix cores: NV_coopmat2"
@@ -90,8 +87,6 @@ INVALID = (
 )
 
 
-# parse_list_devices -----------------------------------------------------------
-
 
 def test_parse_two_devices_from_real_output():
     devices = parse_list_devices(TWO_DEVICES)
@@ -135,8 +130,6 @@ def test_parse_keeps_parentheses_inside_device_names():
     assert devices[0].name == "AMD Radeon(TM) 610M"
 
 
-# list_devices -----------------------------------------------------------------
-
 
 def test_list_devices_runs_hidden_with_timeout_and_merges_stderr(use_platform):
     use_platform(fake_platform(processes=HiddenWindowProcesses()))
@@ -151,7 +144,7 @@ def test_list_devices_runs_hidden_with_timeout_and_merges_stderr(use_platform):
     args, kwargs = calls[0]
     assert args == [str(LLAMA), "--list-devices"]
     assert kwargs["timeout"] == 20
-    assert kwargs["creationflags"] & 0x08000000  # CREATE_NO_WINDOW
+    assert kwargs["creationflags"] & 0x08000000
     assert kwargs["env"] == {"X": "1"}
     assert kwargs["cwd"] == str(LLAMA.parent)
 
@@ -166,8 +159,6 @@ def test_list_devices_returns_empty_on_timeout_or_launch_error():
     assert list_devices(LLAMA, runner=timing_out) == []
     assert list_devices(LLAMA, runner=missing) == []
 
-
-# probe_raw_indices --------------------------------------------------------------
 
 
 def make_runner(per_index: dict[str | None, str], backend: dict[str, str] | None = None):
@@ -196,7 +187,6 @@ def test_probe_maps_raw_indices_and_stops_at_first_empty_run():
     devices = probe_raw_indices(LLAMA, env={}, runner=runner)
     assert [(d.raw_index, d.name) for d in devices] == [(0, RTX), (1, AMD)]
     assert devices[0].list_name == "Vulkan0"
-    # Unfiltered first, then 0, 1, and the empty run at 2 ends the probe before N + 2.
     assert runner.calls == [None, "0", "1", "2"]
 
 
@@ -228,8 +218,6 @@ def test_probe_strips_an_inherited_visible_devices_setting_for_the_unfiltered_ru
     probe_raw_indices(LLAMA, env={"GGML_VK_VISIBLE_DEVICES": "1", "KEEP": "y"}, runner=runner)
     assert seen_env == [{"KEEP": "y"}]
 
-
-# parse_backend_info and probe_backend_info (decision B3-59) -----------------------
 
 
 def test_parse_backend_info_on_this_machines_two_devices():
@@ -280,8 +268,6 @@ def test_probe_backend_info_is_none_on_failure_or_ambiguity():
     two = make_runner({}, backend={"0": BOTH_BACKEND})
     assert probe_backend_info(WHISPER, 0, env={}, runner=two) is None
 
-
-# select_device -------------------------------------------------------------------
 
 
 def two_gpu_runner(backend: dict[str, str] | None = None):
@@ -440,8 +426,6 @@ def test_selection_and_device_are_frozen():
     with pytest.raises(AttributeError):
         selection.devices[0].name = "x"
 
-
-# engine_env -----------------------------------------------------------------------
 
 
 def test_engine_env_sets_the_raw_index():

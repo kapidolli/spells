@@ -58,7 +58,6 @@ from spells.platform.base import MessageHandlers
 log = logging.getLogger(__name__)
 
 APP_NAME = "Spells"
-# The installer's AppMutex and the [Code] PrepareToInstall step use this exact name (19.5).
 MUTEX_NAME = "Spells"
 WINDOW_CLASS = "SpellsMessageWindow"
 OPEN_SETTINGS = "open-settings"
@@ -66,24 +65,18 @@ QUIT = "quit"
 
 QUIT_TIMEOUT_S = 10.0
 QUIT_POLL_S = 0.1
-# An instance that holds the mutex may still be starting: its window appears about 1.5 s in,
-# longer behind a first-run GPU probe, so both CLI paths wait for it (spec 19.5).
 WINDOW_WAIT_S = 10.0
-# How long WM_ENDSESSION waits for a teardown another thread already started (spec 19.5).
 END_SESSION_WAIT_S = 3.0
 WINDOW_READY_TIMEOUT_S = 5.0
 WINDOW_JOIN_TIMEOUT_S = 5.0
 
 LOG_NAME = "app.log"
-LOG_MAX_BYTES = 5 * 1024 * 1024  # spec 15: five files of up to 5 MB, the live one included
+LOG_MAX_BYTES = 5 * 1024 * 1024
 LOG_KEEP = 5
 LOG_FORMAT = "%(asctime)s %(levelname)s [%(threadName)s] %(name)s: %(message)s"
 
-# QtMsgType order: debug, warning, critical, fatal, info.
 QT_LEVELS = (logging.DEBUG, logging.WARNING, logging.ERROR, logging.CRITICAL, logging.INFO)
 
-
-# Arguments ----------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -115,8 +108,6 @@ def parse_args(argv: Sequence[str] | None = None) -> Args:
     )
 
 
-# Logging (spec 15, 17) ------------------------------------------------------------------------
-
 
 def setup_logging(log_dir: Path, *, debug: bool = False) -> logging.Handler | None:
     """A rotating app log and nothing else: there is no console to write to.
@@ -138,7 +129,6 @@ def setup_logging(log_dir: Path, *, debug: bool = False) -> logging.Handler | No
         handler.setFormatter(logging.Formatter(LOG_FORMAT))
         root.addHandler(handler)
     except OSError:
-        # Without a log file the app still runs; it just says nothing.
         pass
     _install_excepthooks()
     return handler
@@ -168,8 +158,6 @@ def _qt_message(mode: Any, context: Any, message: str) -> None:
     logging.getLogger("qt").log(QT_LEVELS[index], "%s", message)
 
 
-# Lazy Qt factories ------------------------------------------------------------------------------
-
 
 def _default_qapplication(argv: list[str]) -> Any:
     from PySide6 import QtCore
@@ -179,7 +167,7 @@ def _default_qapplication(argv: list[str]) -> Any:
     app = QApplication(argv)
     app.setApplicationName(APP_NAME)
     app.setApplicationVersion(__version__)
-    app.setQuitOnLastWindowClosed(False)  # a tray app outlives its dialogs
+    app.setQuitOnLastWindowClosed(False)
     return app
 
 
@@ -213,8 +201,6 @@ def _default_create_ui(app: Any, **kwargs: Any) -> Any:
 
     return create_ui(app, **kwargs)
 
-
-# Dependencies ------------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -264,8 +250,6 @@ class Deps:
     sleeper: Callable[[float], None] = time.sleep
 
 
-# Entry point ---------------------------------------------------------------------------------------
-
 
 def main(argv: Sequence[str] | None = None, *, deps: Deps | None = None) -> int:
     args = parse_args(argv)
@@ -278,8 +262,6 @@ def main(argv: Sequence[str] | None = None, *, deps: Deps | None = None) -> int:
     log.info(
         "%s %s starting (frozen=%s, root=%s)", APP_NAME, __version__, layout.frozen, layout.root
     )
-    # The layout is resolved before logging exists (its log directory comes from it), so the
-    # models it picked are reported here rather than where they were chosen.
     log.info(
         "Layout: engines=%s, whisper=%s, vad=%s, cleanup=%s, settings=%s",
         layout.vulkan_dir.parent,
@@ -359,7 +341,7 @@ def _write_line(text: str) -> None:
     try:
         print(text)
     except OSError:
-        pass  # a windowed build has no stdout
+        pass
 
 
 NO_SUITABLE_CLEANUP = (
@@ -501,8 +483,6 @@ class _App:
         self._shutdown_lock = threading.Lock()
         self._shutdown_started = False
         self._shutdown_finished = threading.Event()
-
-    # Startup ---------------------------------------------------------------------------------
 
     def run(self) -> int:
         self._start()
@@ -817,8 +797,6 @@ class _App:
         if whisper_notice:
             self._set_tray_warning(whisper_notice)
 
-    # The hidden window (spec 15, 19.5) ---------------------------------------------------------
-
     def _start_window_thread(self) -> None:
         self._window_thread = threading.Thread(
             target=self._window_loop, name="spells-window", daemon=True
@@ -888,8 +866,6 @@ class _App:
         except Exception:
             log.exception("The hook reinstall request failed")
 
-    # Marshalling to the Qt thread ------------------------------------------------------------------
-
     def _tray_signal(self, name: str) -> Any:
         tray = getattr(self._handles, "tray", None)
         return getattr(tray, name, None)
@@ -939,8 +915,6 @@ class _App:
         except Exception:
             log.exception("The tray warning could not be shown")
 
-    # Settings reactions ------------------------------------------------------------------------------
-
     def _on_settings(self, settings: Settings) -> None:
         with self._model_lock:
             self._apply_settings(settings)
@@ -956,7 +930,6 @@ class _App:
             self._apply_autostart(settings.general.autostart)
         gpu_changed = settings.diagnostics.gpu_device_override != self._gpu_override
         if gpu_changed:
-            # Saving the selected device notifies this subscriber again.
             self._gpu_override = settings.diagnostics.gpu_device_override
             self._cancel_calibration()
             self._calibration_thread = None
@@ -978,9 +951,6 @@ class _App:
             except Exception:
                 log.exception("The idle unload interval could not be changed")
         if settings.diagnostics.debug_logging != self._debug_logging:
-            # This is the one setting whose effect is the logging itself, and Diagnostics
-            # warns that the logs then carry transcript text (spec 17), so it takes effect
-            # now rather than at the next start.
             self._debug_logging = settings.diagnostics.debug_logging
             self._deps.set_debug_logging(settings.diagnostics.debug_logging)
             log.info("Debug logging is now %s", "on" if self._debug_logging else "off")
@@ -1002,8 +972,6 @@ class _App:
         hotkey = self._hotkey
         if hotkey is not None:
             hotkey.end_recording(dictation_id)
-
-    # Shutdown -----------------------------------------------------------------------------------------
 
     def _on_quit(self) -> None:
         """The tray's Quit, and every marshalled quit; runs on the Qt thread."""
@@ -1060,7 +1028,6 @@ class _App:
         if handles is None:
             return
         if threading.current_thread() is not self._main_thread:
-            # Widgets belong to the Qt thread; an end-session shutdown leaves them alone.
             log.info("Leaving the widgets alone: this shutdown is not on the Qt thread")
             return
         handles.close()
@@ -1069,7 +1036,7 @@ class _App:
         self._window_stop.set()
         thread = self._window_thread
         if thread is None or thread is threading.current_thread():
-            return  # the window's own thread destroys it when run() returns
+            return
         if thread.is_alive():
             thread.join(WINDOW_JOIN_TIMEOUT_S)
         if thread.is_alive():

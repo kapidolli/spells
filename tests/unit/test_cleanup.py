@@ -37,9 +37,7 @@ GATE_OK = GateInput(
 )
 PROFILE = Profile(name="default", cleanup=True, tone="Neutral.", delivery=DeliveryMethod.PASTE)
 
-# 15 words, floor 6 (40%), ceiling 19.5 (130%)
 LONG_EN = "we should meet tomorrow at ten in the morning to talk about the release plan"
-# 17 words, clearly German by stopwords
 LONG_DE = (
     "Ich glaube, dass wir uns morgen um zehn Uhr treffen sollten, um über den Plan zu sprechen"
 )
@@ -49,16 +47,12 @@ def _guard(transcript, output, finish="stop", language="en", enabled=ENABLED):
     return guard(transcript, output, finish, language, enabled, FILLERS, CORRECTIONS)
 
 
-# max_tokens (V2-1)
-
 
 def test_max_tokens_is_three_times_word_count_plus_32():
     assert max_tokens_for("") == 32
     assert max_tokens_for("one two three") == 41
     assert max_tokens_for("um, uh, yes ...") == 41
 
-
-# gate (8.1 with V2-9)
 
 
 def test_gate_disabled_wins_over_everything():
@@ -178,8 +172,6 @@ def test_clean_skips_short_text_without_calling_the_model():
     assert client.calls == []
 
 
-# guards (8.3)
-
 
 def test_guard_empty_output():
     assert _guard(LONG_EN, "  \n ") == "empty"
@@ -290,8 +282,6 @@ def test_guard_order_finish_before_empty_before_length_before_preamble():
     assert _guard(LONG_EN, "Sure, meet.") == "length_ratio"
 
 
-# dominant language helper (8.3 with V2-6)
-
 
 def test_dominant_language_per_language():
     assert dominant_language(LONG_EN, ENABLED) == "en"
@@ -315,8 +305,6 @@ def test_dominant_language_ignores_languages_without_lists():
     assert dominant_language(LONG_DE, ["fr", "it"]) is None
     assert dominant_language(LONG_DE, ["de", "fr"]) == "de"
 
-
-# clean() end to end
 
 
 class FakeLlama(LlamaClient):
@@ -404,8 +392,6 @@ def test_clean_gate_skip_never_calls_the_engine():
 def test_warmup_messages_share_prompt_and_layout():
     assert warmup_messages() == (SYSTEM_PROMPT, user_message("", "", []))
 
-
-# LlamaClient over stdlib urllib
 
 
 class FakeResponse:
@@ -523,8 +509,6 @@ def test_health(monkeypatch):
     monkeypatch.setattr(cleanup, "urlopen", loading)
     assert LlamaClient("http://127.0.0.1:8081").health() is False
 
-
-# shipped data
 
 
 def test_default_lists_match_spec_8_1_table():

@@ -42,14 +42,10 @@ from spells.win32 import (
 
 pytestmark = pytest.mark.integration
 
-# Umlaut, sharp s and a non-BMP emoji in one string (decision V2-12, spec 20.4).
 TEXT = "Grüße aus Spells \U0001f600 ✓"
-# Spec 12: post-process plus inject are budgeted at 100 ms; inject alone stays well under.
 BUDGET_MS = 100.0
 VK_LSHIFT = 0xA0
 VK_SHIFT = 0x10
-# No window can be brought to the front while the workstation is locked or a screen
-# saver runs, so every test here fails at the first focus call. Say so in the message.
 NEEDS_UNLOCKED = (
     "could not bring the tkinter window to front; these tests need an unlocked, "
     "interactive desktop session"
@@ -138,8 +134,6 @@ class TkWindow:
 
 @pytest.fixture(scope="module")
 def tk_root():
-    # One Tk interpreter per module: a second tk.Tk() in the same process fails to
-    # re-source Tk's scripts on this machine.
     root = tk.Tk()
     root.withdraw()
     yield root
@@ -178,8 +172,6 @@ def report_ms(name, report):
     print(f"\n[delivery] {name}: {report.elapsed_ms:.1f} ms")
 
 
-# context
-
 
 def test_capture_describes_the_focused_window(tkwin):
     tkwin.focus(tkwin.entry)
@@ -189,8 +181,6 @@ def test_capture_describes_the_focused_window(tkwin):
     assert ctx.title == tkwin.title()
     assert ctx.captured_at > 0
 
-
-# paste
 
 
 def test_paste_delivers_exact_text_into_a_text_widget(tkwin, preserved_clipboard):
@@ -260,8 +250,6 @@ def test_restore_is_refused_when_the_clipboard_changes_during_the_delay(
     assert get_text() == intruder
 
 
-# type
-
 
 def test_type_delivers_into_an_entry_including_an_emoji(tkwin, preserved_clipboard):
     tkwin.focus(tkwin.entry)
@@ -276,8 +264,6 @@ def test_type_delivers_into_an_entry_including_an_emoji(tkwin, preserved_clipboa
     ), tkwin.entry.get()
 
 
-# fallbacks (spec 11 step 1)
-
 
 def test_focus_moved_after_capture_copies_instead_of_pasting(tk_root, preserved_clipboard):
     first = TkWindow(tk_root, offset=60)
@@ -286,9 +272,6 @@ def test_focus_moved_after_capture_copies_instead_of_pasting(tk_root, preserved_
         first.focus(first.text)
         ctx = capture()
         assert ctx.window == first.hwnd
-        # The second window is created only now, after the capture: two always-on-top
-        # windows alive in one Tk interpreter fight over the foreground, and a
-        # focus_force on the younger one then blocks the event loop for seconds.
         second = TkWindow(tk_root, offset=240)
         assert bring_to_foreground(second.hwnd), NEEDS_UNLOCKED
         assert foreground_hwnd() == second.hwnd
@@ -297,8 +280,6 @@ def test_focus_moved_after_capture_copies_instead_of_pasting(tk_root, preserved_
         assert str(ctx.window) in report.result.detail
         assert str(second.hwnd) in report.result.detail
         assert get_text() == TEXT
-        # No pump here: with both windows alive, one tkinter update can block for ten
-        # seconds or more. Nothing was injected, so there is nothing to wait for either.
         assert second.text.get("1.0", "end-1c") == ""
         assert first.text.get("1.0", "end-1c") == ""
     finally:
@@ -316,8 +297,6 @@ def test_focus_moved_after_capture_copies_instead_of_pasting(tk_root, preserved_
 def test_focus_moved_to_an_elevated_window_copies_with_copied_elevated():
     raise AssertionError("manual test, see the skip reason")
 
-
-# helper
 
 
 def test_ends_with_whitespace_matches_what_was_delivered(tkwin, preserved_clipboard):

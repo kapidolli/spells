@@ -78,15 +78,9 @@ class FakeHook:
         self.timers: dict[int, int] = {}
         self.loop_timers: dict[int, int] = {}
         self.timer_log: list[tuple[str, int, int | None]] = []
-        # Ordered record of everything that crossed the fake: ("sent", vk, keydown,
-        # extra_info), ("event", vk, keydown, swallowed) and ("lost", vk, keydown,
-        # extra_info) for injected keys that found no hook installed.
         self.trace: list[tuple] = []
         self.keys_down: set[int] = set()
         self.priority_calls: list[int] = []
-        # While positive, install_keyboard_hook raises (a failing SetWindowsHookEx)
-        # with install_error as the message; a test changes it between attempts to
-        # simulate the reason changing.
         self.install_failures_left = 0
         self.install_error = "SetWindowsHookEx failed: simulated"
         self.poll_ms: int | None = None
@@ -96,8 +90,6 @@ class FakeHook:
         self._on_timer: Callable[[int], None] | None = None
         self._pending: list[KeyEvent] = []
         self._next_handle = 1
-
-    # Contract -------------------------------------------------------------
 
     def install_keyboard_hook(self, callback: Callable[[KeyEvent], bool]) -> int:
         if self.install_failures_left > 0:
@@ -157,8 +149,6 @@ class FakeHook:
 
     def chord_available(self, modifiers: int, vk: int) -> bool:
         return True
-
-    # Test helpers ---------------------------------------------------------
 
     @property
     def callback(self) -> Callable[[KeyEvent], bool] | None:

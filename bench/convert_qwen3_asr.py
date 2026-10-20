@@ -63,8 +63,6 @@ class ConvertError(Exception):
     """A polite, user-facing refusal: bad input, missing tool, or a failed step."""
 
 
-# --------------------------------------------------------------------------- input checks
-
 
 def missing_input_files(input_dir: Path) -> list[str]:
     missing = [name for name in REQUIRED_INPUT_FILES if not (input_dir / name).is_file()]
@@ -89,8 +87,6 @@ def require_input_dir(input_dir: Path) -> None:
             f"{names}. Download the repository's files into this folder and try again."
         )
 
-
-# --------------------------------------------------------------------------- naming and sizes
 
 
 def default_prefix_from_input_dir(input_dir: Path) -> str:
@@ -125,8 +121,6 @@ def sha256_file(path: Path) -> str:
             digest.update(chunk)
     return digest.hexdigest()
 
-
-# --------------------------------------------------------------------------- fetching llama.cpp
 
 
 def read_llama_cpp_tag(pins_path: Path) -> str:
@@ -222,8 +216,6 @@ def fetch_llama_cpp(
     return convert_script
 
 
-# --------------------------------------------------------------------------- commands
-
 
 def text_convert_command(
     python_exe: Path, convert_script: Path, input_dir: Path, outfile: Path
@@ -295,8 +287,6 @@ def run_quantize(
     return dst
 
 
-# --------------------------------------------------------------------------- health check
-
 
 def wait_for_health(port: int, timeout_s: float = HEALTH_TIMEOUT_S) -> bool:
     deadline = time.perf_counter() + timeout_s
@@ -334,8 +324,6 @@ def verify_loads(
             process.wait(timeout=15)
 
 
-# --------------------------------------------------------------------------- catalog entry
-
 
 def catalog_entry_fields(
     prefix: str, quant: str, text_file: str, mmproj_file: str, text_size: int, mmproj_size: int
@@ -353,8 +341,6 @@ def catalog_entry_fields(
 def render_catalog_entry(fields: dict) -> str:
     return json.dumps(fields, indent=2)
 
-
-# --------------------------------------------------------------------------- CLI
 
 
 def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:

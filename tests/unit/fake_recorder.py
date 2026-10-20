@@ -32,7 +32,6 @@ class FakeRecorder:
         self.sample_rate = int(sample_rate) if sample_rate else NATIVE_SAMPLE_RATE
         self.on_level = on_level
         self.keep_open = keep_open
-        # Two seconds of non-zero samples, long enough for the auto-language path.
         self.pcm: bytes = b"\x01\x00" * (2 * self.sample_rate)
         self.start_error: MicError | None = None
         self.stop_error: MicError | None = None

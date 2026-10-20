@@ -78,8 +78,6 @@ def opener_for(body: bytes, **kwargs):
     return opener
 
 
-# --- version comparison ---------------------------------------------------------------------
-
 
 @pytest.mark.parametrize(
     "text",
@@ -149,8 +147,6 @@ def test_comparing_an_unreadable_version_raises():
 def test_an_update_this_app_cannot_reason_about_is_never_newer(candidate, current):
     assert not updates.is_newer(candidate, current)
 
-
-# --- the version file -----------------------------------------------------------------------
 
 
 def test_a_good_version_file_parses():
@@ -301,8 +297,6 @@ def test_the_download_never_chooses_its_own_place_on_the_disk(url, expected):
     assert updates.installer_name(url) == expected
 
 
-# --- deciding -------------------------------------------------------------------------------
-
 
 def test_a_newer_release_is_an_update():
     release = updates.parse_manifest(text_of(), source_url=SOURCE)
@@ -341,8 +335,6 @@ def test_a_minimum_version_already_installed_does_not_block():
 
     assert not updates.decide(release, "0.2.0").blocked
 
-
-# --- the two timers -------------------------------------------------------------------------
 
 
 def test_the_weekly_check_never_runs_without_permission():
@@ -386,8 +378,6 @@ def test_no_version_means_no_balloon():
     assert not updates.balloon_due(now=1.0, last_at=0.0, version="", last_version="")
 
 
-# --- the address fixed at build time --------------------------------------------------------
-
 
 def test_the_build_s_address_is_read_from_the_app_folder(tmp_path):
     (tmp_path / updates.SOURCE_FILE).write_text(
@@ -419,8 +409,6 @@ def test_a_build_without_a_usable_address_checks_nothing(tmp_path, body):
 def test_a_development_checkout_has_no_address_and_does_not_raise(tmp_path):
     assert updates.source_url(tmp_path / "nowhere") == ""
 
-
-# --- fetching -------------------------------------------------------------------------------
 
 
 def test_fetching_reads_the_address_it_was_given_and_times_out_quickly():
@@ -467,8 +455,6 @@ def test_an_installer_on_another_host_is_refused_even_when_the_server_answered()
     with pytest.raises(updates.UpdateError):
         updates.fetch_release(SOURCE, opener=opener_for(body.encode("utf-8")))
 
-
-# --- downloading ----------------------------------------------------------------------------
 
 
 def release_for(payload: bytes, **overrides) -> updates.Release:
@@ -596,8 +582,6 @@ def test_verify_file_agrees_with_the_download(tmp_path):
     assert not updates.verify_file(path, release)
 
 
-# --- launching ------------------------------------------------------------------------------
-
 
 def test_the_installer_is_started_silently_and_asks_for_the_app_to_come_back(tmp_path):
     installer = tmp_path / "Spells-Setup.exe"
@@ -638,8 +622,6 @@ def test_a_launch_that_fails_is_a_sentence_not_a_traceback(tmp_path):
     assert "could not be started" in str(caught.value)
 
 
-# --- the words on the page ------------------------------------------------------------------
-
 
 @pytest.mark.parametrize(
     ("size", "expected"),
@@ -662,8 +644,6 @@ def test_a_size_reads_the_way_the_rest_of_the_app_writes_one(size, expected):
 def test_a_date_reads_as_a_date(released, expected):
     assert updates.date_text(released) == expected
 
-
-# --- the setting ----------------------------------------------------------------------------
 
 
 def test_the_weekly_check_is_off_in_a_fresh_settings_file():

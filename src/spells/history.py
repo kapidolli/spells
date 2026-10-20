@@ -442,8 +442,6 @@ class HistoryStore:
         self._conn = conn
         self.prune()
 
-    # Lifecycle
-
     def close(self) -> None:
         with self._lock:
             if self._conn is not None:
@@ -455,8 +453,6 @@ class HistoryStore:
 
     def __exit__(self, *exc_info: object) -> None:
         self.close()
-
-    # State
 
     @property
     def retention(self) -> Retention:
@@ -495,8 +491,6 @@ class HistoryStore:
             self._skip_apps = _fold_apps(skip_apps)
             if self._conn is not None:
                 self._prune_locked()
-
-    # Writes
 
     def add(
         self,
@@ -621,8 +615,6 @@ class HistoryStore:
         with self._lock:
             return self._prune_recordings_locked(audio)
 
-    # Reads (each prunes first so expired rows never surface)
-
     def recent(self, limit: int = 100) -> list[HistoryEntry]:
         with self._lock:
             if self._conn is None:
@@ -652,8 +644,6 @@ class HistoryStore:
                 "SELECT timings FROM entries" + _NEWEST_FIRST, (limit,)
             ).fetchall()
         return [_timings_from_json(row[0]) for row in rows]
-
-    # Upload bookkeeping
 
     def install_id(self) -> str:
         with self._lock:
@@ -769,8 +759,6 @@ class HistoryStore:
                 "UPDATE entries SET uploaded_at = 0 WHERE uploaded_at > 0 AND audio_file <> ''"
             )
             return int(cursor.rowcount or 0)
-
-    # Internals (call with the lock held and a connection open)
 
     def _prune_locked(self) -> None:
         assert self._conn is not None

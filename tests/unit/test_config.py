@@ -99,8 +99,6 @@ def _backup_files(directory: Path) -> list[Path]:
     return sorted(directory.glob("settings.corrupt-*.json"))
 
 
-# --- defaults and shape ---
-
 
 def test_default_settings_match_spec():
     settings = default_settings()
@@ -179,8 +177,6 @@ def test_settings_are_frozen():
 def test_settings_error_is_a_value_error():
     assert issubclass(SettingsError, ValueError)
 
-
-# --- to_dict / from_dict ---
 
 
 def test_to_dict_round_trips_through_json():
@@ -305,8 +301,6 @@ def test_from_dict_accepts_locked_mode_for_an_enabled_language():
     assert from_dict(raw).general.language_mode == "fr"
 
 
-# --- chord conflicts (hotkey verification): nested key sets can never both fire ---
-
 
 def _chords_raw(main: list[int], *language_chords: tuple[list[int], str]) -> dict:
     return {
@@ -325,7 +319,6 @@ def test_equal_chords_are_rejected():
 
 
 def test_chord_that_is_a_subset_of_another_is_rejected():
-    # Ctrl+Win fires on the hook before Ctrl+Win+D is complete, so the longer chord is dead.
     with pytest.raises(SettingsError, match=r"main_chord.*language_chords\[0\]"):
         from_dict(_chords_raw([0x11, 0x5B], ([0x11, 0x5B, 0x44], "de")))
 
@@ -356,15 +349,15 @@ def test_chord_key_order_does_not_matter():
 @pytest.mark.parametrize(
     ("first", "second"),
     [
-        ([0xA2, 0x5B], [0x11, 0x5B]),  # VK_LCONTROL counts as VK_CONTROL
-        ([0xA3, 0x5B], [0x11, 0x5B]),  # VK_RCONTROL counts as VK_CONTROL
-        ([0xA0, 0x44], [0xA1, 0x44]),  # VK_LSHIFT and VK_RSHIFT both count as VK_SHIFT
-        ([0xA0, 0x44], [0x10, 0x44]),  # VK_LSHIFT counts as VK_SHIFT
-        ([0xA4, 0x44], [0x12, 0x44]),  # VK_LMENU counts as VK_MENU
-        ([0xA5, 0x44], [0xA4, 0x44]),  # VK_RMENU and VK_LMENU both count as VK_MENU
-        ([0xA2, 0x5B], [0x11, 0x5B, 0x44]),  # generic form applies to subsets too
-        ([0x11, 0x11, 0x5B], [0x11, 0x5B]),  # a duplicated key folds harmlessly
-        ([0xA2, 0xA3, 0x44], [0x11, 0x44]),  # VK_LCONTROL and VK_RCONTROL both fold to VK_CONTROL
+        ([0xA2, 0x5B], [0x11, 0x5B]),
+        ([0xA3, 0x5B], [0x11, 0x5B]),
+        ([0xA0, 0x44], [0xA1, 0x44]),
+        ([0xA0, 0x44], [0x10, 0x44]),
+        ([0xA4, 0x44], [0x12, 0x44]),
+        ([0xA5, 0x44], [0xA4, 0x44]),
+        ([0xA2, 0x5B], [0x11, 0x5B, 0x44]),
+        ([0x11, 0x11, 0x5B], [0x11, 0x5B]),
+        ([0xA2, 0xA3, 0x44], [0x11, 0x44]),
     ],
 )
 def test_left_and_right_modifiers_count_as_the_generic_key(first, second):
@@ -395,8 +388,6 @@ def test_from_dict_error_names_the_offending_key():
     with pytest.raises(SettingsError, match="general.autostart"):
         from_dict({"general": {"autostart": "yes"}})
 
-
-# --- migrate ---
 
 
 def test_migrate_treats_missing_schema_version_as_one():
@@ -429,8 +420,6 @@ def test_migrate_rejects_non_object():
     with pytest.raises(SettingsError):
         migrate([1, 2, 3])
 
-
-# --- paths, save, load ---
 
 
 @pytest.mark.windows
@@ -579,7 +568,6 @@ def test_load_five_corrupt_files_in_one_second_keep_the_three_newest(tmp_path, m
         load(path)
         created = [p for p in _backup_files(tmp_path) if p.name not in seen]
         assert len(created) == 1, "each load moves exactly one file aside"
-        # Pin the mtime so the test does not depend on filesystem timestamp resolution.
         os.utime(created[0], (base + version, base + version))
         seen = {p.name for p in _backup_files(tmp_path)}
 
@@ -589,7 +577,6 @@ def test_load_five_corrupt_files_in_one_second_keep_the_three_newest(tmp_path, m
 
 def test_prune_backups_orders_by_mtime_not_by_name(tmp_path):
     path = tmp_path / "settings.json"
-    # Name order is the reverse of age: the unsuffixed name sorts last but is the oldest.
     names = [
         "settings.corrupt-20300101-000000.json",
         "settings.corrupt-20300101-000000-1.json",
@@ -608,8 +595,6 @@ def test_prune_backups_orders_by_mtime_not_by_name(tmp_path):
 
 
 def test_backup_of_a_stale_file_counts_as_the_newest(tmp_path, monkeypatch):
-    # A corrupt settings.json restored from an old copy keeps its old mtime; the backup
-    # made from it must still be the newest so it is not pruned first.
     monkeypatch.setattr(config, "_timestamp", lambda: "20300101-000000")
     for age in range(3):
         backup = tmp_path / f"settings.corrupt-2020010{age + 1}-000000.json"
@@ -649,8 +634,6 @@ def test_load_unreadable_file_returns_defaults_with_notice(tmp_path):
     assert notice is not None
     assert path.is_dir(), "an unreadable path is left alone"
 
-
-# --- ConfigStore ---
 
 
 def test_store_loads_existing_file(tmp_path):
@@ -721,7 +704,7 @@ def test_store_subscribe_and_unsubscribe(tmp_path):
     assert seen == [first]
 
     unsubscribe()
-    unsubscribe()  # a second call is harmless
+    unsubscribe()
     store.update(lambda s: dataclasses.replace(s, history=HistorySettings("30d")))
     assert seen == [first]
 
@@ -805,8 +788,6 @@ def test_store_update_keeps_old_settings_when_save_fails(tmp_path, monkeypatch):
     assert store.settings == default_settings()
     assert seen == []
 
-
-# --- the online installer's first-run language file (B5-32) ---
 
 
 def _write_first_run(tmp_path: Path, text: str) -> Path:
@@ -987,8 +968,6 @@ def test_bad_history_audio_values_are_refused(raw):
         from_dict({"schema_version": 1, **raw})
 
 
-# --- the writing chords (spec 8.5): compose and edit ---
-
 
 def test_the_writing_chords_are_empty_by_default():
     general = default_settings().general
@@ -1100,8 +1079,6 @@ def test_a_left_control_writing_chord_still_conflicts_with_the_generic_main_chor
     with pytest.raises(SettingsError):
         from_dict(raw)
 
-
-# --- the upload block ---
 
 
 def test_uploading_is_off_by_default_and_a_file_without_the_block_loads():

@@ -75,12 +75,9 @@ TOOLS = ("gcc", "cmake", "ninja", "glslc")
 PACMAN_ATTEMPTS = 3
 POLICY_ATTEMPTS = 4
 POLICY_RETRY_DELAY_S = 5
-ERROR_APPCONTROL_BLOCKED = 4551  # WinError from CreateProcess when code integrity rejects the exe
+ERROR_APPCONTROL_BLOCKED = 4551
 CODE_INTEGRITY_LOG = "Microsoft-Windows-CodeIntegrity/Operational"
 
-# Windows variables that native tools and the MSYS2 runtime need. Nothing from the calling
-# shell (a Git Bash or another MSYS2 instance) leaks in, so MSYSTEM, HOME, PATH and friends are
-# always the values set here.
 PASSTHROUGH_VARS = (
     "SystemRoot", "SystemDrive", "windir", "TEMP", "TMP", "USERPROFILE", "USERNAME",
     "COMPUTERNAME", "ProgramData", "ALLUSERSPROFILE", "APPDATA", "LOCALAPPDATA", "HOMEDRIVE",
@@ -106,8 +103,6 @@ class BootstrapError(Exception):
     pass
 
 
-# ----------------------------------------------------------------------------- environment
-
 
 def clean_windows_env(extra_path: list[Path] | None = None) -> dict[str, str]:
     """A minimal Windows environment: system variables plus PATH = extra_path + System32."""
@@ -125,7 +120,6 @@ def msys_env() -> dict[str, str]:
     env["MSYSTEM"] = "UCRT64"
     env["CHERE_INVOKING"] = "yes"
     env["MSYS2_PATH_TYPE"] = "minimal"
-    # keep the login shell's home inside the toolchain directory, not in the user profile
     env["HOME"] = str(MSYS_DIR / "home" / env.get("USERNAME", "user"))
     return env
 
@@ -142,8 +136,6 @@ def cmake_exe() -> Path:
     """The signed Kitware cmake when extracted, otherwise MSYS2's."""
     return CMAKE_EXE if CMAKE_EXE.exists() else UCRT_BIN / "cmake.exe"
 
-
-# ----------------------------------------------------------------------------- code integrity
 
 
 def is_policy_block(exc: OSError) -> bool:
@@ -207,8 +199,6 @@ def run_tool(cmd: list[str], *, cwd: Path, env: dict[str, str],
         f"or a policy change is needed (see Windows Security > App & browser control).")
 
 
-# ----------------------------------------------------------------------------- msys2 shell
-
 
 def run_bash(command: str, *, check: bool = True) -> subprocess.CompletedProcess:
     print(f"+ bash -lc {command!r}", flush=True)
@@ -237,8 +227,6 @@ def run_pacman(args: str) -> subprocess.CompletedProcess:
             time.sleep(5)
     raise BootstrapError(f"{command!r} failed {PACMAN_ATTEMPTS} times (last exit code {last.returncode})")
 
-
-# ----------------------------------------------------------------------------- steps
 
 
 def extract_sfx() -> None:
@@ -299,9 +287,6 @@ def installed_versions() -> dict[str, str | None]:
 
 
 def system_update_online() -> None:
-    # The first run may stop right after replacing msys2-runtime and pacman ("all MSYS2
-    # processes will be closed"); every bash below is a fresh process, so the second run
-    # simply continues with the rest of the update.
     run_pacman("-Syuu")
     run_pacman("-Syuu")
 
@@ -327,7 +312,6 @@ def install_offline(pins: dict) -> None:
         if name.endswith((".pkg.tar.zst", ".pkg.tar.xz")):
             packages.append(to_posix(path))
     print(f"offline: {len(packages)} package files verified in {PKG_CACHE}")
-    # twice for the same reason as the online -Syuu pair: a runtime update may stop the first run
     run_pacman("-U --needed " + " ".join(packages))
     run_pacman("-U --needed " + " ".join(packages))
 
@@ -434,8 +418,6 @@ def toolchain_selftest() -> None:
             raise BootstrapError(f"selftest hello.exe printed {result.stdout!r}")
         print(f"  selftest {label:10s} ok")
 
-
-# ----------------------------------------------------------------------------- main
 
 
 def report_elevation() -> bool | None:

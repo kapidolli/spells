@@ -147,8 +147,6 @@ def with_recording(tmp_path, entry, name: str = "000001.wav", seconds: float = 2
     return store
 
 
-# The list, the badge and the summary
-
 
 def test_the_table_has_a_quality_and_a_sound_column(app, tmp_path):
     ui = make_page(tmp_path, entries=[history_entry(1)])
@@ -210,8 +208,6 @@ def test_the_summary_follows_the_search(app, tmp_path):
     assert ui.page.rate_stat.value.text() == "100"
 
 
-# The speaking stats of one row
-
 
 def test_the_selected_row_shows_how_it_was_spoken(app, tmp_path):
     entry = history_entry(
@@ -245,8 +241,6 @@ def test_the_stats_line_is_empty_without_a_selection(app, tmp_path):
     ui.page._show_selected()
     assert ui.page.stats_line.text() == ""
 
-
-# Export
 
 
 def test_export_writes_json_and_says_where_it_went(app, tmp_path):
@@ -317,8 +311,6 @@ def test_a_failed_export_is_reported_and_not_raised(app, tmp_path):
     assert ui.page.export("json") is None
     assert "Could not write" in ui.messages.texts[-1]
 
-
-# Recordings
 
 
 def test_a_row_with_a_recording_gets_a_play_control(app, tmp_path):
@@ -437,8 +429,6 @@ def test_deleting_a_row_goes_through_the_store(app, tmp_path):
     assert ui.page.table.rowCount() == 1
 
 
-# The on-demand check
-
 
 def test_checking_one_row_stores_the_verdict(app, tmp_path):
     ui = make_page(tmp_path, entries=[history_entry(1, raw="krbl mmm what")])
@@ -503,8 +493,6 @@ def test_check_line_reads_plainly():
     assert "reads correctly" in line
     assert check_line(history_entry(2)) == ""
 
-
-# WavPlayer and its helpers
 
 
 class FakeStream:
@@ -630,8 +618,6 @@ def test_play_cell_swaps_its_glyph(app):
     assert cell.button.toolTip() == "Play this recording"
 
 
-# CheckRunner
-
 
 def test_the_runner_walks_the_batch_in_order(app):
     seen: list[tuple[int, object]] = []
@@ -678,8 +664,6 @@ def test_the_prompt_the_page_would_send_never_asks_for_a_rewrite():
     system, _user = quality.check_messages("hello", "English")
     assert "never rewrite" in system
 
-
-# Written rows read as written (spec 8.5) ------------------------------------------------------
 
 
 def written_entry(index: int = 1, **overrides):

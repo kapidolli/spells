@@ -31,19 +31,14 @@ logger = logging.getLogger(__name__)
 
 LIST_TIMEOUT_S = 20
 VISIBLE_DEVICES_ENV = "GGML_VK_VISIBLE_DEVICES"
-# Extra raw indices tried beyond the unfiltered count; the first empty run ends the probe.
 PROBE_SLACK = 2
-# Model path handed to whisper-server for the backend probe; it must never exist.
 PROBE_MODEL_NAME = "spells-gpu-probe-no-such-model.bin"
 
-# "  Vulkan0: NVIDIA GeForce RTX 5060 Laptop GPU (7810 MiB, 7042 MiB free)" (common/arg.cpp)
 _DEVICE_LINE = re.compile(
     r"^\s*(?P<list_name>Vulkan\d+):\s+(?P<name>.+?)\s+"
     r"\((?P<total>\d+)\s+MiB,\s+(?P<free>\d+)\s+MiB free\)\s*$",
     re.IGNORECASE,
 )
-# "ggml_vulkan: 0 = AMD Radeon(TM) 610M (AMD proprietary driver) | uma: 1 | fp16: 1 | ..."
-# The name may contain parentheses; the vendor is the last group before " | uma:".
 _BACKEND_LINE = re.compile(
     r"^ggml_vulkan: \d+ = (?P<name>.*) \((?P<vendor>[^()]*)\) \| uma: (?P<uma>[01])\b"
 )

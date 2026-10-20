@@ -88,8 +88,6 @@ class FakeWhisper(WhisperClient):
         return self.responses.pop(0)
 
 
-# wav
-
 
 def test_pcm16_to_wav_header_and_payload():
     data = b"\x01\x02" * SR
@@ -119,8 +117,6 @@ def test_pcm16_to_wav_header_for_a_non_16khz_rate():
     assert block_align == 1 * 2
 
 
-# vocabulary prompt (spec 7.3, decisions V2-5 and E8)
-
 
 def test_build_prompt_joins_oldest_to_newest():
     assert build_prompt(["Alpha", "Beta", "Gamma"]) == "Alpha, Beta, Gamma"
@@ -147,8 +143,6 @@ def test_build_prompt_exactly_500_is_untouched():
     term = "x" * 500
     assert build_prompt([term]) == term
 
-
-# language table
 
 
 def test_language_json_has_100_lowercase_names_and_unique_codes():
@@ -179,8 +173,6 @@ def test_name_to_code():
     with pytest.raises(KeyError):
         name_to_code("klingon")
 
-
-# hallucination filter (spec 7.4)
 
 
 @pytest.mark.parametrize(
@@ -214,8 +206,6 @@ def test_known_hallucinations_are_filtered(text):
 def test_ordinary_text_is_not_a_hallucination(text):
     assert not is_hallucination(text)
 
-
-# language policy (spec 7.2 with V2-8)
 
 
 def test_locked_mode_forces_the_locked_language():
@@ -430,8 +420,6 @@ def test_short_clip_auto_request_gets_the_scaled_timeout():
     assert client.calls[0]["timeout_s"] == pytest.approx(12.0)
 
 
-# WhisperClient over stdlib urllib
-
 
 class FakeResponse:
     def __init__(self, body: bytes, status: int = 200):
@@ -597,8 +585,6 @@ def test_health_false_on_503_or_connection_error(monkeypatch):
     assert WhisperClient("http://127.0.0.1:8080").health() is False
 
 
-# confidence scores of the accepted answer (spec 8.4)
-
 
 def segments(**overrides) -> list[dict]:
     base = {
@@ -658,8 +644,6 @@ def test_the_fallback_path_reports_the_scores_of_the_final_request():
     assert t is not None and t.fallback_used
     assert seen[0].avg_logprob == pytest.approx(-0.2)
 
-
-# Aborting a request in flight (spec 6 live partials, B5-57) ------------------------------
 
 
 class ClosableResponse:

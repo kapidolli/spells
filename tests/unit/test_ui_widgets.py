@@ -43,8 +43,6 @@ def _rendered(widget: QtWidgets.QWidget) -> QtGui.QImage:
     return image
 
 
-# Toggle switch ---------------------------------------------------------------------------------
-
 
 def test_toggle_switch_is_a_checkable_button(app):
     switch = ToggleSwitch()
@@ -82,8 +80,6 @@ def test_toggle_switch_keyboard_and_paint(app):
     switch.close()
     off.close()
 
-
-# Segmented control -------------------------------------------------------------------------------
 
 
 def test_segmented_control_offers_the_combo_calls(app):
@@ -139,8 +135,6 @@ def test_segmented_control_follows_clicks_and_arrow_keys(app):
     control.close()
 
 
-# Navigation -----------------------------------------------------------------------------------------
-
 
 def test_nav_rail_selects_one_item_and_reports_clicks(app):
     rail = NavRail()
@@ -159,8 +153,6 @@ def test_nav_rail_selects_one_item_and_reports_clicks(app):
     _rendered(rail)
     rail.close()
 
-
-# Keycaps, chips, badges ----------------------------------------------------------------------------
 
 
 def test_keycaps_keep_the_familiar_label(app):
@@ -220,8 +212,6 @@ def test_badge_info_bar_dot_and_meter(app):
         widget.close()
 
 
-# Cards, rows and layout ----------------------------------------------------------------------------
-
 
 def test_card_rows_are_separated_and_cleared(app):
     card = Card()
@@ -270,8 +260,6 @@ def test_combo_and_spin_box_paint_their_chevrons(app):
         assert not image.isNull()
         widget.close()
 
-
-# Brand marks ---------------------------------------------------------------------------------------
 
 
 def test_logo_falls_back_to_the_drawn_mark(app, monkeypatch, tmp_path):

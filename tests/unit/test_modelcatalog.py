@@ -85,8 +85,6 @@ def all_ids(models):
     return frozenset(model.id for model in models)
 
 
-# The shipped catalog ----------------------------------------------------------------------------
-
 
 def test_the_shipped_catalog_parses_and_names_every_measured_model():
     models = load_catalog()
@@ -186,8 +184,6 @@ def test_the_catalog_file_has_no_em_dash():
     assert EM_DASH not in modelcatalog.default_catalog_path().read_text(encoding="utf-8")
 
 
-# Parsing -------------------------------------------------------------------------------------
-
 
 GOOD = asr("w", {"en": 90})
 
@@ -274,8 +270,6 @@ def test_the_star_scores_every_unmeasured_language():
     assert strict.score("fr") is None
 
 
-# Installed models ------------------------------------------------------------------------------
-
 
 def test_a_model_is_installed_when_its_file_and_every_extra_file_are_present(tmp_path):
     models = catalog(
@@ -304,8 +298,6 @@ def test_installed_ids_reads_the_shipped_catalog_by_default(tmp_path):
     (tmp_path / "gemma-4-E2B-it-Q4_0.gguf").write_bytes(b"")
     assert installed_ids(tmp_path) == frozenset({WHISPER})
 
-
-# Hardware ------------------------------------------------------------------------------------
 
 
 def gpu_selection(uma, memory_mb, raw_index=0):
@@ -347,8 +339,6 @@ def test_a_device_missing_from_the_list_falls_back_to_the_selection_memory():
     assert hardware_from_gpu(GpuSelection(raw_index=3, name="Ghost", memory_mb=1024,
                                           devices=())) is CPU
 
-
-# Worked examples on the shipped catalog ------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -562,8 +552,6 @@ def test_a_language_no_installed_cleanup_model_measured_turns_cleanup_off():
     )
 
 
-# Speech recognition rule ------------------------------------------------------------------------
-
 
 def test_each_language_gets_the_best_speech_model_and_languages_share_one_choice():
     models = catalog(
@@ -656,8 +644,6 @@ def test_speech_quality_words_follow_the_scores():
         "Recognises English very well, German well, Albanian fairly well and Italian poorly."
     )
 
-
-# Cleanup rule ------------------------------------------------------------------------------------
 
 
 def test_a_model_harmful_for_any_enabled_language_is_excluded():
@@ -824,8 +810,6 @@ def test_duplicate_languages_count_once_and_no_language_selects_nothing():
     assert empty.asr == () and empty.cleanup is None and empty.notes == ()
 
 
-# Contract --------------------------------------------------------------------------------------
-
 
 def test_the_contract_names_the_ui_builds_against_stay():
     choice = ModelChoice(
@@ -851,8 +835,6 @@ def test_default_catalog_path_is_in_the_data_folder():
     assert modelcatalog.default_catalog_path().parts[-2:] == ("models", "catalog.json")
     assert isinstance(modelcatalog.default_catalog_path(), Path)
 
-
-# The writing model for compose mode (B5-44) ------------------------------------------------------
 
 
 def test_the_shipped_catalog_carries_a_writing_entry_beside_each_usable_cleanup_model():
@@ -971,8 +953,6 @@ def test_one_text_model_is_true_only_when_the_two_choices_are_the_same_file():
     assert select_models(["en", "de", "sq"], CPU).one_text_model is False
     assert Selection(hardware=CPU, asr=(), cleanup=None, notes=()).one_text_model is False
 
-
-# The size budget and the install plan (B5-46, B5-45) ---------------------------------------------
 
 
 def test_two_entries_for_the_same_file_are_counted_once():

@@ -35,10 +35,6 @@ from spells.vk import GENERIC_OF, SPECIFIC_OF, VK_LWIN, VK_RWIN
 
 log = logging.getLogger(__name__)
 
-# Private dwExtraInfo tags. PROBE_TAG marks the liveness probe (spec 13); MASK_TAG
-# marks every key Spells itself injects for the target app, which is the Start menu
-# mask key and the synthetic key-ups of B3-11. The probe and the mask key share
-# VK 0xE8, so the tag is what tells them apart in the hook callback.
 PROBE_TAG = 0x55545452
 MASK_TAG = 0x5554544D
 MASK_VK = 0xE8
@@ -46,16 +42,11 @@ VK_PROBE = 0xE8
 VK_ESCAPE = 0x1B
 LLKHF_INJECTED = 0x10
 
-# The chord keys themselves come from spells.vk, shared with config's chord
-# validation so the two cannot disagree about what counts as a modifier.
 WIN_VKS = frozenset({VK_LWIN, VK_RWIN})
-# Every modifier the hook can report: the three generic codes, their six
-# side-specific codes, and the two Win keys, which have no generic code.
 MODIFIER_VKS = frozenset(SPECIFIC_OF) | frozenset(GENERIC_OF) | WIN_VKS
 
 MASK_INJECT = ((MASK_VK, True, MASK_TAG), (MASK_VK, False, MASK_TAG))
 
-# Timer ids used with the backend's message loop.
 TIMER_TICK = 1
 TIMER_PROBE = 2
 TIMER_PROBE_CHECK = 3
@@ -147,8 +138,6 @@ class ChordStateMachine:
         self._callbacks = callbacks
         self._now = now
         self._mask_inject = mask_inject
-        # Integer milliseconds: the spec states these limits in ms, the hook is
-        # ms-granular, and float subtraction noise must not move a boundary.
         self._tap_max_ms = round(tap_max_s * 1000)
         self._tap_window_ms = round(tap_window_s * 1000)
         self._on_exception = on_exception
@@ -165,8 +154,6 @@ class ChordStateMachine:
         self._probe_seen = False
         self._writing_id: int | None = None
         self.callback_exceptions = 0
-
-    # Public state ----------------------------------------------------------
 
     @property
     def state(self) -> ChordState:
@@ -246,8 +233,6 @@ class ChordStateMachine:
         self._swallowed &= self._down
         self._released &= self._down
 
-    # Event handling ------------------------------------------------------------
-
     def on_tick(self) -> None:
         """Timer entry point: evaluates tap-window expiry."""
         self._expire_tap_window()
@@ -255,8 +240,6 @@ class ChordStateMachine:
     def on_key(self, event: KeyEventLike) -> Decision:
         vk = event.vk
         extra_info = event.extra_info
-        # B3-25: all three of vk, the injected flag and the private tag must match,
-        # so no key a real keyboard can produce is ever taken for our own probe.
         if vk == VK_PROBE and extra_info == PROBE_TAG and event.flags & LLKHF_INJECTED:
             self._probe_seen = True
             return Decision(swallow=True)
@@ -331,8 +314,6 @@ class ChordStateMachine:
         self._swallowed.discard(vk)
         inject: tuple[tuple[int, bool, int], ...] = ()
         if vk in WIN_VKS and self._mask_pending:
-            # A chord swallowed the keys pressed during this Win hold, so Windows
-            # would treat the key-up as a lone Win tap and open the Start menu.
             self._mask_pending = False
             if not released:
                 inject = self._mask_inject
@@ -360,9 +341,7 @@ class ChordStateMachine:
                 self._discard()
                 self._start(chord)
         elif state is ChordState.LATCHED:
-            # This press only ends the latch; it is consumed, its release is ignored.
             self._release()
-        # HELD: another chord while one is held is ignored.
 
     def _expire_tap_window(self) -> None:
         if (
@@ -509,8 +488,6 @@ class HotkeyThread(threading.Thread):
         self._handle: int | None = None
         self._installed_once = False
 
-    # Cross-thread API -------------------------------------------------------
-
     @property
     def recording(self) -> bool:
         return self._sm.recording
@@ -557,16 +534,12 @@ class HotkeyThread(threading.Thread):
         if self.is_alive():
             self.join(timeout)
 
-    # Thread body -----------------------------------------------------------------
-
     def run(self) -> None:
         sys.setswitchinterval(SWITCH_INTERVAL_S)
         try:
             self._backend.set_current_thread_priority_highest()
         except Exception:
             log.exception("could not raise the hotkey thread priority")
-        # A refused install is not fatal: the message loop starts anyway and the tick
-        # retries until the hook takes, so the thread outlives a bad moment (B3-26).
         self._install()
         timers = {TIMER_TICK: TICK_MS}
         if self._backend.supports_probe:
@@ -599,7 +572,6 @@ class HotkeyThread(threading.Thread):
                     self._reinstall_requested.clear()
                     self._reinstall()
                 elif self._handle is None:
-                    # An install Windows refused, retried until it takes (B3-26).
                     self._install()
                 self._apply_pending_ends()
                 self._sm.on_tick()
@@ -614,7 +586,7 @@ class HotkeyThread(threading.Thread):
     def _send_probe(self) -> None:
         if self._sm.recording:
             return
-        self._sm.consume_probe()  # only this probe may satisfy the check
+        self._sm.consume_probe()
         self._backend.send_key(VK_PROBE, True, PROBE_TAG)
         self._backend.send_key(VK_PROBE, False, PROBE_TAG)
         self.stats.probes_sent += 1
@@ -644,8 +616,6 @@ class HotkeyThread(threading.Thread):
             message = f"keyboard hook install failed: {exc}"
             log.exception("keyboard hook install failed")
             if message != self.stats.last_error:
-                # The retry runs every 50 ms, so report one tray warning per distinct
-                # error rather than twenty a second for as long as the hook is refused.
                 self._report_error(message)
             self.stats.last_error = message
             return False
@@ -653,7 +623,6 @@ class HotkeyThread(threading.Thread):
             self.stats.reinstalls += 1
         self._installed_once = True
         if self.stats.last_error:
-            # The hook is back after a refusal: an empty message clears the tray warning.
             self.stats.last_error = ""
             self._report_error("")
         self._sm.resync(self._backend.is_key_down)
@@ -674,7 +643,6 @@ class HotkeyThread(threading.Thread):
         try:
             self._backend.uninstall_keyboard_hook(handle)
         except Exception:
-            # Expected when Windows already removed the hook.
             log.debug("uninstall of hook %r failed", handle, exc_info=True)
 
     def _reinstall(self) -> None:

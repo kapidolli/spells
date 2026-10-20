@@ -23,8 +23,6 @@ pytestmark = pytest.mark.windows
 IS_64BIT = ctypes.sizeof(ctypes.c_void_p) == 8
 
 
-# split_batches
-
 
 def test_split_batches_keeps_surrogate_pair_together_at_the_boundary():
     text = "a" * 49 + "\U0001f600" + "b" * 10
@@ -57,8 +55,6 @@ def test_split_batches_rejects_batch_size_below_one():
     with pytest.raises(ValueError):
         win_input.split_batches("x", 0)
 
-
-# plan_batch
 
 
 def test_plan_batch_newline_produces_enter_markers():
@@ -101,8 +97,6 @@ def test_modifier_vks_cover_generic_and_side_specific_keys():
     )  # fmt: skip
 
 
-# should_snapshot_format
-
 
 @pytest.mark.parametrize(
     "fmt",
@@ -137,8 +131,8 @@ def test_should_snapshot_format_rejects_gdi_display_private_and_invalid(fmt):
         clipboard.CF_DIB,
         clipboard.CF_DIBV5,
         clipboard.CF_HDROP,
-        0xC000,  # first registered format id
-        0xC0A5,  # a typical registered format such as HTML Format
+        0xC000,
+        0xC0A5,
         0xFFFF,
     ],
 )
@@ -157,18 +151,16 @@ def test_clipboard_snapshot_defaults():
     assert snap.sequence == 0
 
 
-# integrity comparison
-
 
 @pytest.mark.parametrize(
     ("level", "own", "expected"),
     [
-        (None, 0x2000, True),  # access denied counts as higher
-        (0x3000, 0x2000, True),  # high above medium
-        (0x4000, 0x2000, True),  # system above medium
-        (0x2000, 0x2000, False),  # same level
-        (0x1000, 0x2000, False),  # low below medium
-        (0x2000, 0x3000, False),  # medium seen from an elevated process
+        (None, 0x2000, True),
+        (0x3000, 0x2000, True),
+        (0x4000, 0x2000, True),
+        (0x2000, 0x2000, False),
+        (0x1000, 0x2000, False),
+        (0x2000, 0x3000, False),
     ],
 )
 def test_is_higher_integrity(level, own, expected):
@@ -179,8 +171,6 @@ def test_integrity_rid_constants():
     assert window.SECURITY_MANDATORY_MEDIUM_RID == 0x2000
     assert window.SECURITY_MANDATORY_HIGH_RID == 0x3000
 
-
-# KeyEvent from a fake KBDLLHOOKSTRUCT
 
 
 def _fake_struct(**overrides):
@@ -257,8 +247,6 @@ def test_process_constants():
     assert process.CREATE_NO_WINDOW == 0x08000000
 
 
-# struct layouts (sizes as the Windows SDK defines them on x64)
-
 
 @pytest.mark.skipif(not IS_64BIT, reason="layout sizes are asserted for 64-bit builds")
 def test_struct_sizes_match_the_sdk():
@@ -270,8 +258,6 @@ def test_struct_sizes_match_the_sdk():
     assert ctypes.sizeof(msgwindow.WNDCLASSEXW) == 80
     assert ctypes.sizeof(window.MONITORINFO) == 40
 
-
-# spawn_hidden cleanup when the job assignment fails
 
 
 class _FakeProc:
@@ -335,8 +321,6 @@ def _patched_spawn(monkeypatch, tmp_path, job, resume_error=None):
 def test_spawn_hidden_kills_the_child_when_the_assignment_raises_value_error(
     monkeypatch, tmp_path
 ):
-    # JobObject.assign raises ValueError on a closed job; only OSError used to be caught,
-    # so the suspended child was left behind: invisible, running and owned by nobody.
     job = _FakeJob(ValueError("job object is closed"))
     proc, calls, spawn = _patched_spawn(monkeypatch, tmp_path, job)
     with pytest.raises(ValueError):
@@ -443,8 +427,6 @@ def test_an_empty_affinity_mask_is_refused():
         process.set_process_affinity(1, 0)
 
 
-# session-notification registration retry
-
 
 class _FakeSessionApi:
     """The four Win32 calls SessionNotificationRetry drives, recorded."""
@@ -489,15 +471,13 @@ def test_session_notification_registers_on_the_first_try_without_a_timer():
 
 
 def test_session_notification_retries_on_the_timer_until_it_succeeds():
-    # RPC_S_INVALID_BINDING is what the call returns at logon autostart, before the
-    # Remote Desktop Services dependencies have started.
     api = _FakeSessionApi([msgwindow.RPC_S_INVALID_BINDING, msgwindow.RPC_S_INVALID_BINDING, None])
     retry = api.retry()
     armed_once = [(msgwindow.SESSION_RETRY_TIMER_ID, msgwindow.SESSION_RETRY_INTERVAL_MS)]
     assert retry.start() is False
     assert api.armed == armed_once
     assert retry.on_timer() is False
-    assert api.armed == armed_once  # armed once, not re-armed on every tick
+    assert api.armed == armed_once
     assert retry.on_timer() is True
     assert retry.registered is True
     assert retry.attempts == 3
@@ -519,7 +499,7 @@ def test_session_notification_gives_up_after_five_minutes_with_one_log_line(capl
     assert api.disarmed == [msgwindow.SESSION_RETRY_TIMER_ID]
     assert len([r for r in caplog.records if r.levelno >= logging.WARNING]) == 1
     retry.stop()
-    assert api.unregistered == []  # nothing was ever registered, so nothing is undone
+    assert api.unregistered == []
 
 
 def test_session_notification_stop_while_retrying_kills_the_timer_only():
@@ -529,7 +509,7 @@ def test_session_notification_stop_while_retrying_kills_the_timer_only():
     retry.stop()
     assert api.disarmed == [msgwindow.SESSION_RETRY_TIMER_ID]
     assert api.unregistered == []
-    assert retry.on_timer() is False  # a tick after stop() does not register again
+    assert retry.on_timer() is False
     assert retry.registered is False
 
 
@@ -540,8 +520,6 @@ def test_session_retry_constants_cover_five_minutes_at_five_seconds():
     assert msgwindow.SESSION_RETRY_MAX_ATTEMPTS == 60
     assert msgwindow.WM_TIMER == 0x0113
 
-
-# release_held_modifiers and the Start menu mask
 
 
 def _fake_input_backend(monkeypatch, down: tuple[int, ...]):
@@ -586,7 +564,7 @@ def test_release_held_modifiers_masks_each_win_key_in_release_order(monkeypatch)
         (win_input.VK_SHIFT, False, 0),
         (win_input.VK_LSHIFT, False, 0),
     ]
-    assert len(calls) == 1  # one SendInput call, so nothing can interleave with the mask
+    assert len(calls) == 1
 
 
 def test_release_held_modifiers_sends_no_mask_without_a_win_key(monkeypatch):
@@ -602,9 +580,6 @@ def test_release_held_modifiers_sends_nothing_when_no_modifier_is_down(monkeypat
 
 
 def test_mask_key_and_tag_match_the_hook_and_hotkey_layers():
-    # The masking key is the key the hook injects on a Win key-up, with the same private
-    # dwExtraInfo tag, so the hotkey state machine passes it through instead of reading it
-    # as a chord key or as the liveness probe.
     assert win_input.MASK_VK == hotkey.MASK_VK == hook.VK_PROBE == 0xE8
     assert win_input.MASK_TAG == hotkey.MASK_TAG
     assert win_input.MASK_TAG != hotkey.PROBE_TAG
@@ -639,8 +614,6 @@ def test_input_modifier_constants_come_from_the_shared_vk_module():
         vk.VK_RMENU,
     )
 
-
-# set_text and restore sequence handling
 
 
 class _FakeClipboard:
@@ -711,20 +684,17 @@ def test_set_text_returns_a_sequence_read_while_the_clipboard_is_held(monkeypatc
     sequence = clipboard.set_text("dictated text")
     assert fake.puts == [(clipboard.CF_UNICODETEXT, "dictated text".encode("utf-16-le") + b"\x00\x00")]
     assert fake.tags == 1
-    assert fake.reads == [(fake.sequence, True)]  # read inside a session, never in the gap
+    assert fake.reads == [(fake.sequence, True)]
     assert sequence == fake.sequence
-    # The number still matches after the close, so restore() can use it.
     assert clipboard.restore(clipboard.ClipboardSnapshot({1: b"x"}, sequence), sequence) is True
 
 
 def test_set_text_refuses_the_sequence_when_another_app_replaced_the_text(monkeypatch):
-    # Another application writing in the gap between CloseClipboard and the confirming
-    # read must never end up with our number: restore() would overwrite its content.
     fake = _FakeClipboard(monkeypatch, text="someone else")
     sequence = clipboard.set_text("dictated text")
     assert sequence == clipboard.SEQUENCE_UNKNOWN
     assert clipboard.restore(clipboard.ClipboardSnapshot({1: b"x"}, 0), sequence) is False
-    assert fake.tags == 1  # the text itself was still placed
+    assert fake.tags == 1
 
 
 def test_set_text_refuses_the_sequence_when_the_confirming_open_fails(monkeypatch):
@@ -746,7 +716,7 @@ def test_restore_of_an_empty_snapshot_leaves_the_clipboard_empty(monkeypatch):
     assert clipboard.restore(snap, fake.sequence) is True
     assert fake.emptied == 1
     assert fake.puts == []
-    assert fake.tags == 0  # an empty clipboard is restored to empty, tag included
+    assert fake.tags == 0
 
 
 def test_restore_of_a_non_empty_snapshot_writes_the_exclusion_tag_last(monkeypatch):
@@ -756,8 +726,6 @@ def test_restore_of_a_non_empty_snapshot_writes_the_exclusion_tag_last(monkeypat
     assert fake.puts == [(clipboard.CF_HDROP, b"drop")]
     assert fake.tags == 1
 
-
-# window: pill support (spec 14.2)
 
 
 def test_pill_window_constants():
@@ -781,8 +749,6 @@ def test_monitor_helpers_share_the_monitorinfo_layout():
     assert callable(window.monitor_rect_for_window)
     assert callable(window.monitor_handle_for_window)
 
-
-# Live insertion: backspaces and the tagged, atomic bursts (spec 6, B5-57)
 
 
 def _fake_typing_backend(monkeypatch, down: tuple[int, ...] = ()):

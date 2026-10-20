@@ -22,7 +22,6 @@ log = logging.getLogger(__name__)
 
 APP_NAME = "Spells"
 
-# Pill palette (mockup: Colour).
 PILL_FILL = QtGui.QColor(0, 0, 0, 217)
 PILL_EDGE = QtGui.QColor(255, 255, 255, 26)
 PILL_SHADOW = QtGui.QColor(0, 0, 0, 102)
@@ -33,7 +32,6 @@ PILL_SPINNER = QtGui.QColor(255, 255, 255, 230)
 PILL_SPINNER_TRACK = QtGui.QColor(255, 255, 255, 46)
 PILL_LOCK = QtGui.QColor(255, 255, 255, 242)
 
-# Tray badge colours: the shapes differ per state, colour only helps.
 TRAY_RED = QtGui.QColor(0xE5, 0x48, 0x4D)
 TRAY_AMBER = QtGui.QColor(0xFF, 0xB4, 0x54)
 TRAY_DARK = QtGui.QColor(0x15, 0x21, 0x2A)
@@ -57,8 +55,6 @@ def pill_font(pixel_size: float, letter_spacing: float) -> QtGui.QFont:
     return font
 
 
-# Languages ------------------------------------------------------------------------------------
-
 
 @lru_cache(maxsize=1)
 def _code_to_name() -> dict[str, str]:
@@ -75,8 +71,6 @@ def language_choices() -> list[tuple[str, str]]:
     """Every whisper language as (code, name), sorted by name."""
     return sorted(_code_to_name().items(), key=lambda item: item[1])
 
-
-# Keys and chords --------------------------------------------------------------------------------
 
 _MODIFIER_ORDER = (vk.VK_CONTROL, vk.VK_MENU, vk.VK_SHIFT, vk.VK_LWIN, vk.VK_RWIN)
 
@@ -98,8 +92,6 @@ def chord_label(chord: Chord | Iterable[int]) -> str:
     """"Ctrl+Win+D": modifiers first in a fixed order, then the other keys as configured."""
     return "+".join(chord_keys(chord))
 
-
-# System appearance ---------------------------------------------------------------------------------
 
 
 def taskbar_is_light() -> bool:

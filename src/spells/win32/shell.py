@@ -14,11 +14,6 @@ SETTINGS_URIS = {
     SETTINGS_MICROPHONE_PRIVACY: "ms-settings:privacy-microphone",
 }
 
-# Where Windows keeps the microphone privacy switches (Settings, Privacy and
-# security, Microphone). HKLM: the device-wide switch; HKCU: this user's switch;
-# HKCU ...\NonPackaged: "Let desktop apps access your microphone", the one that
-# applies to Spells. A denied desktop app still opens the device but receives
-# silence, which is why the blocked check looks at the samples.
 _CONSENT_KEY = (
     r"Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager"
     r"\ConsentStore\microphone"

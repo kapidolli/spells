@@ -99,8 +99,6 @@ def make_dialog(tmp_path: Path, *, probe=None, devices=None, history=None, entri
     return dialog, config, messages, probe, hotkey, store
 
 
-# Dialog shape ---------------------------------------------------------------------------------
-
 
 def test_pages_are_the_spec_sections_plus_languages_and_about(app, tmp_path):
     dialog, *_ = make_dialog(tmp_path)
@@ -152,8 +150,6 @@ def test_general_uses_toggle_switches(app, tmp_path):
     assert isinstance(dialog.history.retention, SegmentedControl)
     dialog.close()
 
-
-# General tab ----------------------------------------------------------------------------------
 
 
 def test_general_checkboxes_round_trip_through_the_store(app, tmp_path):
@@ -274,8 +270,6 @@ def test_welcome_button_asks_for_the_welcome_page(app, tmp_path):
     dialog.close()
 
 
-# Hotkey recorder -------------------------------------------------------------------------------
-
 
 def test_recorder_accepts_a_free_chord_and_folds_side_modifiers(app, tmp_path, use_platform):
     use_platform(replace(platform.current(), keys=WindowsKeys()))
@@ -388,8 +382,6 @@ def test_standalone_recorder_uses_its_setter(app, tmp_path):
     assert config.settings.general.main_chord == Chord(keys=(CTRL, KEY_E))
 
 
-# Cleanup tab --------------------------------------------------------------------------------
-
 
 def test_cleanup_switch_and_timeout(app, tmp_path):
     dialog, config, *_ = make_dialog(tmp_path)
@@ -427,8 +419,6 @@ def test_filler_and_correction_lists_per_language(app, tmp_path):
     assert config.settings.cleanup.fillers["en"] == dialog.cleanup.original_fillers["en"]
     dialog.close()
 
-
-# Apps tab -----------------------------------------------------------------------------------
 
 
 def test_rule_editor_has_no_tone_and_builds_a_rule(app):
@@ -492,8 +482,6 @@ def test_the_default_window_picker_asks_the_platform_focus(use_platform):
     assert _default_window_picker() == ("Code.exe", "settings.py - spells")
 
 
-# Vocabulary tab -------------------------------------------------------------------------------
-
 
 def test_vocabulary_terms_replacements_and_snippets(app, tmp_path):
     dialog, config, *_ = make_dialog(tmp_path)
@@ -541,8 +529,6 @@ def test_vocabulary_import_rejects_a_bad_file(app, tmp_path):
     dialog.close()
 
 
-# History tab -------------------------------------------------------------------------------
-
 
 def test_history_tab_lists_searches_copies_and_clears(app, tmp_path):
     entries = [history_entry(1, "hello there", "Hello there."), history_entry(2, "zwei", "Zwei.")]
@@ -574,8 +560,6 @@ def test_history_retention_goes_through_the_store(app, tmp_path):
     assert config.settings.history.retention == "off"
     dialog.close()
 
-
-# Refresh from a foreign update ------------------------------------------------------------
 
 
 def test_dialog_refreshes_from_a_settings_change_without_writing_back(app, tmp_path):
@@ -648,8 +632,6 @@ def test_capture_dialog_falls_back_to_the_given_chords_without_the_property(app)
     flush(app)
     assert hotkey.pushed == [(), given]
 
-
-# The writing hotkeys and the writing model (spec 8.5, 14.4) ------------------------------------
 
 KEY_W = 0x57
 

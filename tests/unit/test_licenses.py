@@ -24,11 +24,6 @@ import package
 
 REAL_LICENSES_DIR = BUILD_DIR / "licenses"
 
-# Hardcoded from spec section 21 ("## 21. Licensing") of
-# the design spec, rather than parsed from
-# the markdown table, because the table groups several libraries per row and this test wants to
-# check each library individually. Maps a library named in the spec table to the component name
-# it must appear under in build/licenses/MANIFEST.json.
 SPEC_21_LIBRARIES = {
     "whisper.cpp": "whisper_cpp",
     "llama.cpp": "llama_cpp",
@@ -62,8 +57,6 @@ def licenses_copy(tmp_path):
     shutil.copytree(REAL_LICENSES_DIR, dest)
     return dest
 
-
-# ----------------------------------------------------------------------------- manifest shape
 
 
 def test_manifest_is_valid_json_with_a_components_list():
@@ -102,8 +95,6 @@ def test_a_component_with_no_file_also_has_no_sha256():
         if entry["file"] is None:
             assert entry["sha256"] is None, f"{entry['name']}: sha256 set without a file"
 
-
-# ----------------------------------------------------------------------------- spec 21 coverage
 
 
 @pytest.mark.parametrize("library", sorted(SPEC_21_LIBRARIES))
@@ -147,8 +138,6 @@ def test_qwen3_asr_ships_with_the_speech_model_for_english_and_german():
     assert by_name["qwen3_asr"]["ships"] is True
     assert by_name["qwen3_asr"]["license"] == "Apache-2.0"
 
-
-# ----------------------------------------------------------------------------- model coverage
 
 
 def test_models_covered_maps_catalog_ids_to_their_licence_component():
@@ -203,8 +192,6 @@ def test_vulkan_loader_is_recorded_as_a_fileless_system_component():
     assert by_name["vulkan_loader"]["ships"] is False
 
 
-# ----------------------------------------------------------------------------- verify()
-
 
 def test_verify_passes_on_the_real_folder():
     assert licenses.verify(REAL_LICENSES_DIR) == []
@@ -255,8 +242,6 @@ def test_verify_reports_invalid_manifest_json(tmp_path):
     assert "MANIFEST.json" in problems[0]
 
 
-# ----------------------------------------------------------------------------- assemble()
-
 
 def test_assemble_writes_one_index_line_per_shipping_component(tmp_path):
     dest = licenses.assemble(tmp_path / "dist-licenses", folder=REAL_LICENSES_DIR)
@@ -302,15 +287,11 @@ def test_assemble_creates_dest_directory(tmp_path):
     assert (dest / "index.txt").exists()
 
 
-# ----------------------------------------------------------------------------- folder budget
-
 
 def test_licenses_folder_stays_under_one_megabyte():
     total = sum(p.stat().st_size for p in REAL_LICENSES_DIR.glob("*") if p.is_file())
     assert total < 1_000_000
 
-
-# ----------------------------------------------------------------------------- CLI
 
 
 def test_main_verify_returns_zero_on_the_real_folder(monkeypatch, capsys):

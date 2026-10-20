@@ -49,15 +49,11 @@ def _make_hf_dir(tmp_path, *, vocab="split", weights="safetensors"):
     return model_dir
 
 
-# ------------------------------------------------------------------ em dash guard
-
 
 def test_module_source_has_no_em_dash():
     text = (BENCH_DIR / "convert_qwen3_asr.py").read_text(encoding="utf-8")
     assert EM_DASH not in text
 
-
-# ------------------------------------------------------------------ input folder checks
 
 
 def test_missing_input_files_on_complete_folder_is_empty(tmp_path):
@@ -94,7 +90,7 @@ def test_missing_input_files_names_missing_weights_only(tmp_path):
 
 def test_require_input_dir_passes_on_complete_folder(tmp_path):
     model_dir = _make_hf_dir(tmp_path)
-    C.require_input_dir(model_dir)  # does not raise
+    C.require_input_dir(model_dir)
 
 
 def test_require_input_dir_refuses_politely_and_names_files(tmp_path):
@@ -112,8 +108,6 @@ def test_require_input_dir_refuses_when_not_a_folder(tmp_path):
     with pytest.raises(C.ConvertError):
         C.require_input_dir(missing)
 
-
-# ------------------------------------------------------------------ naming
 
 
 def test_default_prefix_from_input_dir_uses_folder_name(tmp_path):
@@ -142,8 +136,6 @@ def test_slugify_id_collapses_repeated_separators():
     assert "--" not in C.slugify_id("a  b", "Q4_K_M")
 
 
-# ------------------------------------------------------------------ sizes and hashes
-
 
 @pytest.mark.parametrize(
     "num_bytes,expected",
@@ -166,8 +158,6 @@ def test_sha256_file_streams_and_matches_hashlib(tmp_path):
     assert C.sha256_file(payload) == expected
     assert len(C.sha256_file(payload)) == 64
 
-
-# ------------------------------------------------------------------ pins.json tag reading
 
 
 def test_read_llama_cpp_tag_reads_pinned_version(tmp_path):
@@ -196,8 +186,6 @@ def test_llama_cpp_archive_url_uses_the_tag():
     url = C.llama_cpp_archive_url("b10997")
     assert url == "https://github.com/ggml-org/llama.cpp/archive/refs/tags/b10997.tar.gz"
 
-
-# ------------------------------------------------------------------ command construction
 
 
 def test_text_convert_command_order():
@@ -238,8 +226,6 @@ def test_server_command_order():
     ]
 
 
-# ------------------------------------------------------------------ runner-based steps
-
 
 def test_run_text_convert_creates_out_dir_and_calls_runner(tmp_path):
     outfile = tmp_path / "out" / "text-bf16.gguf"
@@ -271,8 +257,6 @@ def test_run_quantize_creates_out_dir_and_calls_runner(tmp_path):
         "quantize.exe", str(tmp_path / "text-bf16.gguf"), str(dst), "Q4_K_M", "6",
     ]
 
-
-# ------------------------------------------------------------------ fetching llama.cpp (fakes only)
 
 
 def test_conversion_ready_false_when_nothing_cached(tmp_path):
@@ -328,7 +312,7 @@ def test_fetch_llama_cpp_refuses_when_extraction_leaves_pieces_missing(tmp_path)
         dest.write_bytes(b"fake")
 
     def fake_extractor(archive_path, tag, cache_dir):
-        pass  # extracts nothing
+        pass
 
     with pytest.raises(C.ConvertError):
         C.fetch_llama_cpp(tmp_path, "b10997", downloader=fake_downloader, extractor=fake_extractor)
@@ -355,8 +339,6 @@ def test_extract_conversion_sources_writes_only_wanted_members(tmp_path):
     assert (conversion_pkg / "__init__.py").is_file()
     assert not (cache_dir / "llama.cpp-b10997" / "tools").exists()
 
-
-# ------------------------------------------------------------------ server verification (fakes only)
 
 
 class FakePopen:
@@ -419,8 +401,6 @@ def test_verify_loads_kills_process_on_timeout(tmp_path):
     assert FakePopen.instances[0].killed is True
 
 
-# ------------------------------------------------------------------ catalog entry rendering
-
 
 def test_catalog_entry_fields_has_exactly_the_requested_keys():
     fields = C.catalog_entry_fields(
@@ -442,8 +422,6 @@ def test_render_catalog_entry_is_parseable_json():
     rendered = C.render_catalog_entry(fields)
     assert json.loads(rendered) == fields
 
-
-# ------------------------------------------------------------------ argument parsing
 
 
 def test_parse_args_required_fields():
@@ -477,8 +455,6 @@ def test_parse_args_requires_input_and_output_dir():
     with pytest.raises(SystemExit):
         C.parse_args([])
 
-
-# ------------------------------------------------------------------ main() orchestration (stubbed)
 
 
 def test_main_refuses_politely_on_incomplete_input_dir(tmp_path, capsys):

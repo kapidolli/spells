@@ -129,7 +129,6 @@ def test_capture_defaults_to_the_platform_focus(use_platform):
 
 
 def test_capture_defaults_to_a_high_resolution_clock():
-    # B3-23: time.monotonic is GetTickCount64 on Windows and steps in 15.6 ms.
     default = inspect.signature(context.capture).parameters["clock"].default
     assert default is time.perf_counter
     assert time.get_clock_info("perf_counter").resolution < 0.001

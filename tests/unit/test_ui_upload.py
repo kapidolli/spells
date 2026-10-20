@@ -129,8 +129,6 @@ def world(tmp_path):
     made.history.close()
 
 
-# the coordinator
-
 
 def test_the_tick_does_nothing_while_uploading_is_off(app, tmp_path):
     world = World(tmp_path, url=URL)
@@ -490,8 +488,6 @@ def test_shutdown_stops_the_tick(world):
     assert world.transport.sent == []
 
 
-# the status line
-
 
 def test_the_status_line_says_what_happened_and_what_waits():
     now = 1_800_000_000.0
@@ -511,8 +507,6 @@ def test_the_status_line_says_what_happened_and_what_waits():
     assert "waiting" not in status_text(off, UploadView(message=TEST_OK_TEXT), now)
     assert status_text(off, UploadView(message=TEST_OK_TEXT), now).endswith(TEST_OK_TEXT)
 
-
-# the page
 
 
 def make_page(tmp_path, *, attach=True, confirm=True, **settings):

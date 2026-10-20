@@ -42,13 +42,10 @@ CORRUPT_BACKUPS_KEPT = 3
 
 RETENTION_CHOICES = ("100", "7d", "30d", "off")
 
-# Ctrl+Win: VK_CONTROL and VK_LWIN.
 DEFAULT_MAIN_CHORD = Chord(keys=(0x11, 0x5B))
 
 DEFAULT_ENABLED_LANGUAGES = ["en", "de", "sq"]
 
-# Tone instruction per built-in profile, from the spec 9 table (the LLM user
-# message carries it, spec 8.2). profiles.py builds its Profile objects from it.
 DEFAULT_TONES: dict[str, str] = {
     "Chat": "casual; no trailing period on single-sentence messages",
     "Email and docs": "full sentences, standard capitalization and punctuation",
@@ -57,16 +54,10 @@ DEFAULT_TONES: dict[str, str] = {
     "Default": "standard cleanup",
 }
 
-# The filler and self-correction defaults (spec 8.1 table) are the data files
-# data/fillers/<code>.txt and data/corrections/<code>.txt, read through
-# cleanup.default_fillers() and cleanup.default_corrections().
-
 
 class SettingsError(ValueError):
     """A settings dictionary has the wrong shape or a value of the wrong type."""
 
-
-# --- schema ---
 
 
 @dataclass(frozen=True)
@@ -75,22 +66,16 @@ class GeneralSettings:
 
     main_chord: Chord = DEFAULT_MAIN_CHORD
     language_chords: list[Chord] = field(default_factory=list)
-    # The writing hotkeys (spec 8.5). Both are None until the user records one: an
-    # empty chord cannot exist, and nothing should fire before he asks for it.
     compose_chord: Chord | None = None
     edit_chord: Chord | None = None
     mic_device: str | None = None
-    # "auto", or a language code for Locked mode (spec 7.2).
     language_mode: str = "auto"
     enabled_languages: list[str] = field(default_factory=lambda: list(DEFAULT_ENABLED_LANGUAGES))
     autostart: bool = True
     keep_mic_warm: bool = False
     sounds: bool = True
-    # Live insertion while speaking (spec 6, B5-57): on where the hardware allows it,
-    # and only in the plain profiles until live_text_everywhere is switched on.
     live_text: bool = True
     live_text_everywhere: bool = False
-    # 0 means never unload (spec 13).
     idle_unload_minutes: int = 0
 
 
@@ -101,7 +86,6 @@ class CleanupSettings:
     enabled: bool = True
     timeout_ms: int = 2500
     tones: dict[str, str] = field(default_factory=lambda: dict(DEFAULT_TONES))
-    # Read from data/ on every construction; the reader returns fresh lists each time.
     fillers: dict[str, list[str]] = field(default_factory=default_fillers)
     corrections: dict[str, list[str]] = field(default_factory=default_corrections)
 
@@ -238,8 +222,6 @@ def settings_path() -> Path:
     return current_paths().settings_path
 
 
-# --- the installer's language choice (spec 19.3 step 7, B5-32) ---
-
 FIRST_RUN_FILE = "first-run.json"
 
 
@@ -311,8 +293,6 @@ def with_enabled_languages(settings: Settings, languages: Sequence[str]) -> Sett
         general=replace(general, enabled_languages=list(languages), language_mode=mode),
     )
 
-
-# --- to_dict ---
 
 
 def _chord_to_dict(chord: Chord, *, with_language: bool) -> dict:
@@ -419,8 +399,6 @@ def to_dict(settings: Settings) -> dict:
         },
     }
 
-
-# --- from_dict ---
 
 _T = TypeVar("_T")
 _REQUIRED = object()
@@ -834,8 +812,6 @@ def from_dict(raw: dict) -> Settings:
     )
 
 
-# --- migrate ---
-
 
 def migrate(raw: dict) -> dict:
     """Bring a raw settings dict forward to SCHEMA_VERSION (spec 15).
@@ -854,12 +830,9 @@ def migrate(raw: dict) -> dict:
         raise SettingsError(
             f"schema_version: {version} is newer than this app supports ({SCHEMA_VERSION})"
         )
-    # Future migrations: `if version == 1: migrated = _migrate_1_to_2(migrated); version = 2`
     migrated["schema_version"] = version
     return migrated
 
-
-# --- files ---
 
 
 def _tmp_path(path: Path) -> Path:
@@ -884,8 +857,6 @@ def _backup_corrupt(path: Path) -> Path:
         counter += 1
     os.replace(path, target)
     try:
-        # The backup made last is the newest, whatever mtime the corrupt file carried
-        # (a file restored from an old copy keeps that copy's mtime).
         os.utime(target, None)
     except OSError:
         pass
@@ -958,7 +929,6 @@ def load(path: Path) -> tuple[Settings, str | None]:
         raw = json.loads(data.decode("utf-8"))
         settings = from_dict(migrate(raw))
     except (ValueError, TypeError) as exc:
-        # ValueError covers UnicodeDecodeError, JSONDecodeError, and SettingsError.
         reason = str(exc) or type(exc).__name__
         try:
             backup = _backup_corrupt(path)
@@ -975,8 +945,6 @@ def load(path: Path) -> tuple[Settings, str | None]:
         )
     return settings, None
 
-
-# --- store ---
 
 
 class ConfigStore:

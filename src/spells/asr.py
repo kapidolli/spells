@@ -247,7 +247,7 @@ class WhisperClient:
             raise WhisperError(f"whisper-server returned HTTP {exc.code}") from exc
         except AbortedRequest:
             raise
-        except Exception as exc:  # URLError, TimeoutError, resets, a shut-down socket
+        except Exception as exc:
             raise _abort_error(abort, exc, "whisper-server") from exc
         _abort_guard(abort)
         try:

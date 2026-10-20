@@ -78,8 +78,6 @@ def painter_for(widget: QtWidgets.QWidget) -> QtGui.QPainter:
     return painter
 
 
-# Toggle switch -----------------------------------------------------------------------------------
-
 
 class ToggleSwitch(QtWidgets.QAbstractButton):
     """A Windows 11 toggle: a 40 by 20 track with a sliding knob and an On or Off label."""
@@ -200,8 +198,6 @@ class ToggleSwitch(QtWidgets.QAbstractButton):
         finally:
             painter.end()
 
-
-# Segmented control -------------------------------------------------------------------------------
 
 
 class SegmentedControl(QtWidgets.QWidget):
@@ -365,8 +361,6 @@ class SegmentedControl(QtWidgets.QWidget):
         super().focusOutEvent(event)
 
 
-# Navigation --------------------------------------------------------------------------------------------
-
 
 class NavItem(QtWidgets.QAbstractButton):
     """One entry of the navigation rail: a glyph and a label, with the accent bar when selected."""
@@ -496,8 +490,6 @@ class NavRail(QtWidgets.QFrame):
     def labels(self) -> list[str]:
         return [item.text() for item in self.items.values()]
 
-
-# Surfaces --------------------------------------------------------------------------------------------
 
 
 class Divider(QtWidgets.QFrame):
@@ -698,8 +690,6 @@ class ScrollPage(QtWidgets.QWidget):
     def finish(self) -> None:
         self.body_layout.addStretch(1)
 
-
-# Small pieces -------------------------------------------------------------------------------------------
 
 
 class GlyphLabel(QtWidgets.QLabel):
@@ -1179,8 +1169,6 @@ class StepDots(QtWidgets.QWidget):
         finally:
             painter.end()
 
-
-# Flow layout -------------------------------------------------------------------------------------------
 
 
 class FlowLayout(QtWidgets.QLayout):

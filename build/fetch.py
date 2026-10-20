@@ -48,8 +48,6 @@ class HashMismatch(PinError):
     """The downloaded or cached file does not match the pinned sha256."""
 
 
-# ----------------------------------------------------------------------------- pins access
-
 
 def load_pins(pins_path: Path = PINS_PATH) -> dict:
     with open(pins_path, encoding="utf-8") as fh:
@@ -118,8 +116,6 @@ def cache_path(key: str, entry: dict, cache_dir: Path = CACHE_DIR) -> Path:
     return base / name
 
 
-# ----------------------------------------------------------------------------- hashing and download
-
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
@@ -179,8 +175,6 @@ def download(url: str, dest: Path, *, progress=None) -> str:
     return digest.hexdigest()
 
 
-# ----------------------------------------------------------------------------- fetch
-
 
 def fetch(key: str, *, pins_path: Path = PINS_PATH, cache_dir: Path = CACHE_DIR,
           record: bool = False) -> Path:
@@ -218,7 +212,6 @@ def fetch(key: str, *, pins_path: Path = PINS_PATH, cache_dir: Path = CACHE_DIR,
         print(f"{key}: sha256 ok")
         return dest
 
-    # record mode for an unpinned entry: trust this download and write the hash back
     entry["sha256"] = actual
     save_pins(pins, pins_path)
     print(
@@ -228,8 +221,6 @@ def fetch(key: str, *, pins_path: Path = PINS_PATH, cache_dir: Path = CACHE_DIR,
     )
     return dest
 
-
-# ----------------------------------------------------------------------------- cli
 
 
 def main(argv=None) -> int:

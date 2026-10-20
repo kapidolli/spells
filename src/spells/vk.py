@@ -22,11 +22,6 @@ VK_RCONTROL = 0xA3
 VK_LMENU = 0xA4
 VK_RMENU = 0xA5
 
-# Left/right modifier variants fold to their generic code: the low-level hook
-# reports the side-specific code, but a chord may be configured with either
-# spelling, and the two must be treated as the same key. The Win keys are
-# deliberately absent here: VK_LWIN and VK_RWIN stay distinct from each other
-# (spec 6, decision B3-24).
 GENERIC_OF: dict[int, int] = {
     VK_LSHIFT: VK_SHIFT,
     VK_RSHIFT: VK_SHIFT,
@@ -36,11 +31,6 @@ GENERIC_OF: dict[int, int] = {
     VK_RMENU: VK_MENU,
 }
 
-# The inverse fold: a generic modifier code to the pair of side-specific codes the
-# low-level hook actually reports for it. A chord configured with a generic code
-# matches either side, so callers that have to enumerate real keys (rebuilding the
-# physical key state after a hook reinstall, for example) expand through this map.
-# The Win keys are absent here for the same reason they are absent from GENERIC_OF.
 SPECIFIC_OF: dict[int, tuple[int, int]] = {
     VK_SHIFT: (VK_LSHIFT, VK_RSHIFT),
     VK_CONTROL: (VK_LCONTROL, VK_RCONTROL),

@@ -47,11 +47,8 @@ ATTACK = 0.35
 DECAY = 0.10
 BAR_SMOOTHING = 0.45
 PROCESSING_TEXT = "Processing"
-# The mockup's resting pose, used while motion is reduced.
 STATIC_POSE = (4, 7, 11, 9, 14, 18, 13, 20, 15, 17, 10, 12, 6, 8, 4)
 
-
-# Geometry -------------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -144,8 +141,6 @@ def place_pill(
     return x, y
 
 
-# Level smoothing ---------------------------------------------------------------------------------
-
 METER_FLOOR_DB = -50.0
 METER_CEILING_DB = -14.0
 
@@ -209,8 +204,6 @@ class LevelSmoother:
         return list(self.bars)
 
 
-# Content -------------------------------------------------------------------------------------------
-
 
 @dataclass(frozen=True)
 class PillContent:
@@ -264,8 +257,6 @@ def notice_for(event: PipelineEvent) -> tuple[PillContent, int] | None:
         return PillContent(text=COPIED_NOTICE), COPIED_NOTICE_MS
     return None
 
-
-# The widget -------------------------------------------------------------------------------------
 
 
 def _default_monitor_rect(window: int) -> tuple[int, int, int, int]:
@@ -349,8 +340,6 @@ class Pill(QtWidgets.QWidget):
         self.animation.finished.connect(self._on_animation_finished)
 
         self._layout(None)
-
-    # Public -----------------------------------------------------------------------------------
 
     @property
     def show_duration_ms(self) -> int:
@@ -463,8 +452,6 @@ class Pill(QtWidgets.QWidget):
             rect.left() + rect.width(),
             rect.top() + rect.height(),
         )
-
-    # Internals -----------------------------------------------------------------------------------
 
     def _notice_expired(self) -> None:
         self._notice = None

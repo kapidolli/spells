@@ -8,9 +8,6 @@ sys.path.insert(0, str(BUILD_DIR))
 
 import build_whisper as bw
 
-# Lines exactly as ggml/src/ggml-vulkan/CMakeLists.txt in whisper.cpp v1.9.4 prints them:
-#   message(STATUS "${EXTENSION_NAME} supported by glslc")
-#   message(STATUS "${EXTENSION_NAME} not supported by glslc")
 ALL_SUPPORTED = """\
 -- Vulkan found
 -- GL_KHR_cooperative_matrix supported by glslc
@@ -190,8 +187,6 @@ def test_prefix_path_points_at_the_ucrt64_root():
     assert prefix.endswith("/ucrt64"), prefix
 
 
-# The llama.cpp Windows release zips are flat: llama-server.exe and a dozen other tools, each
-# tool's own <name>-impl.dll, the shared libraries, and the bundled OpenMP licence.
 FAKE_LLAMA_ZIP = [
     "llama-server.exe",
     "llama-server-impl.dll",

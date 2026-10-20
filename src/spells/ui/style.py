@@ -326,8 +326,6 @@ def apps_use_dark_theme() -> bool:
     return False
 
 
-# Fonts ------------------------------------------------------------------------------------------
-
 
 def font(role: str = "body") -> QtGui.QFont:
     families, pixels, weight = FONT_ROLES[role]
@@ -403,8 +401,6 @@ def glyph_icon(
         icon.addPixmap(_with_gap(glyph_pixmap(glyph, pixels, muted), scaled_gap), QtGui.QIcon.Mode.Disabled)
     return icon
 
-
-# The stylesheet -------------------------------------------------------------------------------------
 
 _QSS = Template(
     """
@@ -627,8 +623,6 @@ def draw_chevron(
         painter.restore()
 
 
-# Installation ------------------------------------------------------------------------------------
-
 
 class ThemeNotifier(QtCore.QObject):
     changed = QtCore.Signal(object)
@@ -699,8 +693,6 @@ def _follow_system(app: QtWidgets.QApplication) -> None:
     except Exception:
         log.exception("could not follow the Windows theme")
 
-
-# Window chrome -------------------------------------------------------------------------------------
 
 
 def colorref(colour: str | QtGui.QColor) -> int:

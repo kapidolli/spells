@@ -57,11 +57,6 @@ VARIANTS = ("vulkan", "cpu")
 LLAMA_KEYS = {"vulkan": "binaries.llama_cpp_vulkan", "cpu": "binaries.llama_cpp_cpu"}
 TARGET = "whisper-server"
 
-# Option names verified in whisper.cpp v1.9.4: CMakeLists.txt (WHISPER_*, BUILD_SHARED_LIBS),
-# ggml/CMakeLists.txt (GGML_VULKAN, GGML_NATIVE). GGML_NATIVE=OFF keeps the CPU code at the
-# AVX2/FMA/F16C baseline that ggml enables by default for non-native x86 builds, so the exe
-# runs on machines other than the build host. -static makes gcc link libgcc, libstdc++,
-# libwinpthread and libgomp statically; the result imports only Windows DLLs.
 COMMON_CMAKE_ARGS = [
     "-G", "Ninja",
     "-DCMAKE_BUILD_TYPE=Release",
@@ -79,8 +74,6 @@ VARIANT_CMAKE_ARGS = {
     "cpu": ["-DGGML_VULKAN=OFF"],
 }
 
-# Exactly the STATUS lines printed by ggml/src/ggml-vulkan/CMakeLists.txt
-# (test_shader_extension_support): "<ext> supported by glslc" / "<ext> not supported by glslc".
 VULKAN_FEATURES = {
     "coopmat": "GL_KHR_cooperative_matrix",
     "coopmat2": "GL_NV_cooperative_matrix2",
@@ -91,10 +84,6 @@ FEATURE_LINE_RE = re.compile(
     re.MULTILINE,
 )
 
-# DLLs that every Windows 10/11 installation provides. Anything else (libstdc++-6.dll,
-# libgcc_s_seh-1.dll, libwinpthread-1.dll, libgomp-1.dll, ...) would tie the exe to MSYS2.
-# vulkan-1.dll is deliberately not in this set: the Vulkan loader is installed by the GPU
-# driver, so it is a system DLL for the vulkan variant and a build mistake for the cpu one.
 SYSTEM_DLLS = {
     "advapi32.dll", "bcrypt.dll", "crypt32.dll", "dbghelp.dll", "gdi32.dll", "kernel32.dll",
     "msvcrt.dll", "ntdll.dll", "ole32.dll", "oleaut32.dll", "rpcrt4.dll", "shell32.dll",
@@ -105,10 +94,6 @@ SYSTEM_DLLS = {
 SYSTEM_DLL_PREFIXES = ("api-ms-win-", "ext-ms-win-")
 VULKAN_LOADER_DLL = "vulkan-1.dll"
 
-# Files from the llama.cpp release zip that the app ships: llama-server.exe, the libraries it
-# loads (its own -impl DLL, the ggml backends, llama, llama-common, mtmd, libomp) and the
-# licence texts. The zip also carries a dozen other tools with their own -impl DLLs, which are
-# never launched and cost about 5 MB per variant against the spec 19.4 payload budget.
 LLAMA_KEEP_EXE = "llama-server.exe"
 LLAMA_KEEP_IMPL = "llama-server-impl.dll"
 LLAMA_KEEP_DLLS = ("llama.dll", "llama-common.dll", "mtmd.dll", "libomp.dll")
@@ -118,8 +103,6 @@ DLL_NAME_RE = re.compile(r"^\s*DLL Name:\s*(\S+)\s*$", re.MULTILINE)
 class BuildError(Exception):
     pass
 
-
-# ----------------------------------------------------------------------------- pure helpers
 
 
 def parse_vulkan_feature_checks(configure_output: str) -> dict[str, bool | None]:
@@ -164,8 +147,6 @@ def is_shipped_llama_file(name: str) -> bool:
         return lowered == LLAMA_KEEP_IMPL
     return lowered.startswith("ggml") or lowered in LLAMA_KEEP_DLLS
 
-
-# ----------------------------------------------------------------------------- toolchain
 
 
 def toolchain_env() -> dict[str, str]:
@@ -229,8 +210,6 @@ def run(cmd: list[str], *, cwd: Path, env: dict, log: Path | None = None, captur
     raise BuildError(f"code integrity keeps blocking {', '.join(blocked)}; the build cannot continue "
                      f"on this machine without a signed tool or a policy change")
 
-
-# ----------------------------------------------------------------------------- steps
 
 
 def ensure_source() -> Path:

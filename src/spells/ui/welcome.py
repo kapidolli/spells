@@ -291,8 +291,6 @@ class MicPicker(ComboBox):
         self.device_changed.emit(name)
 
 
-# The animated hints ---------------------------------------------------------------------------------
-
 
 class PillHint(QtWidgets.QWidget):
     """A small copy of the pill: listening bars, then the processing ring, then gone."""
@@ -439,8 +437,6 @@ class StepCard(QtWidgets.QFrame):
         layout.addWidget(body)
         layout.addStretch(1)
 
-
-# The page -----------------------------------------------------------------------------------------------
 
 
 class WelcomePage(QtWidgets.QDialog):
@@ -642,8 +638,6 @@ class WelcomePage(QtWidgets.QDialog):
         self.set_step(STEP_INTRO)
         self.apply_settings(config.settings)
 
-    # Steps ---------------------------------------------------------------------------------------
-
     def step(self) -> int:
         return self.steps.currentIndex()
 
@@ -679,8 +673,6 @@ class WelcomePage(QtWidgets.QDialog):
         self._phase = (self._phase + HINT_FRAME_MS) % HINT_CYCLE_MS
         self.pill_hint.update()
         self.typing_hint.update()
-
-    # Settings -------------------------------------------------------------------------------------
 
     def apply_settings(self, settings: Settings) -> None:
         keys = theme.chord_keys(settings.general.main_chord)

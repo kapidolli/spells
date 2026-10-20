@@ -47,8 +47,6 @@ def frozen(root: Path, **kwargs) -> paths.Layout:
     return paths.resolve(frozen=True, executable=root / "Spells.exe", env={}, **kwargs)
 
 
-# Layout ---------------------------------------------------------------------------------
-
 
 def test_dev_layout_points_into_the_build_folder(tmp_path):
     make_dev_tree(tmp_path)
@@ -88,8 +86,6 @@ def test_engine_executables_and_engine_paths(tmp_path):
     assert engine_paths.llama_model == tmp_path / "models" / "m.gguf"
     assert engine_paths.log_dir == layout.log_dir
 
-
-# Model resolution -----------------------------------------------------------------------
 
 
 def test_whisper_prefers_the_shipped_model(tmp_path):
@@ -149,7 +145,6 @@ def test_llama_model_is_none_without_any_gguf(tmp_path):
     layout = dev(tmp_path)
     assert layout.llama_model is None
     assert "cleanup" in layout.cleanup_notice.lower()
-    # No placeholder path: the supervisor never launches llama and reports no_model (spec 16).
     assert layout.engine_paths().llama_model is None
 
 
@@ -166,8 +161,6 @@ def test_a_pins_file_that_cannot_be_read_is_survivable(tmp_path):
     layout = dev(tmp_path)
     assert layout.llama_model == layout.models_dir / "only.gguf"
 
-
-# User data locations --------------------------------------------------------------------
 
 
 @pytest.mark.windows

@@ -4,8 +4,6 @@ import hashlib
 
 from spells.cleanup_prompt import SYSTEM_PROMPT, system_prompt, user_message
 
-# Computed once from the committed prompt; any edit to SYSTEM_PROMPT must update this on purpose,
-# because llama-server's prompt cache keys on the exact bytes (spec 8.2).
 SYSTEM_PROMPT_SHA256 = "f8f21f7ecbfc4af6851b29146b3e3c19488d23da7f014ffe8ee1b8c5ba9b7060"
 
 

@@ -97,8 +97,6 @@ def make_page(tmp_path, *, gpu=SELECTION, probe=None):
     return page, config, messages
 
 
-# The enabled languages ------------------------------------------------------------------------
-
 
 def test_chips_show_the_enabled_languages(app, tmp_path, fake_select):
     page, _config, _messages = make_page(tmp_path)
@@ -137,8 +135,6 @@ def test_removing_the_locked_language_returns_the_mode_to_auto(app, tmp_path, fa
     assert config.settings.general.language_mode == "auto"
     page.close()
 
-
-# Adding a language ------------------------------------------------------------------------------
 
 
 def test_popular_languages_come_first_and_search_ranks_prefixes(app):
@@ -191,8 +187,6 @@ def test_suggestions_offer_only_missing_popular_languages(app, tmp_path, fake_se
     page.close()
 
 
-# Per-language hotkeys ---------------------------------------------------------------------------
-
 
 def test_language_hotkeys_sit_beside_their_chip(app, tmp_path, fake_select, use_platform):
     use_platform(replace(platform.current(), keys=WindowsKeys()))
@@ -227,8 +221,6 @@ def test_a_hotkey_for_a_removed_language_stays_visible(app, tmp_path, fake_selec
     assert orphan.hotkey_labels() == ["Ctrl+Alt+D"]
     page.close()
 
-
-# Models -----------------------------------------------------------------------------------------
 
 
 def test_models_card_asks_the_catalog_for_the_languages_and_hardware(app, tmp_path, fake_select):

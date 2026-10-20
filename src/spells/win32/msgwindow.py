@@ -58,8 +58,6 @@ WTS_SESSION_LOCK = 0x7
 WTS_SESSION_UNLOCK = 0x8
 NOTIFY_FOR_THIS_SESSION = 0
 
-# WTSRegisterSessionNotification answers this while the Remote Desktop Services dependencies
-# are still starting, which is the normal state at logon autostart.
 RPC_S_INVALID_BINDING = 1702
 SESSION_RETRY_TIMER_ID = 1
 SESSION_RETRY_INTERVAL_MS = 5000
@@ -75,8 +73,7 @@ SMTO_NORMAL = 0x0000
 SMTO_ABORTIFHUNG = 0x0002
 COPYDATA_TIMEOUT_MS = 5000
 
-# Private dwData tag so stray WM_COPYDATA from other programs is ignored.
-COPYDATA_TAG = 0x55545452  # "UTTR"
+COPYDATA_TAG = 0x55545452
 
 WNDPROC = ctypes.WINFUNCTYPE(
     LRESULT, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM
@@ -261,7 +258,6 @@ def _unregister_session_notification(hwnd: int) -> None:
     _wtsapi32.WTSUnRegisterSessionNotification(hwnd)
 
 
-# hwnd -> MessageWindow; one shared window procedure dispatches to the instance.
 _windows: dict[int, "MessageWindow"] = {}
 _registered_classes: set[str] = set()
 _class_lock = threading.Lock()

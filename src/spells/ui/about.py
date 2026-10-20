@@ -163,8 +163,6 @@ class AboutPage(ScrollPage):
         self.finish()
         self.apply_update_view(UpdateView(phase=Phase.UNCONFIGURED, message=UNCONFIGURED_TEXT))
 
-    # Updates ------------------------------------------------------------------------------
-
     def _build_updates(self) -> None:
         card = Card(self.body)
         self.check_button = make_button(CHECK_BUTTON, "primary", glyph=style.Glyph.REFRESH)
@@ -310,8 +308,6 @@ class AboutPage(ScrollPage):
     def _on_cancel(self) -> None:
         if self._coordinator is not None:
             self._coordinator.cancel_download()
-
-    # Licences -----------------------------------------------------------------------------
 
     def showEvent(self, event: object) -> None:
         super().showEvent(event)

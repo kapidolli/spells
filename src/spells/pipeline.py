@@ -97,14 +97,8 @@ log = logging.getLogger(__name__)
 CAPTURE_RING = 20
 MAX_RECORDING_S = 600.0
 WARNING_S = 540.0
-# How long a dictation waits for the ASR engine before "Speech engine unavailable" (spec 6
-# step 4 gives no bound; the supervisor's own startup timeout is 180 s, so a cold reload of
-# large-v3-turbo plus one backoff cycle fits in this). The wait runs in one-second slices
-# so stop() can interrupt it.
 ENGINE_WAIT_S = 240.0
 READY_WAIT_SLICE_S = 1.0
-# After the pipeline asks for a whisper restart, the supervisor applies it on its own thread
-# within about 100 ms; the retry waits for the state to leave the serving set first.
 RESTART_SETTLE_POLLS = 200
 RESTART_SETTLE_POLL_S = 0.01
 TIMINGS_RING = 20
@@ -117,8 +111,6 @@ PARTIAL_WINDOW_S = 30.0
 PARTIAL_MAX_LATENCY_MS = 500
 PARTIAL_MAX_LATENCY_CANCELLABLE_MS = 2500
 TIMEOUT_LATENCY_FACTOR = 4.0
-# How long the writing model may run before the request is given up on (spec 8.5). Composing
-# is off the dictation latency path, so this is a safety limit and not a target.
 COMPOSE_TIMEOUT_S = compose.COMPOSE_TIMEOUT_MS / 1000.0
 WRITER_WAIT_S = 120.0
 
@@ -128,8 +120,6 @@ ENGINE_UNAVAILABLE = "Speech engine unavailable"
 TRANSCRIPTION_FAILED = "Transcription failed"
 DELIVERY_FAILED = "Delivery failed"
 DICTATION_FAILED = "Dictation failed"
-# The pill strings follow the approved pill mockup;
-# the microphone texts the mockup does not list share its short "Mic is busy" form.
 STARTING_ENGINES_TEXT = "Starting engines"
 CAP_WARNING_TEXT = "One minute left"
 MIC_BLOCKED_TEXT = "Mic is blocked"
@@ -140,7 +130,6 @@ AUDIO_LOST_TEXT = "Some audio was lost"
 AUDIO_LOST_NOTIFICATION = (
     "Some audio was lost between the microphone and Spells, so words may be missing."
 )
-# The notification's "Open settings" button targets (spec 16, mic rows).
 SOUND_SETTINGS = SETTINGS_SOUND
 PRIVACY_SETTINGS = SETTINGS_MICROPHONE_PRIVACY
 MIC_PILL_TEXT = {
@@ -149,9 +138,6 @@ MIC_PILL_TEXT = {
     "blocked": MIC_BLOCKED_TEXT,
     "unknown": "Mic error",
 }
-# CleanResult reasons of spec 8.3 (output guards); the gate reasons of 8.1 are skips. The
-# writing guards of 8.5 share the counters: they are the same kind of event, an answer the
-# app refused, and Diagnostics shows one list.
 GUARD_REASONS = frozenset(
     {"timeout", "error", "finish_length", "empty", "length_ratio", "preamble", "language_switch"}
 ) | frozenset(compose.GUARD_REASONS)
@@ -159,8 +145,6 @@ SERVING = frozenset({EngineState.READY, EngineState.CPU_FALLBACK})
 DELIVERED = frozenset({DeliveryOutcome.PASTED, DeliveryOutcome.TYPED})
 COPIED = frozenset({DeliveryOutcome.COPIED_FOCUS_CHANGED, DeliveryOutcome.COPIED_ELEVATED})
 
-
-# Contracts of the collaborators ------------------------------------------------------------
 
 
 class EngineControl(Protocol):
@@ -222,12 +206,8 @@ class RecorderLike(Protocol):
 
 
 RecorderFactory = Callable[..., RecorderLike]
-# schedule(delay_s, callback) -> cancel(); the callback runs on some other thread and must
-# only enqueue, which is all the pipeline ever does in one.
 Scheduler = Callable[[float, Callable[[], None]], Callable[[], None]]
 
-
-# Events ------------------------------------------------------------------------------------
 
 
 class PillState(str, Enum):
@@ -315,8 +295,6 @@ class CompletedRecording:
     live: Any = None
     mode: ChordMode = ChordMode.DICTATE
 
-
-# Internals -----------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True)
@@ -679,16 +657,14 @@ class Pipeline:
         self._started = False
         self._stopped = False
 
-        # Controller-thread state.
         self._recorder: RecorderLike | None = None
         self._active: _Active | None = None
         self._timer_cancels: list[Callable[[], None]] = []
-        self._level_value = 0.0  # written on the PortAudio thread
+        self._level_value = 0.0
         self._level_queued = False
         self._device_notice_shown = False
         self._live: _Live | None = None
 
-        # Shared UI state, under _state_lock.
         self._state_lock = threading.Lock()
         self._rec_pill: PillState | None = None
         self._rec_text = ""
@@ -705,14 +681,11 @@ class Pipeline:
         self._ring: deque[StageTimings] = deque(maxlen=TIMINGS_RING)
         self._captures: deque[CaptureInfo] = deque(maxlen=CAPTURE_RING)
 
-        # Worker-thread state (spec 5.2: unsynchronised, one owner).
         enabled = config.settings.general.enabled_languages
         self._lang_state = LanguagePolicyState(enabled[0] if enabled else "en")
         self._last_delivery: LastDelivery | None = None
 
         self._unsubscribe = config.subscribe(self._on_settings)
-
-    # Public API ----------------------------------------------------------------------------
 
     def hotkey_callbacks(self) -> HotkeyCallbacks:
         """The five hotkey callbacks; each only enqueues and returns (spec 5.1)."""
@@ -751,7 +724,6 @@ class Pipeline:
         self._worker_queue.put(None)
         me = threading.current_thread()
         for thread in self._threads:
-            # An on_event handler that quits runs on one of these threads; never join it.
             if thread is not me and thread.is_alive():
                 thread.join(timeout)
         self._threads = []
@@ -798,8 +770,6 @@ class Pipeline:
         with self._state_lock:
             return list(self._captures)
 
-    # Test hooks: run the loop bodies on the calling thread when no thread is running.
-
     def drain_controller(self) -> int:
         """Handle every queued controller command now; returns how many ran."""
         handled = 0
@@ -827,8 +797,6 @@ class Pipeline:
             self._handle_job(job)
             handled += 1
 
-    # Enqueueing (hook thread, timer threads, PortAudio thread, settings updaters) ----------
-
     def _enqueue(self, kind: str, dictation_id: int | None = None, chord: Chord | None = None):
         self._controller_queue.put(_Command(kind, dictation_id, chord, self._clock()))
 
@@ -836,13 +804,10 @@ class Pipeline:
         self._controller_queue.put(_Command("settings", settings=settings))
 
     def _on_level(self, level: float) -> None:
-        # PortAudio thread, about 20 times a second: store, and queue at most one event.
         self._level_value = float(level)
         if not self._level_queued:
             self._level_queued = True
             self._controller_queue.put(_Command("level"))
-
-    # Recording controller ----------------------------------------------------------------------
 
     def _run_controller(self) -> None:
         try:
@@ -882,8 +847,6 @@ class Pipeline:
             return
         active = self._active
         if active is None or command.dictation_id != active.dictation_id:
-            # A callback for a dictation the controller already ended (B3-51), or a timer
-            # of one that ended by hotkey: applied up to one tick late, so expected.
             log.debug("ignoring %s for dictation %s", kind, command.dictation_id)
             return
         if kind == "released":
@@ -915,10 +878,8 @@ class Pipeline:
             )
             self._discard(self._active)
         with self._state_lock:
-            self._retry = None  # the next dictation started: the retry PCM is released
+            self._retry = None
         try:
-            # Counts as activity and reloads unloaded engines now, so a reload overlaps the
-            # recording (spec 13); the worker's readiness wait is the safety net.
             self._engines.ensure_ready()
         except Exception:
             log.exception("engines.ensure_ready failed")
@@ -1012,8 +973,6 @@ class Pipeline:
         with self._state_lock:
             self._pending += 1
         self._worker_queue.put(_Job(recording))
-        # A no-op after a hotkey-driven end; what returns the state machine to idle after
-        # the cap (spec 6 step 2).
         self._end_recording(dictation_id)
         self._emit(dictation_id)
 
@@ -1046,7 +1005,7 @@ class Pipeline:
 
     def _apply_settings(self, settings: Settings | None) -> None:
         if settings is None or self._active is not None:
-            return  # a change during a recording is picked up at the next press
+            return
         try:
             self._ensure_recorder(settings, warm=True)
         except Exception:
@@ -1149,8 +1108,6 @@ class Pipeline:
             self._level = 0.0
             self._target_window = None
             self._live_typing = False
-
-    # Live partials (spec 6, B5-57) ---------------------------------------------------------
 
     def set_selection(self, selection: Any) -> None:
         """The model selection the enable rule reads; the app calls it when it changes."""
@@ -1304,8 +1261,6 @@ class Pipeline:
             return LangMode("auto")
         return LangMode("locked", mode)
 
-    # Processing worker ----------------------------------------------------------------------
-
     def _run_worker(self) -> None:
         while not self._stopping.is_set():
             job = self._worker_queue.get()
@@ -1342,7 +1297,6 @@ class Pipeline:
             transcript = self._transcribe(recording, settings, metrics.append)
         except _Failed as exc:
             with self._state_lock:
-                # The PCM stays for a manual retry; a failed retry attempt releases it.
                 self._retry = None if job.retry else recording
             log.warning("dictation %d: %s", dictation_id, exc.text)
             return {"notice": Notice.ERROR, "notice_text": exc.text}
@@ -1403,8 +1357,6 @@ class Pipeline:
                 final["notification"] = AUDIO_LOST_NOTIFICATION
         final["timings"] = timings
         return final
-
-    # Compose and edit (spec 8.5) ------------------------------------------------------------
 
     def _write(
         self,
@@ -1941,8 +1893,6 @@ class Pipeline:
 
     def _clean(self, transcript: Transcript, profile: Profile, settings: Settings) -> CleanResult:
         engines = self._engines
-        # A URL exists in READY and CPU_FALLBACK only, so "not ready" and "on CPU" stay
-        # distinct reasons (spec 8.1); cleanup_available would fold both into the former.
         url = engines.llama_url
         gate = GateInput(
             cleanup_enabled=settings.cleanup.enabled,
@@ -1956,8 +1906,6 @@ class Pipeline:
         if url:
             timeout_s = settings.cleanup.timeout_ms / 1000.0
             if engines.variant(Engine.LLAMA) == "cpu":
-                # CPU generation scales with output length. Keep a finite deadline and
-                # never shorten a longer timeout explicitly configured by the user.
                 cpu_budget = min(15.0, max(5.0, 2.5 + 0.1 * cleanup.word_count(transcript.text)))
                 timeout_s = max(timeout_s, cpu_budget)
             client: LlamaClient = self._llama_factory(url, timeout_s)
@@ -2217,8 +2165,6 @@ class Pipeline:
         """Vocabulary terms oldest first, so the newest survive the prompt truncation (7.3)."""
         terms = sorted(settings.vocabulary.terms, key=lambda term: term.edited_at)
         return [term.text for term in terms]
-
-    # Events ----------------------------------------------------------------------------------
 
     def _emit(
         self,

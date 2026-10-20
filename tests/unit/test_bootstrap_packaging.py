@@ -18,7 +18,6 @@ sys.path.insert(0, str(BUILD_DIR))
 
 import bootstrap_packaging as bp
 
-# Captured verbatim from innosetup 6.2.2's ISCC.exe on the reference machine.
 ISCC_HELP_OUTPUT = """Inno Setup 6 Command-Line Compiler
 Copyright (C) 1997-2023 Jordan Russell. All rights reserved.
 Portions Copyright (C) 2000-2023 Martijn Laan. All rights reserved.
@@ -39,8 +38,6 @@ Parsing [Setup] section, line 2
 Successful compile (0.281 sec). Resulting Setup program filename is:
 """
 
-
-# ----------------------------------------------------------------------------- the smoke script
 
 
 def test_smoke_iss_carries_the_directives_spec_19_3_step_7_needs():
@@ -78,8 +75,6 @@ def test_smoke_iss_is_plain_text_ending_in_one_newline():
     assert text.endswith("\n") and not text.endswith("\n\n")
     assert "\u2014" not in text, "no em dashes anywhere, including generated data"
 
-
-# ----------------------------------------------------------------------------- version parsing
 
 
 def test_iscc_help_banner_yields_the_major_version():
@@ -123,8 +118,6 @@ def test_a_reported_version_agrees_with_the_pin_only_on_whole_segments(reported,
 def test_pyinstaller_version_is_read_from_its_own_output(output, expected):
     assert bp.parse_pyinstaller_version(output) == expected
 
-
-# ----------------------------------------------------------------------------- idempotency
 
 
 def _fake_tree(root: Path, parts=("innoextract", "innosetup")) -> Path:
@@ -180,8 +173,6 @@ def test_the_inno_setup_part_expects_the_compiler_and_its_stubs():
         assert required in names
 
 
-# ----------------------------------------------------------------------------- argument lists
-
 
 def test_innoextract_is_told_to_extract_quietly_into_the_given_directory():
     args = bp.innoextract_args(Path(r"C:\t\innoextract\innoextract.exe"),
@@ -223,8 +214,6 @@ def test_the_smoke_app_source_is_two_lines_that_print_the_marker():
     assert len(lines) == 2
     assert bp.SMOKE_APP_MARKER in bp.SMOKE_APP_SOURCE
 
-
-# ----------------------------------------------------------------------------- pins agreement
 
 
 def test_the_script_reads_the_three_pins_it_is_named_after():

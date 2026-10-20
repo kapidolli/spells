@@ -77,8 +77,6 @@ def engines(whisper=READY, llama=READY, whisper_reason="ok", llama_reason="ok"):
     return {WHISPER: (whisper, whisper_reason), LLAMA: (llama, llama_reason)}
 
 
-# compose_tray_state ------------------------------------------------------------------------
-
 
 def test_all_ready_is_ready():
     state, tooltip = compose_tray_state(inputs())
@@ -210,8 +208,6 @@ def test_paused_shows_in_the_tooltip_without_changing_the_state():
     assert "paused" in tooltip.lower()
 
 
-# icons ---------------------------------------------------------------------------------------
-
 
 def _opaque_pixels(pixmap: QtGui.QPixmap) -> int:
     image = pixmap.toImage()
@@ -247,8 +243,6 @@ def test_light_and_dark_taskbar_glyphs_differ(app):
     light = bytes(render_tray_pixmap(TrayIconState.READY, 32, light_taskbar=True).toImage().constBits())
     assert dark != light
 
-
-# Tray ------------------------------------------------------------------------------------------
 
 
 class RecordingIcon(QtWidgets.QSystemTrayIcon):
@@ -552,8 +546,6 @@ def test_separators_group_the_menu(app, tmp_path):
         "Quit",
     ]
 
-
-# The update balloon (spec 19.7) -----------------------------------------------------------------
 
 
 def test_an_update_balloon_names_the_version_and_invites_a_click(app, tmp_path):

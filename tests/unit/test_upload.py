@@ -101,8 +101,6 @@ def uploader(store, transport, **kwargs) -> Uploader:
     return Uploader(history=store, transport=transport, **kwargs)
 
 
-# when an upload is due
-
 
 @pytest.mark.parametrize(
     ("schedule", "last_success", "last_attempt", "now", "due"),
@@ -124,8 +122,6 @@ def uploader(store, transport, **kwargs) -> Uploader:
 def test_upload_due(schedule, last_success, last_attempt, now, due):
     assert upload_due(schedule, last_success, last_attempt, now) is due
 
-
-# addresses
 
 
 @pytest.mark.parametrize(
@@ -158,8 +154,6 @@ def test_only_http_counts_as_unencrypted():
     assert not upload.is_unencrypted("https://example.com/x")
     assert not upload.is_unencrypted("")
 
-
-# what one entry looks like on the wire
 
 
 def test_iso_time_is_local_with_offset_and_milliseconds():
@@ -275,8 +269,6 @@ def test_the_body_is_the_envelope_with_the_entries_last():
     assert json.loads(encode_body(head, []))["entries"] == []
 
 
-# batches
-
 
 def items(count: int, size: int = 10) -> list[Item]:
     return [Item(n, {"id": n}, b"x" * size) for n in range(1, count + 1)]
@@ -304,8 +296,6 @@ def test_an_entry_larger_than_the_limit_goes_alone():
 def test_no_items_make_no_batches():
     assert list(batches([])) == []
 
-
-# answers
 
 
 @pytest.mark.parametrize(
@@ -342,8 +332,6 @@ def test_a_bad_request_shows_the_first_two_hundred_characters_of_the_error():
     assert classify(400, b"not json").message == "The server did not accept the upload (400)."
     assert "(400)" in classify(400, b'{"error": 5}').message
 
-
-# a run against a fake server
 
 
 def test_a_run_sends_everything_oldest_first_and_marks_it(store):
@@ -698,8 +686,6 @@ def test_the_device_name_defaults_to_the_computer_name(store, monkeypatch):
     uploader(store, transport, device_name="").run()
     assert transport.sent[0].payload["device"]["name"] == "STUDY-PC"
 
-
-# the real transport, against a server on this computer
 
 
 class _Handler(BaseHTTPRequestHandler):

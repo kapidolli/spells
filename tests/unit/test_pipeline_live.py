@@ -95,8 +95,6 @@ def erased(h):
     return [count for count, _ in h.backends.keyboard.backspaced]
 
 
-# The tick ------------------------------------------------------------------------------
-
 
 def test_without_a_selection_no_partial_runs(tmp_path):
     h = Harness(tmp_path)
@@ -225,8 +223,6 @@ def test_a_partial_leaves_the_language_state_to_the_worker(tmp_path):
     assert h.pipeline._lang_state.last_accepted == "en"
 
 
-# The abort at release ------------------------------------------------------------------
-
 
 def test_release_aborts_the_pass_in_flight_and_drops_its_text(tmp_path):
     h = live_harness(tmp_path)
@@ -254,8 +250,6 @@ def test_a_tick_after_the_dictation_ended_does_nothing(tmp_path):
     assert live.tick() == "off"
     assert h.whisper.calls == []
 
-
-# The final pass wins -------------------------------------------------------------------
 
 
 def test_the_final_pass_reconciles_the_draft_instead_of_pasting(tmp_path):
@@ -320,8 +314,6 @@ def test_the_clipboard_is_untouched_while_a_dictation_runs(tmp_path):
     assert not [entry for entry in h.inject_log if entry[0] in ("set_text", "snapshot")]
 
 
-# Safety --------------------------------------------------------------------------------
-
 
 def test_focus_moving_mid_dictation_stops_the_draft_and_copies(tmp_path):
     h = live_harness(tmp_path)
@@ -384,8 +376,6 @@ def test_a_capture_without_a_window_never_types(tmp_path):
     h.press()
     assert h.pipeline.live is None
 
-
-# The enable rule -----------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -492,8 +482,6 @@ def test_a_code_window_records_normally_without_a_draft(tmp_path):
     assert h.delivered_texts() == [CLEANED]
 
 
-# The ten minute case -------------------------------------------------------------------
-
 
 def test_a_long_dictation_commits_the_draft_and_starts_the_window_again(tmp_path):
     def long_recording(recorder):
@@ -547,8 +535,6 @@ def test_the_retry_path_never_types_live(tmp_path):
     assert typed(h) == []
 
 
-# The loop on its own thread ------------------------------------------------------------
-
 
 def test_the_partial_thread_ticks_and_stops_with_the_dictation(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline_module, "PARTIAL_INTERVAL_S", 0.01)
@@ -570,8 +556,6 @@ def test_the_partial_thread_ticks_and_stops_with_the_dictation(tmp_path, monkeyp
     h.process()
     assert live.session.inserted == h.history.entries[-1].delivered_text
 
-
-# Slower machines -----------------------------------------------------------------------
 
 
 def fast_and_slow():

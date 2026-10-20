@@ -57,18 +57,13 @@ from spells.models import CpuPlan, Engine, EngineState, LangMode
 from spells.profiles import DEFAULT_PROFILE
 from spells.textutil import normalize_for_match
 
-# Spec 12, long category (10 to 30 s), medians. (report row, ClipResult field, target in ms)
 LONG_TARGETS = (
     ("Release to raw transcript", "raw_ms", 700.0),
     ("Release to cleaned text, cleanup skipped", "skipped_ms", 800.0),
     ("Release to cleaned text, cleanup run", "cleaned_ms", 1800.0),
 )
-# The two cleaned rows are only meaningful while llama serves from its Vulkan build: spec 8.1
-# skips cleanup entirely on the CPU build, so a CPU measurement describes a state the app never
-# reaches. --allow-cpu-cleanup measures them anyway and marks them as such.
 CPU_CLEANUP_INVALID = "invalid (llama on CPU)"
 CPU_CLEANUP_MEASURED = "measured on CPU"
-# Spec 8.1 gate reasons (cleanup never ran) and spec 8.3 guard reasons (the output was rejected).
 GATE_REASONS = (
     "disabled",
     "profile_off",
@@ -90,16 +85,12 @@ GUARD_REASONS = (
     "preamble",
     "language_switch",
 )
-# Spec 7.2: the welcome page recommends per-language chords above this fallback rate.
 FALLBACK_RATE_NOTE = 0.10
 WHISPER_MODEL_PIN = "models.whisper_large_v3_turbo_q8_0"
 VAD_MODEL_PIN = "models.silero_vad"
-# Spec 19.1 pins two test-only models that never ship; --smoke runs on exactly those.
 SMOKE_WHISPER_PIN = "models.whisper_tiny_test"
 SMOKE_CANDIDATE_PIN = "models.qwen2_5_0_5b_instruct_q4_k_m_test"
 
-
-# ----------------------------------------------------------------------------- measurements
 
 
 @dataclass(frozen=True)
@@ -174,8 +165,6 @@ class TargetRow:
     samples: int
     note: str = ""
 
-
-# ----------------------------------------------------------------------------- small statistics
 
 
 def normalise_words(text: str) -> list[str]:
@@ -306,8 +295,6 @@ def cleanup_is_invalid(result: CandidateResult) -> bool:
     """True when the cleaned rows could not be judged because llama served from its CPU build."""
     return result.llama_variant == "cpu" and not result.allow_cpu_cleanup
 
-
-# ----------------------------------------------------------------------------- report rendering
 
 
 def _ms(value: float | None) -> str:
@@ -574,7 +561,6 @@ def _field_percentiles(group: Sequence[ClipResult]) -> list[str]:
         ]
         cells.append(_ms(percentile(values, 50)))
         cells.append(_ms(percentile(values, 95)))
-    # Column order is raw p50, raw p95, skipped p50, skipped p95, cleaned p50, cleaned p95.
     return cells
 
 
@@ -652,8 +638,6 @@ def render_summary(results: Sequence[CandidateResult], date: str) -> str:
     return "\n".join(out)
 
 
-# ----------------------------------------------------------------------------- pins and fetching
-
 
 def _load_fetch():
     """build/fetch.py, imported rather than copied so both use one verify-or-record path."""
@@ -721,8 +705,6 @@ def select_model(name: str, pins_path: Path, cache_dir: Path) -> int:
     print(f"models.cleanup_model pinned to {name} ({sha256})")
     return 0
 
-
-# ----------------------------------------------------------------------------- running a candidate
 
 
 def read_wav(path: Path) -> tuple[bytes, int]:
@@ -797,7 +779,6 @@ def measure_clip(
         return ClipResult(**{**blank, "duration_s": duration_s}, error=str(exc))
 
     if locked is None:
-        # Nothing usable: an empty result or a known silence hallucination (spec 7.4).
         return ClipResult(
             **{
                 **blank,
@@ -932,9 +913,6 @@ def run_candidate(
         llama_client = cleanup.LlamaClient(llama_url)
         fillers = cleanup.default_fillers()
         corrections = cleanup.default_corrections()
-        # Spec 7.2: the app seeds the policy with the first enabled language and carries the
-        # last accepted one forward. The clips run in a fixed order (sorted by id) so the same
-        # carry-over happens on every run instead of following the manifest's file order.
         auto_state = asr.LanguagePolicyState(last_accepted=DEFAULT_ENABLED_LANGUAGES[0])
         for index, entry in enumerate(entries, start=1):
             print(f"[{name}] {index}/{len(entries)} {entry.id}", file=sys.stderr)
@@ -956,8 +934,6 @@ def run_candidate(
         allow_cpu_cleanup=allow_cpu_cleanup,
     )
 
-
-# ----------------------------------------------------------------------------- the app configuration
 
 
 @dataclass(frozen=True)
@@ -1288,8 +1264,6 @@ def run_app(
     )
 
 
-# ----------------------------------------------------------------------------- cli
-
 
 def _resolve_clips(clips_dir: Path, wanted: Sequence[str]) -> list[prompt_set.ManifestEntry]:
     """The manifest clips, sorted by id.
@@ -1368,7 +1342,6 @@ def main(argv=None) -> int:
         clips_dir = smoke_dir if use_smoke_dir else BENCH_DIR / "clips"
     reports_dir = args.reports_dir
     if reports_dir is None:
-        # A smoke report is throwaway, so it stays out of the committed bench/reports/ folder.
         reports_dir = BENCH_DIR / "reports" / "smoke" if args.smoke else BENCH_DIR / "reports"
     entries = _resolve_clips(clips_dir, _split(args.clips))
     if not entries:

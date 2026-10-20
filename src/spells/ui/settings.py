@@ -288,8 +288,6 @@ def _line_edit(placeholder: str, parent: QtWidgets.QWidget) -> QtWidgets.QLineEd
     return edit
 
 
-# General ----------------------------------------------------------------------------------------------
-
 
 class GeneralTab(ScrollPage):
     welcome_requested = QtCore.Signal()
@@ -547,8 +545,6 @@ class GeneralTab(ScrollPage):
         self.test_button.setChecked(False)
         super().hideEvent(event)
 
-
-# Cleanup ----------------------------------------------------------------------------------------------
 
 
 class WritingModelCard(Card):
@@ -827,8 +823,6 @@ class CleanupTab(ScrollPage):
         self._update(mutate, "Cleanup lists")
 
 
-# Apps ------------------------------------------------------------------------------------------------------
-
 
 class RuleEditor(QtWidgets.QDialog):
     """One Apps rule: a name, process names, title substrings, a profile, a delivery method."""
@@ -1083,8 +1077,6 @@ class AppsTab(ScrollPage):
         if editor.exec() == QtWidgets.QDialog.DialogCode.Accepted:
             self.apply_rule(None, editor.rule())
 
-
-# Vocabulary -------------------------------------------------------------------------------------------
 
 
 class VocabularyTab(ScrollPage):
@@ -1347,8 +1339,6 @@ def usage_text(files: int, used_bytes: int) -> str:
     return f"{_plural(files, 'recording')}, {used_bytes / (1024 * 1024):.0f} MB."
 
 
-# History ------------------------------------------------------------------------------------------------
-
 
 class _TextPanel(Card):
     def __init__(self, title: str, parent: QtWidgets.QWidget | None = None) -> None:
@@ -1583,8 +1573,6 @@ class HistoryTab(ScrollPage):
 
         self.apply_settings(config.settings)
 
-    # Settings
-
     def apply_settings(self, settings: Settings) -> None:
         history = settings.history
         with _Blocked(self.retention):
@@ -1599,8 +1587,6 @@ class HistoryTab(ScrollPage):
         self.keep_count.setEnabled(history.keep_audio)
         self.keep_mb.setEnabled(history.keep_audio)
         self._refresh_usage()
-
-    # The list
 
     def refresh(self) -> None:
         self.run_search()
@@ -1738,8 +1724,6 @@ class HistoryTab(ScrollPage):
                 log.exception("history.set_retention failed")
         self.run_search()
 
-    # Export
-
     def export(self, fmt: str) -> Path | None:
         """Save what the list is showing, in one of the three formats (spec 14.4)."""
         default = Path.home() / "Desktop" / export_file_name(fmt)
@@ -1759,8 +1743,6 @@ class HistoryTab(ScrollPage):
             f"Saved {written} dictation{'' if written == 1 else 's'} to {target}.",
         )
         return target
-
-    # Recordings
 
     def _recording_path(self, entry: Any) -> Path | None:
         getter = getattr(self._history, "recording_path", None)
@@ -1873,8 +1855,6 @@ class HistoryTab(ScrollPage):
         self.usage_row.set_description(usage_text(files, used))
         self.delete_audio_button.setEnabled(files > 0)
 
-    # The on-demand check
-
     def _check_transcript(self, text: str, language: str) -> CheckResult:
         checker = getattr(self._pipeline, "check_transcript", None)
         if checker is None:
@@ -1939,8 +1919,6 @@ class HistoryTab(ScrollPage):
         self._stop_playback()
         super().hideEvent(event)
 
-
-# The window ------------------------------------------------------------------------------------------------
 
 
 class SettingsDialog(QtWidgets.QDialog):

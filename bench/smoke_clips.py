@@ -36,8 +36,6 @@ import prompts as prompt_set
 CREATE_NO_WINDOW = 0x08000000
 SAPI_TIMEOUT_S = 120
 
-# Two short lines and one long enough to land in the 10 to 30 s bucket of spec 12, so a smoke
-# run also exercises the pass or fail table rather than only the short rows.
 SMOKE_TEXTS: tuple[tuple[str, str, str], ...] = (
     (
         "smoke-short-1",
