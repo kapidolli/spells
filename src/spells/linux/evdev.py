@@ -36,7 +36,9 @@ from spells.linux.uinput import DEVICE_NAME, VirtualKeyboard
 log = logging.getLogger(__name__)
 
 DEVICE_GLOB = "/dev/input/event*"
+EV_SYN = 0
 EV_KEY = 1
+SYN_DROPPED = 3
 KEY_MAX = 0x2FF
 KEY_BYTES = KEY_MAX // 8 + 1
 EVENT = struct.Struct("qqHHi")
@@ -85,13 +87,19 @@ def is_keyboard(key_bits: bytes) -> bool:
 
 
 def parse_events(data: bytes) -> list[tuple[int, int, int, int]]:
-    """(seconds, microseconds, code, value) of every EV_KEY event in a read buffer."""
+    """(seconds, microseconds, code, value) of every EV_KEY event in a read buffer.
+
+    A SYN_DROPPED marker comes through with code -1: the kernel lost events there, so the
+    reader has to ask the device which keys are still down.
+    """
     events = []
     usable = len(data) - len(data) % EVENT.size
     for offset in range(0, usable, EVENT.size):
         sec, usec, kind, code, value = EVENT.unpack_from(data, offset)
         if kind == EV_KEY:
             events.append((sec, usec, code, value))
+        elif kind == EV_SYN and code == SYN_DROPPED:
+            events.append((sec, usec, -1, 0))
     return events
 
 
@@ -142,6 +150,7 @@ class EvdevHook:
         self._glob = device_glob
         self._clock = clock
         self._devices: dict[str, int] = {}
+        self._held: dict[int, set[int]] = {}
         self._denied: set[str] = set()
         self._ignored: set[str] = set()
         self._callback: Callable[[Any], bool] | None = None
@@ -169,6 +178,7 @@ class EvdevHook:
             for fd in self._devices.values():
                 os.close(fd)
             self._devices.clear()
+            self._held.clear()
         self._ignored.clear()
         self._denied.clear()
 
@@ -257,13 +267,34 @@ class EvdevHook:
         callback = self._callback
         if callback is None:
             return
+        held = self._held.setdefault(fd, set())
         for sec, usec, code, value in parse_events(data):
+            if code < 0:
+                self._release_lost(fd, held, callback, sec, usec)
+                continue
+            if value:
+                held.add(code)
+            else:
+                held.discard(code)
             callback(event_for(sec, usec, code, value))
+
+    def _release_lost(self, fd: int, held: set[int], callback, sec: int, usec: int) -> None:
+        """After SYN_DROPPED, report a key-up for every key we saw go down that is up now."""
+        buffer = bytearray(KEY_BYTES)
+        try:
+            fcntl.ioctl(fd, eviocgkey(len(buffer)), buffer)
+        except OSError:
+            return
+        for code in sorted(held):
+            if not has_bit(bytes(buffer), code):
+                held.discard(code)
+                callback(event_for(sec, usec, code, 0))
 
     def _drop(self, path: str) -> None:
         with self._lock:
             fd = self._devices.pop(path, None)
         if fd is not None:
+            self._held.pop(fd, None)
             log.info("Keyboard %s went away", path)
             try:
                 os.close(fd)

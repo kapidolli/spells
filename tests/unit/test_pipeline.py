@@ -1979,3 +1979,25 @@ class _BrokenConfig:
 
     def subscribe(self, callback):
         return self._inner.subscribe(callback)
+
+
+def test_enter_during_the_clipboard_restore_still_ends_the_line():
+    from types import SimpleNamespace
+
+    from spells.inject import DeliveryReport
+    from spells.models import DeliveryOutcome, DeliveryResult
+    from spells.pipeline import Pipeline
+
+    now = [10.0]
+    pipe = Pipeline.__new__(Pipeline)
+    pipe._clock = lambda: now[0]
+    pipe._last_delivery = None
+    pipe._line_ended_at = None
+    recording = SimpleNamespace(ctx=SimpleNamespace(window=7))
+    report = DeliveryReport(DeliveryResult(DeliveryOutcome.PASTED, ""), elapsed_ms=50.0)
+    now[0] = 10.2
+    pipe._forget_last_delivery()
+    pipe._note_delivery(recording, "hello", report, 10.0)
+    assert pipe._last_delivery is None
+    pipe._note_delivery(recording, "again", report, 11.0)
+    assert pipe._last_delivery is not None and pipe._last_delivery.window == 7

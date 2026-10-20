@@ -13,6 +13,7 @@ a file list or text, because wl-copy offers a single type per call.
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 import zlib
@@ -33,7 +34,10 @@ class Snapshot:
 
 
 def available() -> bool:
-    return bool(shutil.which("wl-copy") and shutil.which("wl-paste"))
+    """wl-clipboard is installed and this is a Wayland session; it cannot reach X11."""
+    return bool(
+        os.environ.get("WAYLAND_DISPLAY") and shutil.which("wl-copy") and shutil.which("wl-paste")
+    )
 
 
 def _paste(*args: str) -> subprocess.CompletedProcess[bytes] | None:

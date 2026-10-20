@@ -1,8 +1,8 @@
 """The Linux platform: evdev hotkeys, uinput shortcuts, wl-clipboard and KWin focus.
 
-Built for KDE Plasma on Wayland first. The hotkey and the paste work on any desktop that
-grants the Spells udev rule; app profiles, window titles and the "focus moved" check need
-KWin. Text is always delivered through the clipboard: "type" pastes too, because a virtual
+Built for KDE Plasma on Wayland first. The hotkey works on any desktop that grants the
+Spells udev rule, the paste on any Wayland desktop (X11 is not supported yet); app profiles,
+window titles and the "focus moved" check need KWin. Text is always delivered through the clipboard: "type" pastes too, because a virtual
 keyboard can only send the keys of the current layout, and terminals get Ctrl+Shift+V.
 
 Qt runs through XWayland when the session is Wayland, because Wayland lets no app place its
@@ -282,7 +282,10 @@ def build() -> Platform:
     focus = LinuxFocus(tracker)
     has_clipboard = linux_clipboard.available()
     if not has_clipboard:
-        log.warning("wl-copy and wl-paste are missing; install wl-clipboard to paste dictations")
+        log.warning(
+            "The clipboard is unreachable: Spells needs a Wayland session with wl-clipboard "
+            "installed to paste dictations"
+        )
     keys_out = keyboard.prepare()
     atexit.register(keyboard.close)
     hook = EvdevHook(keyboard)

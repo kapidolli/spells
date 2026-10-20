@@ -49,7 +49,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Protocol
 
-from spells import asr, cleanup, compose, inject, livetext, postprocess, profiles, quality
+from spells import asr, cleanup, compose, inject, livetext, platform, postprocess, profiles, quality
 from spells.asr import (
     LLAMA_ASR,
     WHISPER_SERVER,
@@ -684,6 +684,7 @@ class Pipeline:
         enabled = config.settings.general.enabled_languages
         self._lang_state = LanguagePolicyState(enabled[0] if enabled else "en")
         self._last_delivery: LastDelivery | None = None
+        self._line_ended_at: float | None = None
 
         self._unsubscribe = config.subscribe(self._on_settings)
 
@@ -699,7 +700,12 @@ class Pipeline:
         )
 
     def _forget_last_delivery(self) -> None:
-        """Enter was pressed, so the next dictation does not continue the last one (spec 10.4)."""
+        """Enter was pressed, so the next dictation does not continue the last one (spec 10.4).
+
+        The time is kept as well, because a delivery still restoring the clipboard records
+        itself after this runs, and an Enter pressed during that wait must still count.
+        """
+        self._line_ended_at = self._clock()
         self._last_delivery = None
 
     def start(self) -> None:
@@ -1125,6 +1131,8 @@ class Pipeline:
         every speech model that could serve this dictation is fast enough on this hardware
         for a pass to fit comfortably inside a tick.
         """
+        if not platform.current().capabilities.live_typing:
+            return False
         general = settings.general
         if not livetext.live_typing_allowed(
             profile.name,
@@ -1992,6 +2000,10 @@ class Pipeline:
         if report.outcome not in DELIVERED:
             return
         finished_at = started + (report.elapsed_ms or 0.0) / 1000.0
+        line_ended_at = self._line_ended_at
+        if line_ended_at is not None and line_ended_at >= finished_at:
+            self._last_delivery = None
+            return
         self._last_delivery = LastDelivery(
             window=recording.ctx.window,
             finished_at=finished_at,

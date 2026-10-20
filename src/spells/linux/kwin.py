@@ -47,8 +47,9 @@ function follow(w) {
     if (w) { w.captionChanged.connect(onCaption); }
     report(w);
 }
-workspace.windowActivated.connect(follow);
-follow(workspace.activeWindow);
+var activated = workspace.windowActivated || workspace.clientActivated;
+activated.connect(follow);
+follow(workspace.activeWindow !== undefined ? workspace.activeWindow : workspace.activeClient);
 """
 SCRIPT = SCRIPT.replace("BUS", BUS_NAME).replace("PATH", OBJECT_PATH).replace("IFACE", INTERFACE)
 
@@ -75,6 +76,7 @@ class FocusTracker:
         self._info: dict[int, WindowInfo] = {}
         self._active = 0
         self._live = False
+        self._serving = False
         self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         self._stop = threading.Event()
@@ -82,6 +84,7 @@ class FocusTracker:
 
     @property
     def live(self) -> bool:
+        """True once KWin has reported a window; until then any window is the target."""
         return self._live
 
     @property
@@ -107,8 +110,9 @@ class FocusTracker:
 
     def stop(self) -> None:
         self._stop.set()
-        if self._live:
+        if self._serving:
             self._unload_script()
+        self._serving = False
         self._live = False
 
     def foreground(self) -> int:
@@ -122,6 +126,7 @@ class FocusTracker:
 
     def activated(self, uuid: str, app: str, title: str, pid: str, output: str) -> None:
         with self._lock:
+            self._live = True
             if not uuid:
                 self._active = 0
                 return
@@ -150,7 +155,7 @@ class FocusTracker:
         except Exception:
             log.exception("The session bus is unavailable; focus tracking is off")
             return
-        self._live = True
+        self._serving = True
         threading.Thread(target=self._load_script, name="spells-kwin-script", daemon=True).start()
         with connection:
             while not self._stop.is_set():
@@ -160,6 +165,7 @@ class FocusTracker:
                     continue
                 except Exception:
                     log.exception("The focus service stopped")
+                    self._serving = False
                     self._live = False
                     return
                 header = message.header
@@ -207,6 +213,7 @@ class FocusTracker:
         except Exception:
             log.exception("The KWin focus script could not be loaded; focus tracking is off")
             self._live = False
+            self._serving = False
 
     def _unload_script(self) -> None:
         try:

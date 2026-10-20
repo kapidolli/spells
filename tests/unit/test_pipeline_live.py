@@ -9,10 +9,12 @@ explicit and nothing is timing dependent.
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 
 import pytest
 
 from spells import pipeline as pipeline_module
+from spells import platform
 from spells.asr import LLAMA_ASR, WHISPER_SERVER, AsrReply, WhisperError
 from spells.models import DeliveryOutcome, EngineState, LangMode
 from spells.pipeline import (
@@ -23,6 +25,8 @@ from spells.pipeline import (
     PARTIAL_WINDOW_S,
     Notice,
 )
+from spells.platform import stub
+from spells.platform.base import Capabilities
 from spells.profiles import BUILTIN_PROFILES
 
 from .fake_clients import FakeLlamaAsrClient, FakeWhisperClient
@@ -39,6 +43,20 @@ from .test_pipeline import (
 
 PARTIAL_TEXT = "so I think we should meet"
 PARTIAL_RESPONSE = {"text": PARTIAL_TEXT, "language": "english"}
+
+
+@pytest.fixture(autouse=True)
+def live_capable_platform():
+    """Live typing needs a platform that can do it; the stub on Linux and macOS cannot."""
+    record = platform.current()
+    if record.capabilities.live_typing:
+        yield
+        return
+    previous = platform.swap(replace(stub.build("linux"), capabilities=Capabilities.everything()))
+    try:
+        yield
+    finally:
+        platform.swap(previous)
 
 
 class FakeChoice:
@@ -597,3 +615,13 @@ def test_an_integrated_gpu_cleans_long_text_without_fillers(tmp_path):
     assert len(h.llama.calls) == 1
     assert h.history.entries[-1].cleanup_reason == "ok"
 
+
+
+
+def test_live_typing_stays_off_where_the_platform_cannot_do_it():
+    previous = platform.swap(stub.build("linux"))
+    try:
+        harness_pipeline = pipeline_module.Pipeline.__new__(pipeline_module.Pipeline)
+        assert harness_pipeline.live_enabled(None, None, None) is False
+    finally:
+        platform.swap(previous)

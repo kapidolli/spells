@@ -66,6 +66,11 @@ def test_parse_events_keeps_key_events_only():
     assert evdev.parse_events(data) == [(12, 345678, 30, 1), (12, 345678, 30, 0)]
 
 
+def test_parse_events_marks_dropped_events():
+    data = _event(30, 1) + _event(evdev.SYN_DROPPED, 0, kind=evdev.EV_SYN)
+    assert evdev.parse_events(data) == [(12, 345678, 30, 1), (12, 345678, -1, 0)]
+
+
 def test_event_for_builds_the_hook_event_shape():
     event = evdev.event_for(12, 345678, 125, 2)
     assert event.vk == vk.VK_LWIN
@@ -173,7 +178,7 @@ def test_clipboard_fingerprint_changes_with_types_or_text():
 def test_focus_tracker_maps_kwin_ids_to_small_integers():
     tracker = kwin.FocusTracker()
     assert tracker.foreground() == kwin.PSEUDO_WINDOW
-    tracker._live = True
+    assert not tracker.live
     tracker.activated("{a}", "kitty", "shell", "42", "0,106,1920,1080")
     first = tracker.foreground()
     tracker.activated("{b}", "firefox", "Gmail", "7.0", "")
@@ -190,7 +195,7 @@ def test_focus_tracker_maps_kwin_ids_to_small_integers():
 def test_the_kwin_script_calls_our_method():
     assert kwin.BUS_NAME in kwin.SCRIPT
     assert '"Activated"' in kwin.SCRIPT
-    assert "workspace.windowActivated.connect" in kwin.SCRIPT
+    assert "workspace.windowActivated || workspace.clientActivated" in kwin.SCRIPT
 
 
 def test_cpu_lists_and_one_thread_per_core():
@@ -355,3 +360,31 @@ def test_the_focus_reports_app_and_title():
     assert focus.app_name(3) == "kitty"
     assert focus.title(3) == "vim"
     assert focus.is_elevated(3) is False
+
+
+def test_secret_failures_arrive_as_os_errors(monkeypatch):
+    import subprocess as sp
+
+    def refuse(*args, **kwargs):
+        raise sp.CalledProcessError(1, args[0], stderr=b"no secret service")
+
+    monkeypatch.setattr(desktop.shutil, "which", lambda name: "/usr/bin/" + name)
+    monkeypatch.setattr(desktop.subprocess, "run", refuse)
+    with pytest.raises(OSError, match="no secret service"):
+        desktop.protect(b"token", "Upload token")
+    with pytest.raises(OSError):
+        desktop.unprotect(b"\x01\x02 dpapi blob")
+
+
+def test_secrets_keep_one_item_per_purpose(monkeypatch):
+    calls = []
+    monkeypatch.setattr(desktop.shutil, "which", lambda name: "/usr/bin/" + name)
+    monkeypatch.setattr(
+        desktop.subprocess, "run", lambda args, **kwargs: calls.append(args) or SimpleNamespace(stdout=b"")
+    )
+    first = desktop.protect(b"one", "Upload token")
+    second = desktop.protect(b"two", "Upload token")
+    probe = desktop.protect(b"", "")
+    assert first == second == b"secret-service:upload-token"
+    assert probe == b"secret-service:probe"
+    assert calls[0][-1] == "upload-token" and calls[2][-1] == "probe"

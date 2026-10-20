@@ -6,7 +6,6 @@ import base64
 import json
 import logging
 import os
-import secrets
 import shlex
 import shutil
 import subprocess
@@ -85,30 +84,50 @@ def autostart_exec() -> str:
 
 
 def _secret_tool(*args: str, data: bytes | None = None) -> subprocess.CompletedProcess[bytes]:
+    """Run secret-tool; every failure arrives as OSError, as DPAPI's do on Windows."""
     if shutil.which("secret-tool") is None:
         raise OSError("secret-tool is not installed (package libsecret)")
-    return subprocess.run(
-        ["secret-tool", *args], input=data, capture_output=True, timeout=10, check=True
-    )
+    try:
+        return subprocess.run(
+            ["secret-tool", *args], input=data, capture_output=True, timeout=10, check=True
+        )
+    except subprocess.CalledProcessError as exc:
+        detail = exc.stderr.decode("utf-8", "replace").strip() or f"exit {exc.returncode}"
+        raise OSError(f"the Secret Service refused: {detail}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise OSError("the Secret Service did not answer") from exc
+
+
+def _purpose(data: bytes, description: str) -> str:
+    if not data:
+        return "probe"
+    return "".join(char if char.isalnum() else "-" for char in description.lower()) or "secret"
 
 
 def protect(data: bytes, description: str = "") -> bytes:
-    """Store data in the Secret Service and return a handle; the blob holds no secret."""
-    key = secrets.token_hex(8)
+    """Store data in the Secret Service and return a handle; the blob holds no secret.
+
+    One keyring item per purpose, so saving a new token replaces the old one, and the
+    empty probe the Upload page sends to see whether secrets work never touches a token.
+    """
+    purpose = _purpose(data, description)
     label = f"{SECRET_LABEL}: {description}" if description else SECRET_LABEL
     _secret_tool(
-        "store", f"--label={label}", "application", "spells", "key", key,
+        "store", f"--label={label}", "application", "spells", "key", purpose,
         data=base64.b64encode(data),
     )
-    return SECRET_PREFIX + key.encode("ascii")
+    return SECRET_PREFIX + purpose.encode("ascii")
 
 
 def unprotect(blob: bytes) -> bytes:
     if not blob.startswith(SECRET_PREFIX):
-        raise ValueError("not a Spells secret handle")
-    key = blob[len(SECRET_PREFIX):].decode("ascii")
+        raise OSError("this token was saved on another system; enter it again")
+    key = blob[len(SECRET_PREFIX):].decode("ascii", "replace")
     result = _secret_tool("lookup", "application", "spells", "key", key)
-    return base64.b64decode(result.stdout.strip())
+    try:
+        return base64.b64decode(result.stdout.strip(), validate=True)
+    except ValueError as exc:
+        raise OSError("the stored token is damaged; enter it again") from exc
 
 
 def _detached(args: list[str]) -> bool:
