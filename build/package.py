@@ -168,8 +168,8 @@ CLEANUP_PIN = "models.cleanup_model"
 
 QT_KEEP = ("QtCore", "QtGui", "QtWidgets", "QtSvg")
 QT_DROP = (
-    "QtConcurrent", "QtDBus", "QtDesigner", "QtHelp", "QtNetwork", "QtOpenGL",
-    "QtOpenGLWidgets", "QtPrintSupport", "QtQml", "QtQuick", "QtQuickControls2",
+    "QtConcurrent", "QtDBus", "QtDesigner", "QtHelp", "QtLabsStyleKit", "QtNetwork", "QtOpenGL",
+    "QtOpenGLWidgets", "QtPrintSupport", "QtQml", "QtQmlFeatures", "QtQuick", "QtQuickControls2",
     "QtQuickTest", "QtQuickWidgets", "QtSql", "QtSvgWidgets", "QtTest",
     "QtUiTools", "QtXml",
 )
