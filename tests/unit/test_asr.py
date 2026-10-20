@@ -761,3 +761,11 @@ def test_abortable_client_binds_the_handle_to_every_request():
     client.transcribe(b"RIFFfake", language="en")
     assert [kwargs["abort"] for kwargs in inner.kwargs] == [handle, handle]
     assert client.health() is True
+
+
+def test_whisper_segment_breaks_become_spaces():
+    from spells.asr import whisper_text
+
+    reply = {"text": " the data in health\n so we want to know\n\n  why "}
+    assert whisper_text(reply) == "the data in health so we want to know why"
+    assert whisper_text({}) == ""

@@ -363,34 +363,28 @@ def test_whisper_retry_that_finds_no_device_stops_retrying(harness, world):
     assert len(world.spawned("whisper", "vulkan")) == 2
 
 
-def test_llama_oom_pauses_and_retries_every_minute(harness, world):
+def test_llama_oom_cleans_up_on_the_cpu_and_retries_the_gpu_every_minute(harness, world):
     harness.run(LLAMA)
     first = world.latest("llama")
     first.exit(1, OOM)
     harness.run(LLAMA)
-    assert harness.sup.status(LLAMA) is EngineState.PAUSED
+    cpu = world.latest("llama", "cpu")
+    assert cpu.alive
+    assert harness.sup.status(LLAMA) is EngineState.CPU_FALLBACK
     assert harness.sup.reason(LLAMA) == "oom"
-    assert harness.sup.llama_url is None
-    assert harness.sup.cleanup_available is False
-    assert world.live("llama") == []
-    harness.run(LLAMA, 59.0)
-    assert len(world.spawned("llama")) == 1
-    world.on_spawn = lambda proc: proc.exit(1, OOM)
-    harness.run(LLAMA, 1.5)
-    assert len(world.spawned("llama")) == 2
-    assert harness.sup.status(LLAMA) is EngineState.PAUSED
-    world.on_spawn = None
-    harness.run(LLAMA, 60.5)
-    assert len(world.spawned("llama")) == 3
-    assert harness.sup.status(LLAMA) is EngineState.READY
-    assert harness.sup.reason(LLAMA) == "ok"
     assert harness.sup.cleanup_available is True
-    assert harness.sup.llama_url == f"http://127.0.0.1:{world.latest('llama').port}"
-    assert harness.events_for(LLAMA) == [
-        (EngineState.READY, "ok"),
-        (EngineState.PAUSED, "oom"),
-        (EngineState.READY, "ok"),
-    ]
+    assert harness.sup.llama_url == f"http://127.0.0.1:{cpu.port}"
+    world.on_spawn = lambda proc: setattr(proc, "healthy", False)
+    harness.run(LLAMA, 59.0)
+    assert len(world.spawned("llama", "vulkan")) == 1
+    harness.run(LLAMA, 1.5)
+    trial = world.latest("llama", "vulkan")
+    assert trial is not first and trial.alive and cpu.alive
+    trial.healthy = True
+    harness.run(LLAMA, 1.0)
+    assert harness.sup.status(LLAMA) is EngineState.READY
+    assert harness.sup.llama_url == f"http://127.0.0.1:{trial.port}"
+    assert not cpu.alive
 
 
 def test_oom_at_runtime_is_classified_like_a_startup_failure(harness, world):
@@ -399,7 +393,7 @@ def test_oom_at_runtime_is_classified_like_a_startup_failure(harness, world):
     proc.write_log("unable to allocate Vulkan buffer\n")
     proc.exit(3)
     harness.run(LLAMA)
-    assert harness.sup.status(LLAMA) is EngineState.PAUSED
+    assert harness.sup.status(LLAMA) is EngineState.CPU_FALLBACK
     assert harness.sup.reason(LLAMA) == "oom"
 
 
@@ -845,8 +839,9 @@ def test_classification_only_reads_the_lines_of_the_failing_process(harness, wor
     first = world.latest("llama")
     first.exit(1, OOM)
     harness.run(LLAMA)
-    assert harness.sup.status(LLAMA) is EngineState.PAUSED
+    assert harness.sup.status(LLAMA) is EngineState.CPU_FALLBACK
     harness.run(LLAMA, 61.0)
+    harness.run(LLAMA, 1.0)
     assert harness.sup.status(LLAMA) is EngineState.READY
     world.latest("llama").exit(1, CRASH)
     harness.run(LLAMA)

@@ -599,8 +599,9 @@ class EngineSupervisor:
     @property
     def cleanup_available(self) -> bool:
         with self._lock:
-            state = self._runtimes[CLEANUP_ID].state
-            planned = self._cpu_cleanup_allowed
+            runtime = self._runtimes[CLEANUP_ID]
+            state = runtime.state
+            planned = self._cpu_cleanup_allowed or runtime.fallback_reason == "oom"
         return state is EngineState.READY or (state is EngineState.CPU_FALLBACK and planned)
 
     @property
@@ -1169,13 +1170,7 @@ class EngineSupervisor:
         if classification in ("no_vulkan_gpu", "dll_not_found"):
             self._fall_back(runtime, classification, retry_interval=None)
         elif classification == "oom":
-            if runtime.role is SPEECH:
-                self._fall_back(runtime, "oom", retry_interval=self._oom_retry_s)
-            else:
-                runtime.retry_at = now + self._oom_retry_s
-                runtime.want_variant = "vulkan"
-                runtime.phase = "paused"
-                self._set_state(runtime, EngineState.PAUSED, "oom")
+            self._fall_back(runtime, "oom", retry_interval=self._oom_retry_s)
         else:
             runtime.consecutive_failures += 1
             if runtime.consecutive_failures >= self._max_failures:

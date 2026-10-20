@@ -568,7 +568,7 @@ def transcribe(
             )
             fallback_used = True
 
-    text = str(result.get("text") or "").strip()
+    text = whisper_text(result)
     if not text or is_hallucination(text):
         return None
     state.last_accepted = language
@@ -700,7 +700,7 @@ class _Caller:
             metrics = AsrMetrics(source=LLAMA_ASR)
         else:
             result = self.whisper(route, language=code)
-            text = str(result.get("text") or "").strip()
+            text = whisper_text(result)
             metrics = metrics_from_verbose_json(result)
         return _Outcome(text, code, route, fallback_used, metrics)
 
@@ -808,11 +808,24 @@ def _auto_llama(call, first, mine, others, elsewhere, enabled, last_accepted) ->
     return _auto(call, others, elsewhere, last_accepted)
 
 
+_SEGMENT_BREAK = re.compile(r"\s*\n\s*")
+
+
+def whisper_text(result: dict) -> str:
+    """The transcript of a whisper-server reply on one line.
+
+    whisper-server puts a line break between its segments, wherever the speaker paused.
+    Those are not paragraphs the speaker meant, and in a chat or a terminal a pasted line
+    break sends the message, so they become spaces.
+    """
+    return _SEGMENT_BREAK.sub(" ", str(result.get("text") or "")).strip()
+
+
 def _auto_whisper(call, first, mine, routes, enabled, last_accepted) -> _Outcome:
     result = call.whisper(first, language="auto")
     detected = _reported_code(result)
     if detected is not None and detected in mine:
-        text = str(result.get("text") or "").strip()
+        text = whisper_text(result)
         return _Outcome(text, detected, first, metrics=metrics_from_verbose_json(result))
     if detected is not None and detected in enabled:
         return call.locked(_route_for(routes, detected), detected)

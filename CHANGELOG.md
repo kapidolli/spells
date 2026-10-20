@@ -14,6 +14,12 @@ the two can never say different things.
 
 - Spells runs on Linux from a checkout, KDE Plasma on Wayland first. Hold Ctrl+Super to dictate, tap twice to keep it on, Esc to cancel. The text is pasted, with Ctrl+Shift+V in terminals, and app profiles follow the focused window through KWin. Live typing is not available on Linux yet.
 
+### Fixed
+
+- Pauses in your speech no longer turn into line breaks, which in a chat or a terminal sent the message halfway through.
+- After you press Enter, the next dictation starts fresh instead of beginning with a space.
+- When the graphics card has no room for the writing model, cleanup runs on the processor instead of waiting, and moves back to the graphics card once there is room.
+
 ### Planned
 
 - Albanian on the fast speech model, once the gated model is available.
